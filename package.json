@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "python3 tests/test_app.py"
+    "test": "python3 tests/test_app.py",
+    "test:sync": "python3 tests/test_sync.py",
+    "migrate": "wrangler d1 migrations apply mealcost --remote"
   },
   "devDependencies": {
     "wrangler": "^4.160.0"

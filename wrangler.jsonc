@@ -1,11 +1,18 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "mealcost",
+  "main": "src/worker.js",
   "compatibility_date": "2026-11-01",
   "assets": {
     "directory": "./public",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/auth/*", "/api/*"]
   },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "mealcost", "database_id": "REPLACE_WITH_DATABASE_ID", "migrations_dir": "migrations" }
+  ],
+  "vars": { "GOOGLE_CLIENT_ID": "" },
   "routes": [
     { "pattern": "mealcost.coachleonidas.com", "custom_domain": true }
   ]

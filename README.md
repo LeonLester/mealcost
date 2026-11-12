@@ -6,7 +6,8 @@ Live at https://mealcost.coachleonidas.com
 
 ## How it works
 
-- Everything runs in the browser. Your data stays in your browser's localStorage and is never sent anywhere (CSP `connect-src 'none'`).
+- Everything runs in the browser. Without signing in, your data stays in your browser's localStorage and is never sent anywhere.
+- Optional Google sign-in syncs prices, logs, offers, recipes and categories across devices. The Worker stores one gzipped snapshot per user in D1. Conflicts between devices ask which copy to keep. CSP is `connect-src 'self'`, so the page can only talk to its own origin.
 - Prices can be per kg or litre, per 100 g or ml, or per item. Add grams per item to bridge a mismatch between a price and a logged amount.
 - Offers: override a price for one day without changing the price book.
 - Day and week views, daily budget, cost per 100 g protein and per 1,000 kcal, cheaper protein swaps.
@@ -28,10 +29,37 @@ Or serve `public/` with any static server.
 
 ## Deploy
 
-    npx wrangler login
-    npx wrangler deploy
+One-time setup for sign-in and sync:
 
-`wrangler.jsonc` routes `mealcost.coachleonidas.com` as a custom domain, so the `coachleonidas.com` zone must be in the same Cloudflare account.
+1. Create the database and put the id it prints into `wrangler.jsonc` (`database_id`):
+
+        npx wrangler d1 create mealcost
+        npx wrangler d1 migrations apply mealcost --remote
+
+2. In Google Cloud Console, create an OAuth client (type Web application). Add this authorized redirect URI:
+
+        https://mealcost.coachleonidas.com/auth/google/callback
+
+   Put the client ID in `wrangler.jsonc` under `vars.GOOGLE_CLIENT_ID`, and store the secret:
+
+        npx wrangler secret put GOOGLE_CLIENT_SECRET
+
+3. Deploy:
+
+        npx wrangler login
+        npx wrangler deploy
+
+`wrangler.jsonc` routes `mealcost.coachleonidas.com` as a custom domain, so the `coachleonidas.com` zone must be in the same Cloudflare account. No email service is used.
+
+Without the database and Google settings the app still works as before, and the sign-in link reports that it is not configured.
+
+## Test sync locally
+
+    python3 tests/mock_google.py 9100 &
+    npx wrangler d1 migrations apply mealcost --local
+    npx wrangler dev --port 8788 --var GOOGLE_CLIENT_ID:test-client GOOGLE_CLIENT_SECRET:s \
+      GOOGLE_AUTH_URL:http://127.0.0.1:9100/auth GOOGLE_TOKEN_URL:http://127.0.0.1:9100/token PUBLIC_ORIGIN:http://localhost:8788
+    python3 tests/test_sync.py
 
 ## Tests
 

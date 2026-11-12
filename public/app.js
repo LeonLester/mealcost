@@ -10,7 +10,7 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem('mcc.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem('mcc.' + k, JSON.stringify(v)); return true; } catch (e) { toast('Could not save in this browser. Storage may be full or blocked.'); return false; } },
+  set(k, v) { try { localStorage.setItem('mcc.' + k, JSON.stringify(v)); if (window.MealSync) MealSync.dirty(k); return true; } catch (e) { toast('Could not save in this browser. Storage may be full or blocked.'); return false; } },
   clear() { try { Object.keys(localStorage).filter(k => k.startsWith('mcc.')).forEach(k => localStorage.removeItem(k)); } catch (e) { /* ignore */ } }
 };
 
@@ -337,7 +337,7 @@ function basisText(basis, name) {
 /* ============ view: import ============ */
 function importView() {
   return `
-  <header class="topbar plain"><div class="wrap"><div class="brand"><b>Coach Leonidas</b><span>Meal cost calculator</span></div><span class="grow"></span><span class="muted">Free, private, no sign-up</span></div></header>
+  <header class="topbar plain"><div class="wrap"><div class="brand"><b>Coach Leonidas</b><span>Meal cost calculator</span></div><span class="grow"></span><span class="muted">Free and private</span>${window.MealSync ? MealSync.topHtml() : ''}</div></header>
   <main class="wrap">
     ${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}
     <div class="hero">
@@ -389,9 +389,9 @@ function appView() {
   <header class="topbar"><div class="wrap">
     <div class="brand"><b>Coach Leonidas</b><span>Meal cost calculator</span></div>
     <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week', 'trends'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${cap(t)}</a>`).join('')}</nav>
-    <div class="tools"><button class="btn sm" data-act="import">Add export</button><button class="btn sm" data-act="export-csv">Download CSV</button></div>
+    <div class="tools"><button class="btn sm" data-act="import">Add export</button><button class="btn sm" data-act="export-csv">Download CSV</button>${window.MealSync ? MealSync.topHtml() : ''}</div>
   </div></header>
-  <main class="wrap">${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
+  <main class="wrap">${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
   ${siteFooter()}`;
 }
 
@@ -737,9 +737,10 @@ function pricesView() {
         }).join('') : '<p class="muted" style="padding:14px 0;border-top:1px solid var(--line2);font-size:15px">No offers yet.</p>'}</div>
         <button class="btn primary" style="width:100%;margin-bottom:12px" data-act="offer">Add an offer or price change</button>
       </div>
+      ${window.MealSync && MealSync.cardHtml() ? `<div style="margin-bottom:24px">${MealSync.cardHtml()}</div>` : ''}
       <div class="card" style="padding:24px">
         <h2 style="font-size:20px">Keep your prices safe</h2>
-        <p class="muted" style="margin-top:8px;font-size:15px">Everything is saved in this browser only. Download a backup to use your prices on another device.</p>
+        <p class="muted" style="margin-top:8px;font-size:15px">Without signing in, everything is saved in this browser only. Download a backup to keep a copy or move it to another device.</p>
         <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px"><button class="btn sm" data-act="backup">Download backup</button><button class="btn sm" data-act="restore">Restore backup</button></div>
         <button class="btn link" style="margin-top:8px" data-act="reset">Delete all data from this browser</button>
       </div>
@@ -1411,7 +1412,7 @@ window.addEventListener('dragover', e => { e.preventDefault(); const d = $('#dro
 window.addEventListener('dragleave', () => { const d = $('#drop'); if (d) d.classList.remove('over'); });
 window.addEventListener('drop', e => { e.preventDefault(); const d = $('#drop'); if (d) d.classList.remove('over'); const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) handleFile(f); });
 window.addEventListener('hashchange', route);
-window.addEventListener('pagehide', saveAll);
+window.addEventListener('pagehide', () => { if (!window.__mcNoSave) saveAll(); });
 
 /* ============ start ============ */
 if (store.get('parser', 1) < 2) {
@@ -1422,4 +1423,5 @@ if (store.get('parser', 1) < 2) {
 }
 indexRanges(); reindex(); if (S.entries.length) ensurePrices();
 route();
+if (window.MealSync) { MealSync.onchange = () => render(); MealSync.init(); }
 window.__mealcost = { S, parseCronometer, costOf, summarize, macros, catOf, recipeCostOf, IDX: () => IDX };

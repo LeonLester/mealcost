@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  google_sub TEXT NOT NULL UNIQUE,
+  email TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
+CREATE TABLE IF NOT EXISTS sync (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  rev INTEGER NOT NULL,
+  data BLOB NOT NULL,
+  updated_at INTEGER NOT NULL
+);

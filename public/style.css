@@ -255,3 +255,5 @@ dialog.wide{max-width:680px}
 .unctoggle{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;background:none;border:0;padding:4px 0;font:inherit;color:inherit;cursor:pointer;text-align:left;min-height:44px}
 .unctoggle .t{font-family:var(--display);font-weight:700;font-size:20px;line-height:1.25}
 .unctoggle .muted{flex:none}
+
+.syncpill{font-size:14px;white-space:nowrap}

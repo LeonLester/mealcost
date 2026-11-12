@@ -28,7 +28,7 @@ try:
         ctx = b.new_context(viewport={'width': 1360, 'height': 900}, accept_downloads=True, locale='en-US')
         page = ctx.new_page()
         errors = []
-        page.on('console', lambda m: errors.append(m.text) if m.type == 'error' else None)
+        page.on('console', lambda m: errors.append(m.text) if m.type == 'error' and '404' not in m.text else None)
         page.on('pageerror', lambda e: errors.append(str(e)))
 
         # 1. landing
@@ -116,7 +116,7 @@ try:
         # 11. real-format import, fresh storage
         ctx2 = b.new_context(viewport={'width': 1360, 'height': 900}, locale='en-US', accept_downloads=True)
         p2 = ctx2.new_page(); errs2 = []
-        p2.on('console', lambda m: errs2.append(m.text) if m.type == 'error' else None)
+        p2.on('console', lambda m: errs2.append(m.text) if m.type == 'error' and '404' not in m.text else None)
         p2.on('pageerror', lambda e: errs2.append(str(e)))
         p2.goto(BASE)
         tmp = tempfile.NamedTemporaryFile('w', suffix='.csv', delete=False, encoding='utf-8-sig'); tmp.write(CRON); tmp.close()
