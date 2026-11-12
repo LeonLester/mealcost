@@ -688,7 +688,7 @@ function pricesView() {
         const unc = [...IDX.meta.keys()].filter(n => catOf(n) === 'Uncategorized').sort((a, b) => IDX.meta.get(b).n - IDX.meta.get(a).n || a.localeCompare(b));
         if (!unc.length) return '';
         const stale = ![...IDX.meta.values()].some(m => m.cat) && !Object.keys(S.cats).length;
-        const head = `<button type="button" class="btn" style="width:100%;justify-content:space-between;background:none;border:0;padding:0" data-act="toggle-unc" aria-expanded="${S.uncOpen ? 'true' : 'false'}"><span style="font-family:var(--display);font-weight:700;font-size:20px">Foods without a category (${unc.length})</span><span class="muted">${S.uncOpen ? 'Hide' : 'Show'}</span></button>`;
+        const head = `<button type="button" class="unctoggle" data-act="toggle-unc" aria-expanded="${S.uncOpen ? 'true' : 'false'}"><span class="t">Foods without a category (${unc.length})</span><span class="muted">${S.uncOpen ? 'Hide' : 'Show'}</span></button>`;
         if (!S.uncOpen) return `<div class="card" style="padding:16px 24px;margin-bottom:24px">${head}</div>`;
         return `<div class="card" style="padding:20px 24px;margin-bottom:24px">${head}
           <p class="muted" style="margin-top:10px;font-size:15px">${stale ? 'No categories came in with your saved data, because it was imported before categories were read. Import your Cronometer export again to bring them in, or assign them here.' : 'Cronometer did not give these a category.'} Click a field to pick from the list, or type your own.</p>

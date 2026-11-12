@@ -232,3 +232,26 @@ dialog.wide{max-width:680px}
 
 .catin{border:0;border-bottom:1px dashed var(--field);background:transparent;font:inherit;font-size:14px;color:var(--muted);padding:2px 0;width:100%;max-width:260px}
 .catin:focus{color:var(--ink);outline-offset:2px}
+
+/* Prices table as stacked cards on phones */
+@media (max-width:640px){
+  .tablewrap:has(#pbody){overflow:visible;background:none;border:0}
+  .tablewrap:has(#pbody) table,.tablewrap:has(#pbody) tbody{display:block;min-width:0;width:100%}
+  .tablewrap:has(#pbody) thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  #pbody tr{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:14px 16px;margin-bottom:12px}
+  #pbody th[scope=row]{grid-column:1/-1;padding:0;border:0;display:block}
+  #pbody td{padding:0;border:0;display:block;min-width:0}
+  #pbody td[colspan]{grid-column:1/-1}
+  #pbody td:nth-child(2)::before{content:"Price";display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+  #pbody td:nth-child(3)::before{content:"Per";display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+  #pbody td:nth-child(4)::before{content:"Grams per serving or item";display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+  #pbody td:nth-child(5)::before{content:"Spent";display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+  #pbody td.r{text-align:left}
+  #pbody .field,#pbody .money-in{width:100%}
+  #pbody .gpu{width:100%}
+  #pbody td[colspan]::before{content:none!important}
+}
+
+.unctoggle{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;background:none;border:0;padding:4px 0;font:inherit;color:inherit;cursor:pointer;text-align:left;min-height:44px}
+.unctoggle .t{font-family:var(--display);font-weight:700;font-size:20px;line-height:1.25}
+.unctoggle .muted{flex:none}
