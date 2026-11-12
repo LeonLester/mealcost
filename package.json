@@ -9,9 +9,22 @@
     "deploy": "wrangler deploy",
     "test": "python3 tests/test_app.py",
     "test:sync": "python3 tests/test_sync.py",
-    "migrate": "wrangler d1 migrations apply mealcost --remote"
+    "migrate": "wrangler d1 migrations apply mealcost --remote",
+    "build:web": "node scripts/build-web.mjs",
+    "android:sync": "npm run build:web && cap sync android",
+    "android:build": "npm run android:sync && cd android && ./gradlew assembleRelease"
   },
   "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.2",
     "wrangler": "^4.160.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/browser": "^8.0.5",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/share": "^8.0.3"
   }
 }

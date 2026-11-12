@@ -1,7 +1,7 @@
 /* Optional sign-in and sync. Without signing in, nothing here talks to a server. */
 (() => {
   'use strict';
-  const KEYS = ['entries', 'prices', 'overrides', 'currency', 'budget', 'merges', 'nomerge', 'ranges', 'cats', 'recipes'];
+  const KEYS = ['entries', 'prices', 'overrides', 'currency', 'budget', 'merges', 'nomerge', 'ranges', 'cats', 'recipes', 'meals'];
   const LS = {
     get(k) { try { return localStorage.getItem('mcc.' + k); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem('mcc.' + k, v); } catch (e) { /* ignore */ } },
@@ -74,6 +74,7 @@
   };
 
   async function init() {
+    if (window.MealNative && MealNative.isNative) { M.available = false; M.ready = true; M.onchange(); return; }
     const q = new URLSearchParams(location.search);
     if (q.get('signin')) {
       history.replaceState(null, '', location.pathname + location.hash);

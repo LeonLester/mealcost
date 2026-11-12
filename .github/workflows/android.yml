@@ -1,0 +1,143 @@
+name: Android app
+
+on:
+  push:
+    branches: [main, android-app]
+    paths:
+      - 'public/**'
+      - 'android/**'
+      - 'capacitor.config.json'
+      - 'package*.json'
+      - 'scripts/**'
+      - 'assets/**'
+      - 'tests/android/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - run: npm ci
+      - name: Build web assets and sync into the Android project
+        run: npm run android:sync
+
+      # A stable signing key lets each new APK install over the previous one without losing data.
+      # Preferred: store the key in repository secrets. Fallback: create one and keep it in the Actions cache.
+      - name: Restore cached signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.mealcost-ci/mealcost.keystore
+          key: mealcost-android-keystore-v1
+      - name: Prepare signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          SECRET_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SECRET_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          mkdir -p ~/.mealcost-ci
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > ~/.mealcost-ci/mealcost.keystore
+            echo "ANDROID_KEYSTORE_PASSWORD=$SECRET_PASS" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=$SECRET_PASS" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=${SECRET_ALIAS:-mealcost}" >> "$GITHUB_ENV"
+            echo "Using the signing key from repository secrets"
+          else
+            if [ ! -f ~/.mealcost-ci/mealcost.keystore ]; then
+              keytool -genkeypair -v -keystore ~/.mealcost-ci/mealcost.keystore -alias mealcost \
+                -keyalg RSA -keysize 2048 -validity 36500 -storepass mealcost-ci -keypass mealcost-ci \
+                -dname "CN=Meal cost, O=Coach Leonidas, C=CZ"
+              echo "Created a new signing key (kept in the Actions cache)"
+            else
+              echo "Using the cached signing key"
+            fi
+            echo "ANDROID_KEYSTORE_PASSWORD=mealcost-ci" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=mealcost-ci" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=mealcost" >> "$GITHUB_ENV"
+          fi
+          echo "ANDROID_KEYSTORE_FILE=$HOME/.mealcost-ci/mealcost.keystore" >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_NAME=1.0.${{ github.run_number }}" >> "$GITHUB_ENV"
+
+      - name: Build release and debug APKs
+        working-directory: android
+        run: ./gradlew --no-daemon assembleRelease assembleDebug
+
+      - name: Check the release APK
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          $BT/apksigner verify --print-certs "$APK" | head -5
+          $BT/aapt2 dump badging "$APK" | grep -E "package:|application-label:|sdkVersion|targetSdkVersion|uses-permission"
+          unzip -l "$APK" | grep -E "assets/public/(index.html|app.js|native.js|sync.js|style.css)"
+          mkdir -p dist && cp "$APK" dist/mealcost.apk && cp android/app/build/outputs/apk/debug/app-debug.apk dist/mealcost-debug.apk
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mealcost-apk
+          path: dist/*.apk
+          retention-days: 30
+
+      - name: Publish the APK as a release
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/android-app'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=android-latest
+          gh release view $TAG >/dev/null 2>&1 || gh release create $TAG --prerelease --title "Android app (latest build)" --notes "Latest build of the Android app. Download mealcost.apk on your phone and open it to install."
+          gh release upload $TAG dist/mealcost.apk --clobber
+          gh release edit $TAG --notes "Build ${{ github.run_number }} from ${{ github.sha }}. Download mealcost.apk on your phone and open it to install. Every build after the first installs over the previous one and keeps your data."
+
+  smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mealcost-apk
+          path: dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install playwright
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run the app in an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash tests/android/smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-smoke
+          path: shots
+          retention-days: 14

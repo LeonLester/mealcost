@@ -24,7 +24,7 @@ const S = {
   merges: store.get('merges', {}),
   nomerge: store.get('nomerge', []),
   sort: store.get('sort', 'freq'), flip: store.get('flip', false),
-  cats: store.get('cats', {}), ranges: store.get('ranges', []), recipes: store.get('recipes', {}), open: new Set(), grain: store.get('grain', 'week'), trange: store.get('trange', 90),
+  cats: store.get('cats', {}), ranges: store.get('ranges', []), recipes: store.get('recipes', {}), meals: store.get('meals', {}), open: new Set(), grain: store.get('grain', 'week'), trange: store.get('trange', 90),
   tab: 'day', day: null, cat: '', range: 7, filter: '', chip: 'all', showAll: false, error: ''
 };
 if (!CURRENCIES.includes(S.currency)) S.currency = 'EUR';
@@ -346,23 +346,23 @@ function importView() {
         <p class="lede" style="font-size:19px;line-height:1.55">Drop in your Cronometer export, add your grocery prices once, and get a cost for every meal, every day and every week.</p>
         <div class="drop" id="drop">
           ${IC.upload}
-          <div style="flex:1 1 220px;min-width:0"><div style="font-weight:600;font-size:18px">Drop your Cronometer export here</div><div class="muted" style="font-size:15px;margin-top:4px">Food &amp; Recipe Entries, as a .csv file</div></div>
+          <div style="flex:1 1 220px;min-width:0"><div style="font-weight:600;font-size:18px">Drop your Cronometer export here</div><div class="muted" style="font-size:14px;margin-top:4px">Food &amp; Recipe Entries, as a .csv file</div></div>
           <button class="btn primary" data-act="import">Choose file</button>
         </div>
         <div style="margin-top:18px;display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px">
           <button class="btn outline" data-act="sample">Try it with sample data</button>
           <button class="btn link" data-act="restore">Restore saved prices</button>
-          <span class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">${IC.lock}Your file is read in this browser. Nothing is uploaded.</span>
+          <span class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">${IC.lock}Your file is read in this browser. Nothing is uploaded.</span>
         </div>
       </div>
       <div style="flex:1 1 420px">
         <div class="card preview" aria-label="Example of a day's cost">
-          <div class="row" style="justify-content:space-between"><b>Wednesday 11 November</b><span class="muted" style="font-size:14px">Sample day</span></div>
+          <div class="row" style="justify-content:space-between"><b>Wednesday 11 November</b><span class="muted" style="font-size:13px">Sample day</span></div>
           <div style="margin:22px 0 26px"><div class="pricetag sm"><span class="n">€9.90</span><span class="l">for the day</span></div></div>
           ${['Breakfast|€1.63', 'Lunch|€3.10', 'Dinner|€4.35|1', 'Snacks|€0.82'].map(x => { const [n, c, o] = x.split('|'); return `<div class="row" style="padding:9px 0;font-size:17px"><span>${n}</span>${o ? '<span class="offer-tag" style="margin-left:10px">1 offer</span>' : ''}<span class="lead"></span><span>${c}</span></div>`; }).join('')}
           <div class="statline" style="margin-top:18px;padding-top:18px;border-top:1px solid var(--line)">
-            <div><div class="big" style="font-size:28px">€5.85</div><div class="muted" style="font-size:14px">per 100 g protein</div></div>
-            <div><div class="big" style="font-size:28px">€3.93</div><div class="muted" style="font-size:14px">per 1,000 kcal</div></div>
+            <div><div class="big" style="font-size:28px">€5.85</div><div class="muted" style="font-size:13px">per 100 g protein</div></div>
+            <div><div class="big" style="font-size:28px">€3.93</div><div class="muted" style="font-size:13px">per 1,000 kcal</div></div>
           </div>
         </div>
       </div>
@@ -384,11 +384,11 @@ function siteFooter() {
 
 /* ============ view: shell ============ */
 function appView() {
-  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? weekView() : S.tab === 'trends' ? trendsView() : dayView();
+  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? weekView() : S.tab === 'trends' ? trendsView() : S.tab === 'meals' ? mealsView() : dayView();
   return `
   <header class="topbar"><div class="wrap">
     <div class="brand"><b>Coach Leonidas</b><span>Meal cost calculator</span></div>
-    <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week', 'trends'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${cap(t)}</a>`).join('')}</nav>
+    <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week', 'trends', 'meals'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${cap(t)}</a>`).join('')}</nav>
     <div class="tools"><button class="btn sm" data-act="import">Add export</button><button class="btn sm" data-act="export-csv">Download CSV</button>${window.MealSync ? MealSync.topHtml() : ''}</div>
   </div></header>
   <main class="wrap">${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
@@ -489,26 +489,26 @@ function dayView() {
   </div>
   <div class="strip" role="group" aria-label="Pick a day">${wt.map(x => `<button class="daybtn" data-act="pick-day" data-date="${x.d}" aria-pressed="${x.d === day}"><i style="height:${Math.max(3, Math.round(x.t / wmax * 28))}px"></i><small>${esc(dShort(x.d))}</small><b>${money(x.t)}</b></button>`).join('')}</div>
   <div class="cols" style="margin-top:32px">
-    <div class="card main2" style="padding:8px 32px 16px">${mealHtml}<p class="muted" style="margin:16px 0 8px;font-size:14px">Select any price to change it for this day only. Your standard prices stay as they are.</p></div>
+    <div class="card main2" style="padding:8px 32px 16px">${mealHtml}<p class="muted" style="margin:16px 0 8px;font-size:13px">Select any price to change it for this day only. Your standard prices stay as they are.</p></div>
     <aside class="side">
       <div class="card" style="padding:28px 28px 24px">
         <div class="pricetag"><span class="n">${money(sm.cost)}</span><span class="l">for the day</span></div>
         ${sm.saved > 0.004 ? `<p style="margin-top:16px;color:#0B4A37">${offerNames.length === 1 ? `Your offer on ${esc(offerNames[0])}` : `Your ${offerNames.length} offers`} saved you ${money(sm.saved)} today.</p>` : ''}
-        ${sm.unpriced ? `<p style="margin-top:12px;font-size:15px">Totals leave out ${sm.unpriced} ${sm.unpriced === 1 ? 'item' : 'items'} without a price.</p>` : ''}
+        ${sm.unpriced ? `<p style="margin-top:12px;font-size:14px">Totals leave out ${sm.unpriced} ${sm.unpriced === 1 ? 'item' : 'items'} without a price.</p>` : ''}
         <div style="margin-top:22px">
-          ${budget ? `<div class="row" style="justify-content:space-between;font-size:15px"><span>Daily budget ${money(budget)}</span><b>${left >= 0 ? money(left) + ' left' : money(-left) + ' over'}</b></div>
+          ${budget ? `<div class="row" style="justify-content:space-between;font-size:14px"><span>Daily budget ${money(budget)}</span><b>${left >= 0 ? money(left) + ' left' : money(-left) + ' over'}</b></div>
           <div class="bar" role="img" aria-label="${pct} percent of the daily budget used" style="margin-top:8px"><div style="width:${pct}%${left < 0 ? ';background:var(--ink)' : ''}"></div></div>
           <button class="btn link" data-act="budget">Change budget</button>` : `<button class="btn outline" data-act="budget">Set a daily budget</button>`}
         </div>
       </div>
       <div class="card statline" style="padding:24px 28px">
-        ${pp != null ? `<div><div class="big">${money(pp)}</div><div class="muted" style="font-size:14px">per 100 g protein</div></div>` : ''}
-        ${pk != null ? `<div><div class="big">${money(pk)}</div><div class="muted" style="font-size:14px">per 1,000 kcal</div></div>` : ''}
-        <div><div class="big">${n0(sm.pro)} g</div><div class="muted" style="font-size:14px">protein, ${n0(sm.kcal)} kcal</div></div>
+        ${pp != null ? `<div><div class="big">${money(pp)}</div><div class="muted" style="font-size:13px">per 100 g protein</div></div>` : ''}
+        ${pk != null ? `<div><div class="big">${money(pk)}</div><div class="muted" style="font-size:13px">per 1,000 kcal</div></div>` : ''}
+        <div><div class="big">${n0(sm.pro)} g</div><div class="muted" style="font-size:13px">protein, ${n0(sm.kcal)} kcal</div></div>
       </div>
       ${swap ? `<div class="card" style="padding:24px 28px"><h2 style="font-size:20px">A cheaper way to hit your protein</h2>
         <p style="margin-top:10px">Swap the ${qtyFmt(swap.qty)} ${esc(swap.unit)} of ${esc(swap.from)} for ${qtyFmt(swap.qty)} ${esc(swap.unit)} of ${esc(swap.to)}. It saves ${money(swap.saving)}${swap.dPro >= 1 ? ' and adds ' + n0(swap.dPro) + ' g of protein' : ' and keeps the protein about the same'}.</p>
-        <p class="muted" style="margin-top:8px;font-size:14px">Based on your own prices and today's offers.</p></div>` : ''}
+        <p class="muted" style="margin-top:8px;font-size:13px">Based on your own prices and today's offers.</p></div>` : ''}
       <div style="display:flex;flex-wrap:wrap;gap:10px">
         <button class="btn primary" style="flex:1 1 160px" data-act="share-image">Make share image</button>
         <button class="btn" style="flex:1 1 160px" data-act="copy-day">Copy as text</button>
@@ -559,8 +559,8 @@ function priceRow(name, oc) {
   const vol = m.vol > m.mass;
   const sub = subText(name, iss), k = m.members.length;
   return `<tr data-name="${esc(name)}"${iss ? ' class="needs"' : ''}>
-    <th scope="row"><div>${esc(name)}${o ? ` <span class="offer-tag">${o} ${o === 1 ? 'offer' : 'offers'}</span>` : ''}</div><div class="sub sl">${esc(sub)}</div><div class="sub"><input class="catin" list="catlist" data-cat aria-label="Category of ${esc(name)}" placeholder="Add a category" value="${esc(catOf(name) === 'Uncategorized' ? '' : catOf(name))}"></div>${macroLine(name) ? `<div class="sub">${esc(macroLine(name))}</div>` : ''}${m.extra ? '' : `<div class="sub acts">${k ? `Includes ${k} other ${k === 1 ? 'name' : 'names'}. ` : ''}<button class="btn link" data-act="merge" data-name="${esc(name)}" aria-label="Merge ${esc(name)} with another food">${k ? 'Manage merges' : 'Merge'}</button>${rec ? '' : `<button class="btn link" data-act="edit-recipe" data-name="${esc(name)}" aria-label="Make ${esc(name)} a recipe with ingredients">Make a recipe</button>`}</div>`}</th>
-    ${rec ? `<td colspan="3"><div class="muted" style="font-size:15px">Recipe with ${rec.items.length} ${rec.items.length === 1 ? 'ingredient' : 'ingredients'}, ${esc(rec.servings)} ${Number(rec.servings) === 1 ? 'serving' : 'servings'}</div><button class="btn link" data-act="edit-recipe" data-name="${esc(name)}">Edit recipe</button></td>` : `
+    <th scope="row"><div class="fname">${esc(name)}${o ? ` <span class="offer-tag">${o} ${o === 1 ? 'offer' : 'offers'}</span>` : ''}${catOf(name) !== 'Uncategorized' ? `<span class="catlab">${esc(catOf(name))}</span>` : ''}</div><div class="sub sl">${esc(sub)}</div><details class="more"><summary>Details</summary><div class="moreb"><div class="sub"><input class="catin" list="catlist" data-cat aria-label="Category of ${esc(name)}" placeholder="Add a category" value="${esc(catOf(name) === 'Uncategorized' ? '' : catOf(name))}"></div>${macroLine(name) ? `<div class="sub">${esc(macroLine(name))}</div>` : ''}${m.extra ? '' : `<div class="sub acts">${k ? `Includes ${k} other ${k === 1 ? 'name' : 'names'}. ` : ''}<button class="btn link" data-act="merge" data-name="${esc(name)}" aria-label="Merge ${esc(name)} with another food">${k ? 'Manage merges' : 'Merge'}</button>${rec ? '' : `<button class="btn link" data-act="edit-recipe" data-name="${esc(name)}" aria-label="Make ${esc(name)} a recipe with ingredients">Make a recipe</button>`}</div>`}</div></details></th>
+    ${rec ? `<td colspan="3"><div class="muted" style="font-size:14px">Recipe with ${rec.items.length} ${rec.items.length === 1 ? 'ingredient' : 'ingredients'}, ${esc(rec.servings)} ${Number(rec.servings) === 1 ? 'serving' : 'servings'}</div><button class="btn link" data-act="edit-recipe" data-name="${esc(name)}">Edit recipe</button></td>` : `
     <td><div class="money-in"><span>${esc(currencySymbol())}</span><input type="text" inputmode="decimal" data-f="price" aria-label="Price of ${esc(name)}" placeholder="0.00" value="${p.price === '' ? '' : esc(p.price)}"></div></td>
     <td><select class="field" data-f="basis" aria-label="Price unit for ${esc(name)}">
       <option value="kg"${p.basis === 'kg' ? ' selected' : ''}>per ${vol ? 'litre' : 'kg'}</option>
@@ -607,7 +607,7 @@ function priceBodyHtml() {
   const shown = limited ? names.slice(0, 12) : names;
   const total = IDX.meta.size;
   const rows = shown.length ? shown.map(n => priceRow(n, oc)).join('') : `<tr><td colspan="5" style="padding:24px 20px" class="muted">No foods match. Clear the search or choose another filter.</td></tr>`;
-  const foot = `<span class="muted" style="font-size:15px">Showing ${shown.length} of ${total} foods, ${SORTS[S.sort][S.flip ? 2 : 1]}</span>${limited ? '<button class="btn link" data-act="toggle-all">Show all foods</button>' : (S.showAll && total > 12 && !S.filter && !S.cat && S.chip === 'all' ? '<button class="btn link" data-act="toggle-all">Show fewer</button>' : '')}`;
+  const foot = `<span class="muted" style="font-size:14px">Showing ${shown.length} of ${total} foods, ${SORTS[S.sort][S.flip ? 2 : 1]}</span>${limited ? '<button class="btn link" data-act="toggle-all">Show all foods</button>' : (S.showAll && total > 12 && !S.filter && !S.cat && S.chip === 'all' ? '<button class="btn link" data-act="toggle-all">Show fewer</button>' : '')}`;
   return { rows, foot };
 }
 /* ---- merging foods ---- */
@@ -650,11 +650,11 @@ function openMerge(name) {
   if (!m) return;
   const others = [...IDX.meta.keys()].filter(n => n !== name).sort((a, b) => IDX.meta.get(b).n - IDX.meta.get(a).n || a.localeCompare(b));
   dlg.innerHTML = `<form id="mform" method="dialog">
-    <h2 id="dlg-title" style="font-size:24px">Merge foods</h2>
-    <p class="muted" style="font-size:15px">Count <b>${esc(name)}</b> as another food. Its entries then share that food's name and price. Your Cronometer data is not changed, and you can undo this.</p>
+    <h2 id="dlg-title" style="font-size:20px">Merge foods</h2>
+    <p class="muted" style="font-size:14px">Count <b>${esc(name)}</b> as another food. Its entries then share that food's name and price. Your Cronometer data is not changed, and you can undo this.</p>
     <div><label for="mt">Merge into</label><input class="field" style="width:100%" id="mt" list="mlist" autocomplete="off" placeholder="Start typing a food name"><datalist id="mlist">${others.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist></div>
     <div id="merr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
-    ${m.members.length ? `<div><div style="font-weight:600;font-size:15px">Already merged into ${esc(name)}</div>${m.members.map(x => `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line2)"><span style="flex:1;min-width:0;overflow-wrap:anywhere">${esc(x)}</span><button type="button" class="btn link" data-act="unmerge" data-src="${esc(x)}">Undo</button></div>`).join('')}</div>` : ''}
+    ${m.members.length ? `<div><div style="font-weight:600;font-size:14px">Already merged into ${esc(name)}</div>${m.members.map(x => `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line2)"><span style="flex:1;min-width:0;overflow-wrap:anywhere">${esc(x)}</span><button type="button" class="btn link" data-act="unmerge" data-src="${esc(x)}">Undo</button></div>`).join('')}</div>` : ''}
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">Merge</button><button type="button" class="btn" data-act="close-dlg">Cancel</button></div>
   </form>`;
   $('#mform').addEventListener('submit', ev => {
@@ -691,56 +691,57 @@ function pricesView() {
         const head = `<button type="button" class="unctoggle" data-act="toggle-unc" aria-expanded="${S.uncOpen ? 'true' : 'false'}"><span class="t">Foods without a category (${unc.length})</span><span class="muted">${S.uncOpen ? 'Hide' : 'Show'}</span></button>`;
         if (!S.uncOpen) return `<div class="card" style="padding:16px 24px;margin-bottom:24px">${head}</div>`;
         return `<div class="card" style="padding:20px 24px;margin-bottom:24px">${head}
-          <p class="muted" style="margin-top:10px;font-size:15px">${stale ? 'No categories came in with your saved data, because it was imported before categories were read. Import your Cronometer export again to bring them in, or assign them here.' : 'Cronometer did not give these a category.'} Click a field to pick from the list, or type your own.</p>
+          <p class="muted" style="margin-top:10px;font-size:14px">${stale ? 'No categories came in with your saved data, because it was imported before categories were read. Import your Cronometer export again to bring them in, or assign them here.' : 'Cronometer did not give these a category.'} Click a field to pick from the list, or type your own.</p>
           <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th scope="col">Food</th><th scope="col" class="r">Logged</th><th scope="col">Category</th></tr></thead><tbody>${unc.slice(0, 40).map(n => `<tr data-name="${esc(n)}"><th scope="row" style="font-weight:400">${esc(n)}</th><td class="r">${IDX.meta.get(n).n}</td><td><input class="field" style="width:100%;min-width:180px" list="catlist" data-cat aria-label="Category of ${esc(n)}" placeholder="Pick or type a category"></td></tr>`).join('')}</tbody></table></div>
-          ${unc.length > 40 ? `<p class="muted" style="margin-top:8px;font-size:14px">Showing the 40 most logged. The rest appear as you assign these.</p>` : ''}</div>`;
+          ${unc.length > 40 ? `<p class="muted" style="margin-top:8px;font-size:13px">Showing the 40 most logged. The rest appear as you assign these.</p>` : ''}</div>`;
       })()}
-      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+      <div class="ptools">
         <div class="search">${IC.search}<input type="search" id="q" aria-label="Search foods" placeholder="Search foods" value="${esc(S.filter)}"></div>
         <div role="group" aria-label="Filter foods" style="display:flex;flex-wrap:wrap;gap:8px">
           <button class="chip" data-act="chip" data-chip="all" aria-pressed="${S.chip === 'all'}">All <span id="c-all">${c.all}</span></button>
           <button class="chip" data-act="chip" data-chip="unpriced" aria-pressed="${S.chip === 'unpriced'}">No price <span id="c-un">${c.un}</span></button>
           <button class="chip" data-act="chip" data-chip="offers" aria-pressed="${S.chip === 'offers'}">With offers <span id="c-of">${c.offers}</span></button>
         </div>
-        <span class="grow"></span>
-        <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">Sort by <select class="field" id="sortsel">${[['Logging', ['freq', 'amount', 'spent', 'name']], ['Nutrients per 100 g', Object.keys(SORTS).filter(k => /^(pro|carb|fat|fiber)100$/.test(k))], ['Nutrients per 100 kcal', Object.keys(SORTS).filter(k => /^(pro|carb|fat|fiber)100k$/.test(k))]].map(([g, ks]) => `<optgroup label="${g}">${ks.map(k => `<option value="${k}"${S.sort === k ? ' selected' : ''}>${SORTS[k][0]}</option>`).join('')}</optgroup>`).join('')}</select></label>
-        <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">Category <select class="field" id="catsel"><option value="">All</option>${(() => { const m = new Map(); for (const n of IDX.meta.keys()) m.set(catOf(n), (m.get(catOf(n)) || 0) + 1); return [...m].sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => `<option value="${esc(k)}"${S.cat === k ? ' selected' : ''}>${esc(k)} (${v})</option>`).join(''); })()}</select></label>
+      </div>
+      <div class="ptools2">
+        <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Sort by <select class="field" id="sortsel">${[['Logging', ['freq', 'amount', 'spent', 'name']], ['Nutrients per 100 g', Object.keys(SORTS).filter(k => /^(pro|carb|fat|fiber)100$/.test(k))], ['Nutrients per 100 kcal', Object.keys(SORTS).filter(k => /^(pro|carb|fat|fiber)100k$/.test(k))]].map(([g, ks]) => `<optgroup label="${g}">${ks.map(k => `<option value="${k}"${S.sort === k ? ' selected' : ''}>${SORTS[k][0]}</option>`).join('')}</optgroup>`).join('')}</select></label>
+        <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Category <select class="field" id="catsel"><option value="">All</option>${(() => { const m = new Map(); for (const n of IDX.meta.keys()) m.set(catOf(n), (m.get(catOf(n)) || 0) + 1); return [...m].sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => `<option value="${esc(k)}"${S.cat === k ? ' selected' : ''}>${esc(k)} (${v})</option>`).join(''); })()}</select></label>
         <button class="btn sm" data-act="flip" aria-pressed="${S.flip}">${S.sort === 'name' ? (S.flip ? 'Z to A' : 'A to Z') : (S.flip ? 'Lowest first' : 'Highest first')}</button>
-        <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">Currency <select class="field" id="cur">${CURRENCIES.map(x => `<option${x === S.currency ? ' selected' : ''}>${x}</option>`).join('')}</select></label>
+        <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Currency <select class="field" id="cur">${CURRENCIES.map(x => `<option${x === S.currency ? ' selected' : ''}>${x}</option>`).join('')}</select></label>
       </div>
       <div class="tablewrap" style="margin-top:16px"><table>
         <thead><tr><th scope="col" aria-sort="${S.sort === 'name' ? (S.flip ? 'descending' : 'ascending') : 'none'}"><button class="thbtn" data-act="sort-col" data-sort="name">Food${S.sort === 'name' ? (S.flip ? ' \u2191' : ' \u2193') : ''}</button></th><th scope="col">Price</th><th scope="col">Per</th><th scope="col">Grams per serving or item</th><th scope="col" class="r" aria-sort="${S.sort === 'spent' ? (S.flip ? 'ascending' : 'descending') : 'none'}"><button class="thbtn" data-act="sort-col" data-sort="spent">Spent${S.sort === 'spent' ? (S.flip ? ' \u2191' : ' \u2193') : ''}</button></th></tr></thead>
         <tbody id="pbody">${rows}</tbody></table></div>
       <div id="pfoot" style="margin-top:12px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px">${foot}</div>
-      <p class="muted" style="margin-top:8px;max-width:620px;font-size:14px">Grams per item is only needed when a food is logged one way and priced another, for example eggs logged as items but priced per kg.</p>
+      <p class="muted" style="margin-top:8px;max-width:620px;font-size:13px">Grams per item is only needed when a food is logged one way and priced another, for example eggs logged as items but priced per kg.</p>
     </div>
     <aside class="side">
       ${(() => {
         const sg = mergeSuggestions();
         return sg.length ? `<div class="card" style="padding:24px 24px 16px">
-          <h2 style="font-size:24px">Possible duplicates</h2>
-          <p class="muted" style="margin-top:8px;font-size:15px">These look like the same food. Merging counts them as one food with one price.</p>
-          <div style="margin-top:12px">${sg.map(x => `<div style="padding:14px 0;border-top:1px solid var(--line2)"><div style="font-size:15px;overflow-wrap:anywhere">${esc(x.drop)}</div><div class="muted" style="font-size:14px;margin:2px 0;overflow-wrap:anywhere">and ${esc(x.keep)}</div>
+          <h2 style="font-size:20px">Possible duplicates</h2>
+          <p class="muted" style="margin-top:8px;font-size:14px">These look like the same food. Merging counts them as one food with one price.</p>
+          <div style="margin-top:12px">${sg.map(x => `<div style="padding:14px 0;border-top:1px solid var(--line2)"><div style="font-size:14px;overflow-wrap:anywhere">${esc(x.drop)}</div><div class="muted" style="font-size:13px;margin:2px 0;overflow-wrap:anywhere">and ${esc(x.keep)}</div>
             <div style="display:flex;gap:16px"><button class="btn link" data-act="merge-now" data-drop="${esc(x.drop)}" data-keep="${esc(x.keep)}">Merge</button><button class="btn link" data-act="not-same" data-drop="${esc(x.drop)}" data-keep="${esc(x.keep)}">Not the same</button></div></div>`).join('')}</div>
         </div>` : '';
       })()}
       <div class="card" style="padding:24px 24px 16px">
-        <h2 style="font-size:24px">Offers and price changes</h2>
-        <p class="muted" style="margin-top:8px;font-size:15px">Your standard price covers every date. Add a price for one day, a shopping trip or a period, and it replaces the standard price on those dates.</p>
+        <h2 style="font-size:20px">Offers and price changes</h2>
+        <p class="muted" style="margin-top:8px;font-size:14px">Your standard price covers every date. Add a price for one day, a shopping trip or a period, and it replaces the standard price on those dates.</p>
         <div style="margin-top:12px">${offerList.length ? offerList.map(o => {
           const base = S.prices[o.n] && S.prices[o.n].price !== '' ? S.prices[o.n].price : null;
           const when = o.r ? (o.r.to ? `${dMed(o.r.from)} to ${dMed(o.r.to)}` : `From ${dMed(o.r.from)}`) : dMed(o.d);
           const edit = o.r ? `data-id="${esc(o.r.id)}"` : `data-date="${o.d}" data-name="${esc(o.n)}"`;
           return `<div style="padding:14px 0;border-top:1px solid var(--line2)"><div style="display:flex;align-items:baseline;gap:10px"><span class="offer-tag">${o.r ? 'Period' : 'Offer'}</span><b>${esc(o.n)}</b></div>
-          <div style="margin-top:6px;font-size:15px">${esc(when)}: ${money(o.v)} per ${esc(basisText(S.prices[o.n] ? S.prices[o.n].basis : 'kg', o.n))}${base != null ? ` <span class="muted">(usually ${money(base)})</span>` : ''}</div>
+          <div style="margin-top:6px;font-size:14px">${esc(when)}: ${money(o.v)} per ${esc(basisText(S.prices[o.n] ? S.prices[o.n].basis : 'kg', o.n))}${base != null ? ` <span class="muted">(usually ${money(base)})</span>` : ''}</div>
           <div style="display:flex;gap:16px"><button class="btn link" data-act="offer" ${edit}>Edit</button>${o.r ? `<button class="btn link" data-act="del-range" data-id="${esc(o.r.id)}">Remove</button>` : `<button class="btn link" data-act="del-offer" data-date="${o.d}" data-name="${esc(o.n)}">Remove</button>`}</div></div>`;
-        }).join('') : '<p class="muted" style="padding:14px 0;border-top:1px solid var(--line2);font-size:15px">No offers yet.</p>'}</div>
+        }).join('') : '<p class="muted" style="padding:14px 0;border-top:1px solid var(--line2);font-size:14px">No offers yet.</p>'}</div>
         <button class="btn primary" style="width:100%;margin-bottom:12px" data-act="offer">Add an offer or price change</button>
       </div>
       ${window.MealSync && MealSync.cardHtml() ? `<div style="margin-bottom:24px">${MealSync.cardHtml()}</div>` : ''}
       <div class="card" style="padding:24px">
         <h2 style="font-size:20px">Keep your prices safe</h2>
-        <p class="muted" style="margin-top:8px;font-size:15px">Without signing in, everything is saved in this browser only. Download a backup to keep a copy or move it to another device.</p>
+        <p class="muted" style="margin-top:8px;font-size:14px">Without signing in, everything is saved in this browser only. Download a backup to keep a copy or move it to another device.</p>
         <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px"><button class="btn sm" data-act="backup">Download backup</button><button class="btn sm" data-act="restore">Restore backup</button></div>
         <button class="btn link" style="margin-top:8px" data-act="reset">Delete all data from this browser</button>
       </div>
@@ -806,17 +807,76 @@ function barChart(pts, label) {
   const xl = [[L + bw / 2, dDM(pts[0].d), 'start'], [L + (n - 0.5) * bw, dDM(pts[n - 1].d), 'end']];
   return chartFrame(label, bars, ymax, n > 1 ? xl : [xl[0]]);
 }
+/* ---- price history: one point each time a food's price changes ---- */
+const PH_COL = ['#12614A', '#C8102E', '#1F5FBF', '#B8860B', '#7B3FA0', '#E07B00'];
+function pricePerKg(name, date) {
+  const pi = priceInfo(name, date);
+  if (!pi) return null;
+  if (pi.basis === 'kg') return pi.price;
+  if (pi.basis === '100') return pi.price * 10;
+  return pi.gpu > 0 ? pi.price / pi.gpu * 1000 : undefined;
+}
+function phSeries(name, from, last) {
+  const pts = []; let prev = null;
+  for (let d = from; d <= last; d = isoAdd(d, 1)) {
+    const v = pricePerKg(name, d);
+    if (v === undefined) return { pts: [], nopk: true };
+    if (v == null) continue;
+    if (prev == null || Math.abs(v - prev) > 1e-9) { pts.push({ d, v, was: prev, offer: !!priceInfo(name, d).offer }); prev = v; }
+  }
+  return { pts, nopk: false };
+}
+function priceHistoryCard(from, last) {
+  const foods = [...IDX.meta.keys()].filter(n => !S.recipes[n]).sort((a, b) => a.localeCompare(b));
+  let sel = store.get('phist', null);
+  if (!Array.isArray(sel)) sel = foods.map(n => ({ n, c: phSeries(n, from, last).pts.length })).filter(x => x.c > 0).sort((a, b) => b.c - a.c || IDX.meta.get(b.n).n - IDX.meta.get(a.n).n).slice(0, 3).map(x => x.n);
+  sel = sel.filter(n => IDX.meta.has(n) && !S.recipes[n]).slice(0, 6); S.ph = sel;
+  const data = sel.map((n, i) => ({ n, col: PH_COL[i % PH_COL.length], ...phSeries(n, from, last) }));
+  const plot = data.filter(x => x.pts.length);
+  let chart = '';
+  if (plot.length) {
+    const W = 600, H = 240, L = 58, R = 16, T = 14, B = 32, x0 = tOf(from), x1 = tOf(last);
+    const ymax = niceMax(Math.max(...plot.flatMap(x => x.pts.map(p => p.v))));
+    const X = d => L + (x1 > x0 ? (tOf(d) - x0) / (x1 - x0) : 0.5) * (W - L - R), Y = v => T + (1 - v / ymax) * (H - T - B);
+    const inner = plot.map(x => {
+      const path = x.pts.map((p, i) => i ? `H${X(p.d).toFixed(1)}V${Y(p.v).toFixed(1)}` : `M${X(p.d).toFixed(1)} ${Y(p.v).toFixed(1)}`).join('') + `H${X(last).toFixed(1)}`;
+      const dots = x.pts.map(p => `<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="4.5" fill="${x.col}" stroke="#fff" stroke-width="1.5"><title>${esc(x.n)}, ${esc(dMed(p.d))}: ${esc(money(p.v))} per kg${p.offer ? ' (offer)' : ''}</title></circle>`).join('');
+      return `<path d="${path}" fill="none" stroke="${x.col}" stroke-width="2.5" stroke-linejoin="round"/>${dots}`;
+    }).join('');
+    const xl = [[L, dDM(from), 'start'], [W - R, dDM(last), 'end']];
+    if (x1 - x0 >= 20) xl.splice(1, 0, [L + (W - L - R) / 2, dDM(isoAdd(from, Math.round((x1 - x0) / 2))), 'middle']);
+    chart = chartFrame('Price per kg over time for ' + plot.map(x => x.n).join(', '), inner, ymax, xl);
+  }
+  const chips = data.map(x => `<span class="phchip"><i style="background:${x.col}" aria-hidden="true"></i>${esc(x.n)}<button type="button" class="btn link" data-act="ph-del" data-name="${esc(x.n)}" aria-label="Remove ${esc(x.n)} from the chart">Remove</button></span>`).join('');
+  const notes = data.map(x => x.nopk ? `<p class="muted" style="font-size:13px;margin-top:6px">${esc(x.n)} is priced per item. Add its grams per item on the Prices tab to chart it per kg.</p>` : !x.pts.length ? `<p class="muted" style="font-size:13px;margin-top:6px">${esc(x.n)} has no price in this period.</p>` : '').join('');
+  const list = plot.map(x => `<h3 style="font-size:16px;margin-top:12px">${esc(x.n)}</h3><ul style="margin:4px 0 0 18px;font-size:14px">${x.pts.map(p => `<li>${esc(dMed(p.d))}: ${esc(money(p.v))} per kg${p.was != null ? `, from ${esc(money(p.was))}` : ''}${p.offer ? ', offer' : ''}</li>`).join('')}</ul>`).join('');
+  return `<div class="card tcard" id="phist" style="margin-top:24px"><h2>Price history</h2>
+    <p class="muted" style="margin-top:4px;font-size:14px">Each dot is a day the price changed, for the period chosen above. Prices are shown per kg so foods share one chart. Add up to 6 foods.</p>
+    <div class="phbar"><input class="field" id="phq" list="phlist" placeholder="Add a food" autocomplete="off" aria-label="Add a food to the chart"><button type="button" class="btn sm" data-act="ph-add">Add food</button></div>
+    <datalist id="phlist">${foods.filter(n => !sel.includes(n)).map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
+    <div class="phchips">${chips || '<span class="muted" style="font-size:14px">No foods chosen yet.</span>'}</div>
+    ${chart || (sel.length ? '' : '')}${notes}
+    ${plot.length ? `<details style="margin-top:12px"><summary>List every change</summary>${list}</details>` : ''}</div>`;
+}
+function phAdd(raw) {
+  const n = canon(String(raw || '').trim()); if (!n) return;
+  if (!IDX.meta.has(n) || S.recipes[n]) { toast('Choose a food from the list.'); return; }
+  if (S.ph.includes(n)) return;
+  if (S.ph.length >= 6) { toast('Remove a food first. The chart shows up to 6.'); return; }
+  S.ph = S.ph.concat(n); store.set('phist', S.ph); render();
+}
 function trendsView() {
   const dates = IDX.dates, last = dates[dates.length - 1];
   const from = S.trange > 0 ? isoAdd(last, -(S.trange - 1)) : dates[0];
   const days = dates.filter(d => d >= from).map(dayStat).filter(s => s.n > 0 && s.cost > 0);
+  const ph = priceHistoryCard(from, last);
   const head = `<h1 class="h1" id="h1" tabindex="-1">Trends</h1>
   <p class="lede">How the price of your protein, carbs, fat, fiber and calories moves over time. Only foods with a price are counted.</p>
   <div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:center">
-    <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">Show <select class="field" id="tgrain"><option value="day"${S.grain === 'day' ? ' selected' : ''}>Each day</option><option value="week"${S.grain === 'week' ? ' selected' : ''}>Each week</option></select></label>
-    <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">Period <select class="field" id="trange">${[[30, 'Last 30 days'], [90, 'Last 90 days'], [180, 'Last 6 months'], [0, 'All days']].map(([v, t]) => `<option value="${v}"${S.trange === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+    <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Show <select class="field" id="tgrain"><option value="day"${S.grain === 'day' ? ' selected' : ''}>Each day</option><option value="week"${S.grain === 'week' ? ' selected' : ''}>Each week</option></select></label>
+    <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Period <select class="field" id="trange">${[[30, 'Last 30 days'], [90, 'Last 90 days'], [180, 'Last 6 months'], [0, 'All days']].map(([v, t]) => `<option value="${v}"${S.trange === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
   </div>`;
-  if (!days.length) return `${head}<div class="notice" style="margin-top:24px">${IC.info}<div>No priced days in this period yet. Add prices on the Prices tab and the charts appear here.</div></div>`;
+  if (!days.length) return `${head}${ph}<div class="notice" style="margin-top:24px">${IC.info}<div>No priced days in this period yet. Add prices on the Prices tab and the charts appear here.</div></div>`;
   const wk = new Map();
   for (const s of days) { const w = wkStart(s.d); wk.set(w, addTo(wk.get(w) || zero(w), s)); }
   const weeks = [...wk.values()].filter(w => w.days >= 3 && covered(w)).sort((a, b) => a.d.localeCompare(b.d));
@@ -839,31 +899,31 @@ function trendsView() {
     const delta = prev ? Math.round((cur.v - prev) / prev * 100) : null;
     const best = pts.reduce((a, p) => p.v < a.v ? p : a, pts[0]);
     return `<div class="card tcard"><h2>${m.title}</h2>
-      <div style="display:flex;align-items:baseline;gap:12px;margin-top:8px"><span class="tbig">${money(cur.v)}</span><span class="muted" style="font-size:15px">${weekly ? 'latest week' : 'last 7 days'}${delta != null && delta !== 0 ? `, ${delta > 0 ? 'up' : 'down'} ${Math.abs(delta)}% on the week before` : ''}</span></div>
-      <p class="muted" style="margin-top:4px;font-size:15px">Average ${money(avg)}. Lowest ${money(best.v)} ${weekly ? 'in the week of' : 'on'} ${esc(dMed(best.d))}.</p>
+      <div style="display:flex;align-items:baseline;gap:12px;margin-top:8px"><span class="tbig">${money(cur.v)}</span><span class="muted" style="font-size:14px">${weekly ? 'latest week' : 'last 7 days'}${delta != null && delta !== 0 ? `, ${delta > 0 ? 'up' : 'down'} ${Math.abs(delta)}% on the week before` : ''}</span></div>
+      <p class="muted" style="margin-top:4px;font-size:14px">Average ${money(avg)}. Lowest ${money(best.v)} ${weekly ? 'in the week of' : 'on'} ${esc(dMed(best.d))}.</p>
       ${lineChart(pts, ma, `${m.title}, ${weekly ? 'by week' : 'by day'}`, weekly)}
-      <p class="muted" style="font-size:14px;margin-top:4px">${note}</p></div>`;
+      <p class="muted" style="font-size:13px;margin-top:4px">${note}</p></div>`;
   }).join('');
   let weekCard = '';
   if (weeks.length >= 2) {
     const pts = weeks.map(w => ({ d: w.d, v: w.cost / w.days }));
     const cur = pts[pts.length - 1].v, avg = pts.reduce((a, p) => a + p.v, 0) / pts.length;
     weekCard = `<div class="card tcard"><h2>Average daily cost, by week</h2>
-      <div style="display:flex;align-items:baseline;gap:12px;margin-top:8px"><span class="tbig">${money(cur)}</span><span class="muted" style="font-size:15px">latest week</span></div>
-      <p class="muted" style="margin-top:4px;font-size:15px">Average across weeks ${money(avg)} a day.</p>
+      <div style="display:flex;align-items:baseline;gap:12px;margin-top:8px"><span class="tbig">${money(cur)}</span><span class="muted" style="font-size:14px">latest week</span></div>
+      <p class="muted" style="margin-top:4px;font-size:14px">Average across weeks ${money(avg)} a day.</p>
       ${barChart(pts, 'Average daily cost by week')}
-      <p class="muted" style="font-size:14px;margin-top:4px">Weeks with at least 3 logged days. Days with no priced food are left out.</p></div>`;
+      <p class="muted" style="font-size:13px;margin-top:4px">Weeks with at least 3 logged days. Days with no priced food are left out.</p></div>`;
   }
   const byCat = new Map();
   for (const d of dates.filter(x => x >= from)) for (const e of IDX.byDate.get(d)) { const c = costOf(e); if (c.cost != null) byCat.set(catOf(e.name), (byCat.get(catOf(e.name)) || 0) + c.cost); }
   const catRows = [...byCat].sort((a, b) => b[1] - a[1]), catTotal = catRows.reduce((a, r) => a + r[1], 0);
   const catCard = catRows.length ? `<div class="card tcard"><h2>Where the money goes, by category</h2>
     <div style="margin-top:12px">${catRows.slice(0, 12).map(([k, v]) => `<div class="catrow"><div class="catname">${esc(k)}</div><div class="catbar" role="img" aria-label="${esc(k)}: ${esc(money(v))}, ${Math.round(v / catTotal * 100)} percent"><i style="width:${(v / catRows[0][1] * 100).toFixed(1)}%"></i></div><div class="catval">${money(v)} <span class="muted">${Math.round(v / catTotal * 100)}%</span></div></div>`).join('')}</div>
-    ${catRows.length === 1 && catRows[0][0] === 'Uncategorized' ? `<p class="muted" style="font-size:14px;margin-top:8px">Every food is uncategorized. Import your Cronometer export again to bring in its categories, or assign them on the Prices tab.</p>` : ''}${catRows.length > 12 ? `<p class="muted" style="font-size:14px;margin-top:8px">Plus ${catRows.length - 12} smaller categories.</p>` : ''}</div>` : '';
+    ${catRows.length === 1 && catRows[0][0] === 'Uncategorized' ? `<p class="muted" style="font-size:13px;margin-top:8px">Every food is uncategorized. Import your Cronometer export again to bring in its categories, or assign them on the Prices tab.</p>` : ''}${catRows.length > 12 ? `<p class="muted" style="font-size:13px;margin-top:8px">Plus ${catRows.length - 12} smaller categories.</p>` : ''}</div>` : '';
   const allKcal = dates.filter(x => x >= from).reduce((a, d) => a + IDX.byDate.get(d).reduce((b, e) => b + e.kcal, 0), 0);
   const pctAll = allKcal > 0 ? Math.round(total.kcal / allKcal * 100) : 0;
   const cov = pctAll < 95 ? `<div class="notice" style="margin-top:24px">${IC.info}<div><strong>Prices cover ${pctAll}% of the calories you logged in this period.</strong> Days and weeks with fewer than half their calories priced are left out of the charts. Price more foods on the Prices tab to fill them in.</div></div>` : '';
-  return `${head}${cov}<div class="trendgrid" style="margin-top:24px">${cards}${weekCard}${catCard}</div>`;
+  return `${head}${cov}${ph}<div class="trendgrid" style="margin-top:24px">${cards}${weekCard}${catCard}</div>`;
 }
 
 /* ============ view: week ============ */
@@ -918,7 +978,7 @@ function weekView() {
   return `
   <div class="pagehead">
     <h1 class="h1" id="h1" tabindex="-1">${esc(title)}</h1>
-    <label class="muted" style="display:flex;align-items:center;gap:10px;font-size:15px">Range <select class="field" id="range">${[[7, 'Last 7 days'], [14, 'Last 14 days'], [30, 'Last 30 days'], [0, 'Everything imported']].map(([v, l]) => `<option value="${v}"${S.range === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label class="muted" style="display:flex;align-items:center;gap:10px;font-size:14px">Range <select class="field" id="range">${[[7, 'Last 7 days'], [14, 'Last 14 days'], [30, 'Last 30 days'], [0, 'Everything imported']].map(([v, l]) => `<option value="${v}"${S.range === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
   </div>
   ${unp ? `<div class="notice" role="status">${IC.info}<div><strong>${unp} ${unp === 1 ? 'entry has' : 'entries have'} no price.</strong> Totals leave them out. <a href="#prices">Add prices</a></div></div>` : ''}
   <div class="card kpis">
@@ -929,8 +989,8 @@ function weekView() {
   </div>
   <div class="cols" style="margin-top:28px">
     <section class="card main2" style="padding:24px 28px 20px">
-      <h2 style="font-size:24px">Cost by day</h2>
-      <p class="muted" style="margin-top:6px;font-size:15px">${esc(sub)}</p>
+      <h2 style="font-size:20px">Cost by day</h2>
+      <p class="muted" style="margin-top:6px;font-size:14px">${esc(sub)}</p>
       <div class="chart">
         ${budget ? `<div class="hline" style="bottom:${budget / top * H}px;border-color:var(--ink)"></div>` : ''}
         ${nd ? `<div class="hline" style="bottom:${avg / top * H}px;border-color:#7C8A83"></div>` : ''}
@@ -940,22 +1000,22 @@ function weekView() {
       <div class="legend"><span><i style="background:var(--bar)"></i>${budget ? 'Within budget' : 'Daily cost'}</span>${budget ? '<span><i style="background:var(--ink)"></i>Over budget</span>' : ''}${budget ? `<span><i style="width:22px;height:0;background:none;border-top:2px dashed var(--ink);border-radius:0"></i>Budget ${esc(money(budget))}</span>` : ''}<span><i style="width:22px;height:0;background:none;border-top:2px dashed #7C8A83;border-radius:0"></i>Average ${esc(money(avg))}</span></div>
     </section>
     <section class="card third" style="padding:24px 28px">
-      <h2 style="font-size:24px">Average cost per meal</h2>
+      <h2 style="font-size:20px">Average cost per meal</h2>
       <div style="margin-top:14px">${mealRows.map(([g, o]) => `<div class="row" style="padding:11px 0;font-size:17px"><span>${esc(g)}</span><span class="lead"></span><span>${money(o.sum / o.n)}</span></div>`).join('')}
         <div class="row" style="margin-top:8px;padding-top:14px;border-top:1px solid var(--ink);justify-content:space-between"><b>Average day</b><span class="big" style="font-size:28px">${money(avg)}</span></div></div>
     </section>
   </div>
   <div class="cols" style="margin-top:28px">
     <section class="card half" style="padding:24px 28px">
-      <h2 style="font-size:24px">Where the money went</h2>
-      <p class="muted" style="margin-top:6px;font-size:15px">Your biggest foods by spend.</p>
+      <h2 style="font-size:20px">Where the money went</h2>
+      <p class="muted" style="margin-top:6px;font-size:14px">Your biggest foods by spend.</p>
       <div style="margin-top:12px">${topSpend.map(([n, v]) => `<div class="brow"><div class="n"><div>${esc(n)}</div><div class="sub">${total ? Math.round(v / total * 100) : 0}% of spend</div></div><div class="b bar"><div style="width:${v / maxSpend * 100}%"></div></div><div class="a">${money(r2(v))}</div></div>`).join('') || '<p class="muted">Add prices to see this.</p>'}</div>
     </section>
     <section class="card half" style="padding:24px 28px">
-      <h2 style="font-size:24px">Cheapest protein</h2>
-      <p class="muted" style="margin-top:6px;font-size:15px">What 100 g of protein costs from each food, using your standard prices.</p>
+      <h2 style="font-size:20px">Cheapest protein</h2>
+      <p class="muted" style="margin-top:6px;font-size:14px">What 100 g of protein costs from each food, using your standard prices.</p>
       <div style="margin-top:12px">${rank.map((r, i) => `<div class="brow"><div class="n">${esc(r.name)}</div><div class="b bar"><div style="width:${r.v / maxRank * 100}%;background:${i === 0 ? 'var(--brand)' : 'var(--bar)'}"></div></div><div class="a">${money(r.v)}</div></div>`).join('') || '<p class="muted">Add prices to see this.</p>'}</div>
-      <p class="muted" style="margin-top:10px;font-size:14px">Shorter is cheaper. Foods without a price are left out.</p>
+      <p class="muted" style="margin-top:10px;font-size:13px">Shorter is cheaper. Foods without a price are left out.</p>
     </section>
   </div>
   <div style="margin-top:28px;display:flex;flex-wrap:wrap;gap:10px">
@@ -972,7 +1032,7 @@ function render() {
 }
 function route() {
   const h = location.hash.replace('#', '');
-  const t = ['day', 'prices', 'week', 'trends'].includes(h) ? h : 'day';
+  const t = ['day', 'prices', 'week', 'trends', 'meals'].includes(h) ? h : 'day';
   const changed = t !== S.tab;
   S.tab = t;
   S.error = '';
@@ -990,7 +1050,7 @@ function toast(msg) {
 /* ============ persistence ============ */
 let _save;
 function saveSoon() { clearTimeout(_save); _save = setTimeout(saveAll, 250); }
-function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('grain', S.grain); store.set('trange', S.trange); }
+function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('meals', S.meals); store.set('grain', S.grain); store.set('trange', S.trange); }
 function saveEntries() { store.set('entries', S.entries.map(({ src, ...r }) => ({ ...r, name: src !== undefined ? src : r.name }))); }
 
 /* ============ import ============ */
@@ -1066,8 +1126,8 @@ function openOffer(date, name, id) {
   name = rg ? rg.name : (name && foods.includes(name) ? name : foods[0]);
   const mode0 = rg ? (rg.to ? 'range' : 'from') : 'day';
   dlg.innerHTML = `<form id="oform" method="dialog">
-    <h2 id="dlg-title" style="font-size:24px">${rg ? 'Change this price' : 'Price for a day or a period'}</h2>
-    <p class="muted" style="font-size:15px">Your standard price applies to every date. Use this when a price was different on one day, for one shop trip, or from a date onward.</p>
+    <h2 id="dlg-title" style="font-size:20px">${rg ? 'Change this price' : 'Price for a day or a period'}</h2>
+    <p class="muted" style="font-size:14px">Your standard price applies to every date. Use this when a price was different on one day, for one shop trip, or from a date onward.</p>
     <div><label for="of">Food</label><select class="field" id="of">${foods.map(n => `<option${n === name ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
     <div><label for="om">Applies to</label><select class="field" id="om"><option value="day"${mode0 === 'day' ? ' selected' : ''}>One day</option><option value="range"${mode0 === 'range' ? ' selected' : ''}>A date range</option><option value="from"${mode0 === 'from' ? ' selected' : ''}>From a date onward</option></select></div>
     <div style="display:flex;gap:12px"><div style="flex:1"><label for="od" id="odlabel">Day</label><input class="field" style="width:100%" type="date" id="od" value="${esc(d0)}"></div><div style="flex:1" id="otwrap"><label for="ot">Last day</label><input class="field" style="width:100%" type="date" id="ot" value="${esc(rg && rg.to ? rg.to : d0)}"></div></div>
@@ -1120,8 +1180,8 @@ function drawRecipe() {
   const dlg = $('#dlg'); dlg.classList.add('wide');
   const foods = [...IDX.meta.keys()].filter(n => n !== REC.name && !S.recipes[n]).sort((a, b) => a.localeCompare(b));
   dlg.innerHTML = `<form id="rform" method="dialog">
-    <h2 id="dlg-title" style="font-size:24px">Recipe: ${esc(REC.name)}</h2>
-    <p class="muted" style="font-size:15px">Cronometer exports a recipe as a single line, so list its ingredients here. Each logged serving is costed from your ingredient prices.</p>
+    <h2 id="dlg-title" style="font-size:20px">Recipe: ${esc(REC.name)}</h2>
+    <p class="muted" style="font-size:14px">Cronometer exports a recipe as a single line, so list its ingredients here. Each logged serving is costed from your ingredient prices.</p>
     <div style="display:flex;gap:12px;flex-wrap:wrap"><div style="flex:1 1 160px"><label for="rs">Servings it makes</label><input class="field" style="width:100%" id="rs" inputmode="decimal" value="${esc(REC.servings)}"></div><div style="flex:1 1 220px"><label for="ry">Total weight in grams (needed if you log it in grams)</label><input class="field" style="width:100%" id="ry" inputmode="decimal" placeholder="optional" value="${esc(REC.yieldG)}"></div></div>
     <div id="rrows">${REC.items.map((it, i) => `<div class="rrow"><input class="field" data-r="name" list="rlist" aria-label="Ingredient ${i + 1}" placeholder="Ingredient" autocomplete="off" value="${esc(it.name)}"><input class="field" data-r="qty" inputmode="decimal" aria-label="Amount" placeholder="Amount" value="${esc(it.qty)}"><select class="field" data-r="unit" aria-label="Unit">${['g', 'ml', 'item'].map(u => `<option value="${u}"${it.unit === u ? ' selected' : ''}>${u}</option>`).join('')}</select><button type="button" class="btn link" data-act="rec-del" data-i="${i}" aria-label="Remove ingredient ${i + 1}">Remove</button></div>`).join('')}</div>
     <datalist id="rlist">${foods.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
@@ -1162,11 +1222,228 @@ function saveRecipe() {
   S.recipes[REC.name] = r;
   reindex(); ensurePrices(); saveAll(); $('#dlg').close(); render(); toast('Recipe saved');
 }
+/* ============ meal builder ============ */
+const MB = { draft: null, cmp: [], date: '' };
+const newDraft = () => ({ name: '', servings: '1', orig: '', items: [{ name: '', qty: '', unit: 'g' }] });
+const mealDate = () => MB.date || IDX.dates[IDX.dates.length - 1];
+const mealToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+let _nc = { idx: null, m: new Map() };
+// Nutrition per 1 g (or ml) or per 1 item, taken from how the food was logged in your export.
+function perUnit(name, unit, noCross) {
+  const u = unit === 'item' ? 'item' : 'g';
+  if (_nc.idx !== IDX) _nc = { idx: IDX, m: new Map() };
+  const key = `${name}|${u}|${noCross ? 1 : 0}`;
+  if (_nc.m.has(key)) return _nc.m.get(key);
+  let out = null, q = 0, k = 0, p = 0, c = 0, f = 0, b = 0;
+  for (const e of IDX.byName.get(name) || []) {
+    if ((u === 'item') !== (e.type === 'count')) continue;
+    q += e.qty; k += e.kcal; p += e.pro; c += e.carb; f += e.fat; b += e.fiber || 0;
+  }
+  if (q > 0) out = { k: k / q, p: p / q, c: c / q, f: f / q, b: b / q };
+  if (!out && !noCross) {
+    const gpu = Number((S.prices[name] || {}).gpu) || 0, r = S.recipes[name];
+    if (gpu > 0) {
+      const o = perUnit(name, u === 'item' ? 'g' : 'item', true), s = u === 'item' ? gpu : 1 / gpu;
+      if (o) out = { k: o.k * s, p: o.p * s, c: o.c * s, f: o.f * s, b: o.b * s };
+    }
+    if (!out && r && r.items.length) {
+      const t = { k: 0, p: 0, c: 0, f: 0, b: 0 }; let ok = true;
+      for (const it of r.items) {
+        const o = perUnit(canon(it.name), it.unit === 'item' ? 'item' : 'g'), q2 = Number(it.qty) || 0;
+        if (!o) { ok = false; break; }
+        t.k += o.k * q2; t.p += o.p * q2; t.c += o.c * q2; t.f += o.f * q2; t.b += o.b * q2;
+      }
+      const den = u === 'item' ? (Number(r.servings) > 0 ? Number(r.servings) : 1) : Number(r.yieldG);
+      if (ok && den > 0) out = { k: t.k / den, p: t.p / den, c: t.c / den, f: t.f / den, b: t.b / den };
+    }
+  }
+  _nc.m.set(key, out);
+  return out;
+}
+function mealStats(m, date) {
+  const t = { cost: 0, k: 0, p: 0, c: 0, f: 0, b: 0, noPrice: 0, noNut: 0, parts: [], sv: Number(m.servings) > 0 ? Number(m.servings) : 1 };
+  for (const it of m.items) {
+    const name = canon(it.name), q = Number(it.qty) || 0;
+    const c = costOf(ingEntry({ ...it, name }, date)), o = perUnit(name, it.unit === 'item' ? 'item' : 'g');
+    if (c.cost == null) t.noPrice++; else t.cost += c.cost;
+    const n = o ? { k: o.k * q, p: o.p * q, c: o.c * q, f: o.f * q, b: o.b * q } : null;
+    if (!n) t.noNut++; else { t.k += n.k; t.p += n.p; t.c += n.c; t.f += n.f; t.b += n.b; }
+    t.parts.push({ it, name, cost: c.cost, why: c.why, n });
+  }
+  t.cost = r2(t.cost);
+  return t;
+}
+function mealSync() {
+  const f = $('#mform'); if (!f || !MB.draft) return;
+  MB.draft.name = $('#mn').value; MB.draft.servings = $('#ms').value;
+  MB.draft.items = [...f.querySelectorAll('.mrow')].map(r => ({ name: $('[data-m=name]', r).value, qty: $('[data-m=qty]', r).value, unit: $('[data-m=unit]', r).value }));
+}
+function mealFromDraft() {
+  const d = MB.draft;
+  return { servings: num(d.servings) > 0 ? num(d.servings) : 1, items: d.items.map(i => ({ name: canon(i.name.trim()), qty: num(i.qty), unit: i.unit })).filter(i => i.name && i.qty > 0 && IDX.meta.has(i.name)) };
+}
+const WHY = { noprice: 'No price yet.', needgpu: 'Needs grams per item on the Prices tab.', recipe: 'A recipe ingredient has no price.', needyield: 'The recipe needs a total weight.' };
+function rowInfo(it, date) {
+  const name = canon(String(it.name || '').trim()), q = num(it.qty);
+  if (!name && !q) return '';
+  if (!name) return 'Choose a food or recipe.';
+  if (!IDX.meta.has(name)) return 'Not in your log. Choose one from the list.';
+  if (!(q > 0)) return 'Enter an amount.';
+  const c = costOf(ingEntry({ ...it, name, qty: q }, date)), o = perUnit(name, it.unit === 'item' ? 'item' : 'g');
+  const bits = [];
+  if (c.cost != null) bits.push(money(c.cost));
+  else bits.push(`${esc(WHY[c.why] || 'No price yet.')}${c.why === 'noprice' || c.why === 'needgpu' || c.why === 'recipe' ? ` <button type="button" class="btn link" data-act="goto-price" data-name="${esc(name)}">Set price</button>` : ''}`);
+  if (o) bits.push(`${n0(o.k * q)} kcal`, `${nf1.format(o.p * q)} g protein`); else bits.push('nutrition unknown');
+  return bits.join(', ');
+}
+function mealRowHtml(it, i, date) {
+  return `<div class="mitem"><div class="mrow"><input class="field" data-m="name" list="mlist" aria-label="Ingredient ${i + 1}" placeholder="Food or recipe" autocomplete="off" value="${esc(it.name)}"><input class="field" data-m="qty" inputmode="decimal" aria-label="Amount of ingredient ${i + 1}" placeholder="Amount" value="${esc(it.qty)}"><select class="field" data-m="unit" aria-label="Unit of ingredient ${i + 1}">${['g', 'ml', 'item'].map(u => `<option value="${u}"${it.unit === u ? ' selected' : ''}>${u}</option>`).join('')}</select><button type="button" class="btn link" data-act="meal-del-row" data-i="${i}" aria-label="Remove ingredient ${i + 1}">Remove</button></div><div class="sub mi">${rowInfo(it, date)}</div></div>`;
+}
+function mealTotalsHtml(m, date) {
+  if (!m.items.length) return '<p class="muted">Add an ingredient with an amount to see what the meal costs.</p>';
+  const t = mealStats(m, date), sv = t.sv, budget = S.budget > 0 ? S.budget : null;
+  const rows = [['Cost', money(t.cost), money(t.cost / sv)], ['Calories', `${n0(t.k)} kcal`, `${n0(t.k / sv)} kcal`], ['Protein', `${nf1.format(t.p)} g`, `${nf1.format(t.p / sv)} g`], ['Carbs', `${nf1.format(t.c)} g`, `${nf1.format(t.c / sv)} g`], ['Fat', `${nf1.format(t.f)} g`, `${nf1.format(t.f / sv)} g`], ['Fiber', `${nf1.format(t.b)} g`, `${nf1.format(t.b / sv)} g`]];
+  const extra = [];
+  if (t.p > 0 && t.cost > 0) extra.push(`${money(t.cost / (t.p / 100))} per 100 g protein`);
+  if (t.k > 0 && t.cost > 0) extra.push(`${money(t.cost / (t.k / 1000))} per 1,000 kcal`);
+  if (budget && t.cost > 0) extra.push(`${n0(t.cost / sv / budget * 100)}% of your daily budget per serving`);
+  return `${t.noPrice ? '' : `<div class="pricetag sm"><span class="n">${esc(money(t.cost / sv))}</span><span class="l">${sv === 1 ? 'for the meal' : 'per serving'}</span></div>`}
+    ${t.noPrice ? `<p class="sub" style="color:var(--offer-ink)">${t.noPrice} ${t.noPrice === 1 ? 'ingredient has' : 'ingredients have'} no price, so the cost below is not complete.</p>` : ''}
+    ${t.noNut ? `<p class="sub">${t.noNut} ${t.noNut === 1 ? 'ingredient has' : 'ingredients have'} no nutrition data, so the totals are not complete.</p>` : ''}
+    <table class="mtab"><thead><tr><th scope="col"><span class="vh">Nutrient</span></th><th scope="col">Whole meal</th><th scope="col">Per serving</th></tr></thead><tbody>${rows.map(r => `<tr><th scope="row">${r[0]}</th><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</tbody></table>
+    ${extra.length ? `<p class="sub" style="margin-top:10px">${extra.map(esc).join('<br>')}</p>` : ''}
+    <p class="sub" style="margin-top:10px">Prices as of ${esc(dMed(date))}.</p>`;
+}
+function mealListHtml(date) {
+  const names = Object.keys(S.meals).sort((a, b) => a.localeCompare(b));
+  if (!names.length) return '<p class="muted">No saved meals yet. Build one above and choose Save meal.</p>';
+  return names.map(n => {
+    const m = S.meals[n], t = mealStats(m, date), sv = t.sv;
+    return `<div class="card pad mcard" data-name="${esc(n)}">
+      <div class="mhead"><h3>${esc(n)}</h3><div class="mcost">${t.noPrice ? '<span>Needs prices</span>' : `${esc(money(t.cost / sv))} <span>per serving</span>`}</div></div>
+      <div class="sub">${n0(t.k / sv)} kcal, ${nf1.format(t.p / sv)} g protein, ${nf1.format(t.c / sv)} g carbs, ${nf1.format(t.f / sv)} g fat, ${nf1.format(t.b / sv)} g fiber per serving. ${m.items.length} ${m.items.length === 1 ? 'ingredient' : 'ingredients'}, ${nf1.format(sv)} ${sv === 1 ? 'serving' : 'servings'}.</div>
+      ${t.noPrice ? `<div class="sub" style="color:var(--offer-ink)">${t.noPrice} ${t.noPrice === 1 ? 'ingredient needs' : 'ingredients need'} a price.</div>` : ''}
+      <div class="macts"><button type="button" class="btn sm" data-act="meal-edit" data-name="${esc(n)}">Edit</button><button type="button" class="btn sm" data-act="meal-dup" data-name="${esc(n)}">Duplicate</button><button type="button" class="btn sm" data-act="meal-diary" data-name="${esc(n)}">Add to diary</button><button type="button" class="btn sm" data-act="meal-delete" data-name="${esc(n)}">Delete</button><label class="cmp"><input type="checkbox" data-cmp="${esc(n)}"${MB.cmp.includes(n) ? ' checked' : ''}> Compare</label></div>
+    </div>`;
+  }).join('');
+}
+function mealCompareHtml(date) {
+  MB.cmp = MB.cmp.filter(n => S.meals[n]);
+  if (MB.cmp.length < 2) return MB.cmp.length === 1 ? '<p class="sub" style="margin-top:12px">Tick Compare on one more meal to see them side by side.</p>' : '';
+  const [a, b] = MB.cmp, A = mealStats(S.meals[a], date), B = mealStats(S.meals[b], date);
+  const ps = (t, k) => t[k] / t.sv;
+  const rows = [
+    ['Cost per serving', t => t.cost / t.sv, v => money(v), 'low', t => t.noPrice],
+    ['Calories', t => ps(t, 'k'), v => `${n0(v)} kcal`],
+    ['Protein', t => ps(t, 'p'), v => `${nf1.format(v)} g`],
+    ['Carbs', t => ps(t, 'c'), v => `${nf1.format(v)} g`],
+    ['Fat', t => ps(t, 'f'), v => `${nf1.format(v)} g`],
+    ['Fiber', t => ps(t, 'b'), v => `${nf1.format(v)} g`],
+    ['Cost per 100 g protein', t => t.p > 0 ? t.cost / (t.p / 100) : null, v => money(v), 'low', t => t.noPrice],
+    ['Cost per 1,000 kcal', t => t.k > 0 ? t.cost / (t.k / 1000) : null, v => money(v), 'low', t => t.noPrice]
+  ];
+  const cell = (t, o, other, f, flag, bad) => { const v = f(t); if (v == null || (bad && bad(t))) return '<td class="muted">Not available</td>'; const w = flag === 'low' && f(other) != null && !(bad && bad(other)) && v < f(other) - 1e-9; return `<td${w ? ' class="win"' : ''}>${esc(o(v))}${w ? ' <span class="lowtag">lower</span>' : ''}</td>`; };
+  const diff = !A.noPrice && !B.noPrice ? (A.cost / A.sv === B.cost / B.sv ? 'Both meals cost the same per serving.' : `${A.cost / A.sv < B.cost / B.sv ? a : b} costs ${money(Math.abs(A.cost / A.sv - B.cost / B.sv))} less per serving.`) : 'One of these meals has ingredients without a price, so its cost is not complete.';
+  return `<div class="card pad" style="margin-top:16px"><h3 style="font:700 20px var(--display)">Compare</h3><p class="sub" style="margin-top:4px">${esc(diff)}</p>
+    <table class="mtab cmpt"><thead><tr><th scope="col"><span class="vh">Measure</span></th><th scope="col">${esc(a)}</th><th scope="col">${esc(b)}</th></tr></thead><tbody>${rows.map(r => `<tr><th scope="row">${r[0]}</th>${cell(A, r[2], B, r[1], r[3], r[4])}${cell(B, r[2], A, r[1], r[3], r[4])}</tr>`).join('')}</tbody></table></div>`;
+}
+function mealsView() {
+  if (!MB.draft) MB.draft = newDraft();
+  const d = MB.draft, date = mealDate();
+  const foods = [...IDX.meta.keys()].sort((a, b) => a.localeCompare(b));
+  return `
+  <h1 class="h1" id="h1" tabindex="-1">Meal builder</h1>
+  <p class="lede">Pick foods and recipes, set amounts, and see what a meal costs and what is in it. The cost is always worked out from your current prices.</p>
+  <datalist id="mlist">${foods.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
+  <div class="cols" style="margin-top:24px">
+    <form id="mform" class="card pad main2" style="flex:2 1 560px" novalidate>
+      <h2 style="font-size:20px">${d.orig ? `Editing ${esc(d.orig)}` : 'New meal'}</h2>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
+        <div style="flex:2 1 200px"><label for="mn">Meal name</label><input class="field" style="width:100%" id="mn" autocomplete="off" placeholder="For example, Chicken rice bowl" value="${esc(d.name)}"></div>
+        <div style="flex:1 1 110px"><label for="ms">Servings</label><input class="field" style="width:100%" id="ms" inputmode="decimal" value="${esc(d.servings)}"></div>
+        <div style="flex:1 1 150px"><label for="mdate">Prices as of</label><input class="field" style="width:100%" type="date" id="mdate" value="${esc(date)}"></div>
+      </div>
+      <div id="mrows" style="margin-top:16px">${d.items.map((it, i) => mealRowHtml(it, i, date)).join('')}</div>
+      <div><button type="button" class="btn sm" data-act="meal-add">Add ingredient</button></div>
+      <div id="merr" class="sub" style="color:var(--offer-ink);margin-top:10px" role="alert"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button type="submit" class="btn primary" style="flex:1 1 160px">Save meal</button><button type="button" class="btn" data-act="meal-new">${d.orig ? 'New meal' : 'Clear'}</button></div>
+    </form>
+    <div class="side"><div class="card pad" id="mtot" aria-live="polite">${mealTotalsHtml(mealFromDraft(), date)}</div></div>
+  </div>
+  <h2 style="font-size:22px;margin-top:40px">Saved meals</h2>
+  <div id="mcmp">${mealCompareHtml(date)}</div>
+  <div id="mlist2" class="mlist">${mealListHtml(date)}</div>`;
+}
+function mealRefresh(all) {
+  if (!MB.draft || !$('#mform')) return;
+  const date = mealDate(), m = mealFromDraft();
+  $('#mtot').innerHTML = mealTotalsHtml(m, date);
+  const infos = document.querySelectorAll('#mform .mi');
+  MB.draft.items.forEach((it, i) => { if (infos[i]) infos[i].innerHTML = rowInfo(it, date); });
+  if (all) { $('#mcmp').innerHTML = mealCompareHtml(date); $('#mlist2').innerHTML = mealListHtml(date); }
+}
+function saveMeal() {
+  mealSync();
+  const d = MB.draft, name = d.name.trim().replace(/\s+/g, ' '), err = m => { $('#merr').textContent = m; };
+  if (!name) return err('Give the meal a name.');
+  const named = d.items.filter(i => i.name.trim() || String(i.qty).trim());
+  const bad = named.find(i => !IDX.meta.has(canon(i.name.trim())));
+  if (bad) return err(`${bad.name.trim() ? `"${bad.name.trim()}" is not a food in your log` : 'An ingredient has no food'}. Choose one from the list.`);
+  const noQty = named.find(i => !(num(i.qty) > 0));
+  if (noQty) return err(`Enter an amount for ${noQty.name.trim()}.`);
+  const m = mealFromDraft();
+  if (!m.items.length) return err('Add at least one ingredient with an amount.');
+  if (S.meals[name] && name !== d.orig) return err('A meal with this name already exists. Choose another name, or edit that meal.');
+  if (d.orig && d.orig !== name) { delete S.meals[d.orig]; MB.cmp = MB.cmp.map(n => n === d.orig ? name : n); }
+  S.meals[name] = m; d.orig = name; d.name = name;
+  saveAll(); render(); toast('Meal saved');
+}
+function loadMeal(name, copy) {
+  const m = S.meals[name]; if (!m) return;
+  let nm = name;
+  if (copy) { nm = `${name} copy`; for (let i = 2; S.meals[nm]; i++) nm = `${name} copy ${i}`; }
+  MB.draft = { name: nm, servings: String(m.servings), orig: copy ? '' : name, items: m.items.map(i => ({ name: i.name, qty: String(i.qty), unit: i.unit })) };
+  render(); window.scrollTo(0, 0); const f = $('#mn'); if (f) f.focus({ preventScroll: true });
+}
+function openDiary(name) {
+  const m = S.meals[name]; if (!m) return;
+  const dlg = $('#dlg'); dlg.classList.remove('wide');
+  dlg.innerHTML = `<form id="dform" method="dialog">
+    <h2 id="dlg-title" style="font-size:20px">Add to diary</h2>
+    <p class="muted" style="font-size:14px">Adds each ingredient of ${esc(name)} to the day you choose, so it counts in Day, Week and Trends. A later Cronometer export that covers that day replaces these lines.</p>
+    <div><label for="dd">Day</label><input class="field" style="width:100%" type="date" id="dd" value="${esc(mealToday())}"></div>
+    <div><label for="dg">Meal</label><select class="field" style="width:100%" id="dg">${['Breakfast', 'Lunch', 'Dinner', 'Snacks'].map(g => `<option>${g}</option>`).join('')}</select></div>
+    <div><label for="dsv">Servings eaten</label><input class="field" style="width:100%" id="dsv" inputmode="decimal" value="1"></div>
+    <div id="derr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">Add to diary</button><button type="button" class="btn" data-act="close-dlg">Cancel</button></div>
+  </form>`;
+  $('#dform').addEventListener('submit', ev => {
+    ev.preventDefault();
+    const date = $('#dd').value, eaten = num($('#dsv').value);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { $('#derr').textContent = 'Choose a day.'; return; }
+    if (!(eaten > 0)) { $('#derr').textContent = 'Enter how many servings you ate.'; return; }
+    addToDiary(name, date, $('#dg').value, eaten);
+  });
+  if (!dlg.open) dlg.showModal();
+  $('#dd').focus();
+}
+function addToDiary(name, date, group, eaten) {
+  const m = S.meals[name], k = eaten / (Number(m.servings) > 0 ? Number(m.servings) : 1), list = [];
+  for (const it of m.items) {
+    const n = canon(it.name), q = r2(it.qty * k), o = perUnit(n, it.unit === 'item' ? 'item' : 'g');
+    if (!(q > 0)) continue;
+    list.push({ date, group, name: n, src: n, qty: q, unit: it.unit, type: it.unit === 'item' ? 'count' : it.unit === 'ml' ? 'volume' : 'mass', kcal: o ? r2(o.k * q) : 0, pro: o ? r2(o.p * q) : 0, carb: o ? r2(o.c * q) : 0, fat: o ? r2(o.f * q) : 0, fiber: o ? r2(o.b * q) : 0 });
+  }
+  S.entries = S.entries.concat(list).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  reindex(); ensurePrices(); saveEntries(); saveAll();
+  S.day = date; $('#dlg').close(); go('day'); toast(`Added to ${dMed(date)}`);
+}
+
 function openBudget() {
   const dlg = $('#dlg'); dlg.classList.remove('wide');
   dlg.innerHTML = `<form id="bform" method="dialog">
-    <h2 id="dlg-title" style="font-size:24px">Daily budget</h2>
-    <p class="muted" style="font-size:15px">Set what you want to spend on food each day. It shows on the Day and Week screens. Leave it empty to remove it.</p>
+    <h2 id="dlg-title" style="font-size:20px">Daily budget</h2>
+    <p class="muted" style="font-size:14px">Set what you want to spend on food each day. It shows on the Day and Week screens. Leave it empty to remove it.</p>
     <div><label for="bv">Budget per day</label><div class="money-in wide"><span>${esc(currencySymbol())}</span><input id="bv" type="text" inputmode="decimal" placeholder="0.00" value="${S.budget ? esc(S.budget) : ''}" autocomplete="off"></div></div>
     <div id="berr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
     <div style="display:flex;gap:10px"><button type="submit" class="btn primary" style="flex:1">Save budget</button><button type="button" class="btn" data-act="close-dlg">Cancel</button></div>
@@ -1184,6 +1461,7 @@ function openBudget() {
 
 /* ============ exports ============ */
 function download(name, blob) {
+  if (window.MealNative && MealNative.isNative) { MealNative.save(name, blob).catch(e => { if (!/cancel|dismiss/i.test(String(e && e.message))) toast('Could not save the file.'); }); return; }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
@@ -1200,7 +1478,7 @@ function exportCsv() {
   toast('CSV downloaded');
 }
 function backup() {
-  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges, ranges: S.ranges, recipes: S.recipes, cats: S.cats };
+  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges, ranges: S.ranges, recipes: S.recipes, meals: S.meals, cats: S.cats };
   download('meal-cost-prices.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   toast('Backup downloaded');
 }
@@ -1227,6 +1505,11 @@ async function restore(file) {
     for (const [n, r] of Object.entries(d.recipes && typeof d.recipes === 'object' ? d.recipes : {})) {
       if (!r || !Array.isArray(r.items)) continue;
       S.recipes[n] = { servings: Number(r.servings) > 0 ? Number(r.servings) : 1, yieldG: Number(r.yieldG) > 0 ? Number(r.yieldG) : '', items: r.items.filter(i => i && typeof i.name === 'string' && ['g', 'ml', 'item'].includes(i.unit) && Number(i.qty) > 0).map(i => ({ name: i.name, qty: Number(i.qty), unit: i.unit })) };
+    }
+    for (const [n, m] of Object.entries(d.meals && typeof d.meals === 'object' ? d.meals : {})) {
+      if (!m || !Array.isArray(m.items)) continue;
+      const items = m.items.filter(i => i && typeof i.name === 'string' && ['g', 'ml', 'item'].includes(i.unit) && Number(i.qty) > 0).map(i => ({ name: i.name, qty: Number(i.qty), unit: i.unit }));
+      if (items.length) S.meals[n] = { servings: Number(m.servings) > 0 ? Number(m.servings) : 1, items };
     }
     for (const [a, b] of Object.entries(d.cats && typeof d.cats === 'object' ? d.cats : {})) if (typeof b === 'string' && b.trim()) S.cats[a] = b.trim();
     for (const [a, b] of Object.entries(d.merges || {})) if (typeof b === 'string' && a !== b && b) S.merges[a] = b;
@@ -1325,6 +1608,21 @@ document.addEventListener('click', e => {
       saveAll(); $('#dlg').close(); render(); toast('Price removed'); break;
     }
     case 'close-dlg': $('#dlg').close(); break;
+    case 'ph-add': { const q = $('#phq'); if (q && q.value.trim()) phAdd(q.value); break; }
+    case 'ph-del': S.ph = S.ph.filter(n => n !== d.name); store.set('phist', S.ph); render(); break;
+    case 'meal-add': mealSync(); MB.draft.items.push({ name: '', qty: '', unit: 'g' }); render(); { const r = document.querySelectorAll('#mform .mrow'); const f = r.length && $('[data-m=name]', r[r.length - 1]); if (f) f.focus(); } break;
+    case 'meal-del-row': mealSync(); MB.draft.items.splice(Number(d.i), 1); if (!MB.draft.items.length) MB.draft.items.push({ name: '', qty: '', unit: 'g' }); render(); break;
+    case 'meal-new': MB.draft = newDraft(); render(); { const f = $('#mn'); if (f) f.focus(); } break;
+    case 'meal-edit': loadMeal(d.name, false); break;
+    case 'meal-dup': loadMeal(d.name, true); toast('Copy opened. Rename it and save.'); break;
+    case 'meal-diary': openDiary(d.name); break;
+    case 'meal-delete':
+      if (confirm(`Delete the meal "${d.name}"?`)) {
+        delete S.meals[d.name]; MB.cmp = MB.cmp.filter(n => n !== d.name);
+        if (MB.draft && MB.draft.orig === d.name) MB.draft.orig = '';
+        saveAll(); render(); toast('Meal deleted');
+      }
+      break;
     case 'budget': openBudget(); break;
     case 'goto-price': S.filter = d.name; S.chip = 'all'; go('prices'); break;
     case 'unpriced-link': S.chip = 'unpriced'; S.filter = ''; break;
@@ -1348,7 +1646,7 @@ document.addEventListener('click', e => {
     case 'restore': $('#pfile').click(); break;
     case 'reset':
       if (confirm('Delete all imported entries, prices and offers from this browser? This cannot be undone.')) {
-        store.clear(); S.entries = []; S.prices = {}; S.overrides = {}; S.merges = {}; S.nomerge = []; S.ranges = []; S.recipes = {}; S.cats = {}; indexRanges(); S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
+        store.clear(); S.entries = []; S.prices = {}; S.overrides = {}; S.merges = {}; S.nomerge = []; S.ranges = []; S.recipes = {}; S.meals = {}; MB.draft = null; MB.cmp = []; S.cats = {}; indexRanges(); S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
         history.replaceState(null, '', location.pathname); S.tab = 'day'; render(); toast('All data deleted');
       }
       break;
@@ -1378,6 +1676,7 @@ function refreshRow(tr) {
 document.addEventListener('input', e => {
   const t = e.target;
   if (t.closest && t.closest('#rform')) { previewRecipe(); return; }
+  if (t.closest && t.closest('#mform')) { mealSync(); if (t.id === 'mdate') { MB.date = t.value; mealRefresh(true); } else mealRefresh(false); return; }
   if (t.id === 'q') { S.filter = t.value; S.showAll = false; refreshPriceBody(); return; }
   const f = t.dataset && t.dataset.f; if (!f) return;
   const tr = t.closest('tr'); if (!tr) return;
@@ -1392,6 +1691,12 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   const t = e.target;
+  if (t.id === 'phq') { phAdd(t.value); return; }
+  if (t.dataset && t.dataset.cmp !== undefined) {
+    MB.cmp = MB.cmp.filter(n => n !== t.dataset.cmp);
+    if (t.checked) { MB.cmp.push(t.dataset.cmp); if (MB.cmp.length > 2) MB.cmp.shift(); }
+    mealRefresh(true); return;
+  }
   if (t.dataset && t.dataset.cat !== undefined) {
     const n = t.closest('[data-name]').dataset.name, v = t.value.trim();
     if (v) S.cats[n] = v; else delete S.cats[n];
@@ -1411,6 +1716,7 @@ document.addEventListener('change', e => {
 window.addEventListener('dragover', e => { e.preventDefault(); const d = $('#drop'); if (d) d.classList.add('over'); });
 window.addEventListener('dragleave', () => { const d = $('#drop'); if (d) d.classList.remove('over'); });
 window.addEventListener('drop', e => { e.preventDefault(); const d = $('#drop'); if (d) d.classList.remove('over'); const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) handleFile(f); });
+document.addEventListener('submit', e => { if (e.target.id === 'mform') { e.preventDefault(); saveMeal(); } });
 window.addEventListener('hashchange', route);
 window.addEventListener('pagehide', () => { if (!window.__mcNoSave) saveAll(); });
 

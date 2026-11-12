@@ -1,0 +1,17 @@
+{
+  "appId": "com.coachleonidas.mealcost",
+  "appName": "Meal cost",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0
+    },
+    "SystemBars": {
+      "style": "LIGHT",
+      "insetsHandling": "css"
+    }
+  }
+}
