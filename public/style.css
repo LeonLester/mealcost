@@ -257,3 +257,5 @@ dialog.wide{max-width:680px}
 .unctoggle .muted{flex:none}
 
 .syncpill{font-size:14px;white-space:nowrap}
+
+footer.site .legal{display:block;margin-top:6px}footer.site .legal a{margin-right:14px}

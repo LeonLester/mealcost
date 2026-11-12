@@ -379,7 +379,7 @@ function importView() {
   ${siteFooter()}`;
 }
 function siteFooter() {
-  return `<footer class="site wrap">A free tool from Coach Leonidas for people who track their food and their budget. <a href="https://coachleonidas.com">coachleonidas.com</a></footer>`;
+  return `<footer class="site wrap">A free tool from Coach Leonidas for people who track their food and their budget. <a href="https://coachleonidas.com">coachleonidas.com</a> <span class="legal"><a href="/privacy">Privacy policy</a> <a href="/terms">Terms of service</a></span></footer>`;
 }
 
 /* ============ view: shell ============ */
