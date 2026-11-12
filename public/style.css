@@ -201,3 +201,34 @@ dialog select{width:100%}
 }
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
 @media print{.topbar,.tools,.strip,footer.site,button{display:none!important}body{background:#fff}}
+
+/* sorting, recipes, trends */
+.thbtn{background:none;border:0;padding:0;font:inherit;font-weight:inherit;color:inherit;cursor:pointer;text-align:inherit}
+.thbtn:hover{text-decoration:underline}
+.sub.acts{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 14px;margin-top:2px}
+dialog.wide{max-width:680px}
+.rrow{display:grid;grid-template-columns:minmax(0,1fr) 92px 84px auto;gap:8px;align-items:center;margin-bottom:8px}
+.rrow .field{width:100%}
+.subitems{margin:0 0 8px 16px;padding:4px 0 4px 16px;border-left:3px solid var(--line2)}
+.subitem{display:flex;align-items:baseline;min-height:36px;font-size:15px}
+.subitem .amt{margin-left:8px;color:var(--muted);font-size:14px}
+.trendgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:24px}
+.tcard{padding:24px 24px 18px}
+.tcard h2{font-size:22px}
+.tbig{font:800 40px/1 var(--display);letter-spacing:-.02em}
+.catrow{display:grid;grid-template-columns:minmax(120px,200px) 1fr minmax(96px,auto);gap:12px;align-items:center;padding:7px 0}
+.catname{font-size:15px;overflow-wrap:anywhere}
+.catbar{height:14px;background:var(--line2);border-radius:3px;overflow:hidden}
+.catbar i{display:block;height:100%;background:var(--brand)}
+.catval{text-align:right;font-size:15px;font-weight:600;white-space:nowrap}
+@media (max-width:640px){
+  .rrow{grid-template-columns:1fr 1fr 1fr}
+  .rrow [data-r=name]{grid-column:1/-1}
+  .rrow .btn{grid-column:1/-1;justify-self:start}
+  .catrow{grid-template-columns:1fr auto}
+  .catrow .catbar{grid-column:1/-1;order:3}
+  .tbig{font-size:34px}
+}
+
+.catin{border:0;border-bottom:1px dashed var(--field);background:transparent;font:inherit;font-size:14px;color:var(--muted);padding:2px 0;width:100%;max-width:260px}
+.catin:focus{color:var(--ink);outline-offset:2px}

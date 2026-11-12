@@ -11,7 +11,13 @@ Live at https://mealcost.coachleonidas.com
 - Offers: override a price for one day without changing the price book.
 - Day and week views, daily budget, cost per 100 g protein and per 1,000 kcal, cheaper protein swaps.
 - Prices tab: sort by times logged or total amount logged, merge duplicate foods (with suggestions), search across merged names.
-- Backup and restore as JSON (prices, offers, merges), CSV export, copy as text, 1080x1350 share image.
+- Price periods: a standard price on all dates, plus optional changes for a single day, a date range or from a date on (for example each shopping trip).
+- Recipes: build a recipe from ingredients, see its cost, expand it on the Day view to see each ingredient's price. Cronometer exports a recipe as one row, so ingredients are entered in the app.
+- Serving sizes without grams are estimated from calories when the same food was logged in grams.
+- Categories come from the Cronometer Category column. Assign them to uncategorized foods on the Prices tab.
+- Sort foods by protein, carbs, fat or fiber per 100 g or per 100 kcal.
+- Trends tab: cost per 100 g protein, carbs, fat, per 10 g fiber and per 1,000 kcal by day or week, plus spend by category.
+- Backup and restore as JSON (prices, offers, merges, periods, recipes, categories), CSV export, copy as text, 1080x1350 share image.
 
 ## Run locally
 

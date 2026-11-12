@@ -222,6 +222,100 @@ try:
         check('prices restored on the landing page apply after import (200 g at 2 per kg)', c == 0.4, c)
         pr.close()
 
+
+        # serving size estimate, price periods, recipes, sorting, categories, trends
+        def fresh():
+            pg = b.new_context(viewport={'width': 1360, 'height': 900}, locale='en-US').new_page()
+            pg.on('pageerror', lambda e: errors.append(str(e)))
+            pg.goto(BASE); return pg
+        def load(pg, csv_text, name='x.csv', backup=None):
+            if backup:
+                open(os.path.join(tempfile.gettempdir(), 'b.json'), 'w').write(backup)
+                pg.set_input_files('#pfile', os.path.join(tempfile.gettempdir(), 'b.json'))
+            open(os.path.join(tempfile.gettempdir(), name), 'w').write(csv_text)
+            pg.set_input_files('#file', os.path.join(tempfile.gettempdir(), name)); pg.wait_for_selector('main h1')
+        H = 'Day,Group,Food Name,Amount,Energy (kcal),Protein (g),Carbs (g),Fat (g),Category,Fiber (g)\n'
+        def bk(prices, **kw):
+            import json
+            return json.dumps({'app': 'mealcost', 'version': 1, 'currency': 'EUR', 'budget': None, 'prices': prices, 'overrides': {}, **kw})
+
+        pe = fresh()
+        load(pe, H + '2026-11-01,Meal 1,Quark,200.00 g,200,24,8,4,Dairy,1\n2026-11-02,Meal 1,Quark,2.00 Serving,100,12,4,2,Dairy,1\n',
+             backup=bk({'Quark': {'price': 10, 'basis': 'kg', 'gpu': ''}}))
+        c = pe.evaluate("(() => { const m = window.__mealcost; return m.S.entries.map(e => m.costOf(e)).map(x => [x.cost, !!x.est]); })()")
+        check('gram-logged food costs 200 g at 10 per kg', c[0][0] == 2.0, c)
+        check('serving size estimated from calories (100 kcal is 100 g)', c[1][0] == 1.0 and c[1][1], c)
+        pe.close()
+
+        pg2 = fresh()
+        rows = '\n'.join(f'2026-11-{d:02d},Meal 1,Rice,100.00 g,350,7,77,1,Grains,3' for d in range(1, 11))
+        load(pg2, H + rows, backup=bk({'Rice': {'price': 2, 'basis': 'kg', 'gpu': ''}}))
+        pg2.goto(BASE + '#prices'); pg2.wait_for_selector('[data-act="offer"].btn.primary')
+        pg2.click('aside [data-act="offer"].btn.primary')
+        pg2.select_option('#om', 'range'); pg2.fill('#od', '2026-11-03'); pg2.fill('#ot', '2026-11-05'); pg2.fill('#op', '1')
+        pg2.click('#oform button[type=submit]')
+        prices = pg2.evaluate("(() => { const m = window.__mealcost; return ['2026-11-02', '2026-11-03', '2026-11-05', '2026-11-06'].map(d => m.costOf(m.S.entries.find(e => e.date === d)).cost); })()")
+        check('price period applies only inside its dates', prices == [0.2, 0.1, 0.1, 0.2], prices)
+        pg2.click('aside [data-act="offer"].btn.primary')
+        pg2.select_option('#om', 'from'); pg2.fill('#od', '2026-11-08'); pg2.fill('#op', '3')
+        pg2.click('#oform button[type=submit]')
+        prices = pg2.evaluate("(() => { const m = window.__mealcost; return ['2026-11-07', '2026-11-08', '2026-11-10'].map(d => m.costOf(m.S.entries.find(e => e.date === d)).cost); })()")
+        check('open-ended price applies from its first day on', prices == [0.2, 0.3, 0.3], prices)
+        pg2.reload(); pg2.wait_for_selector('main h1')
+        check('price periods survive a reload', pg2.evaluate("window.__mealcost.S.ranges.length") == 2)
+        pg2.close()
+
+        pr2 = fresh(); pr2.click('text=Try it with sample data'); pr2.wait_for_selector('.pricetag .n')
+        pr2.goto(BASE + '#prices'); pr2.wait_for_selector('#pbody')
+        pr2.click('[data-act="toggle-all"]')
+        pr2.locator('#pbody tr[data-name="Banana"] [data-act="edit-recipe"]').click()
+        pr2.fill('#rrows .rrow:nth-child(1) [data-r=name]', 'Oats, rolled'); pr2.fill('#rrows .rrow:nth-child(1) [data-r=qty]', '100')
+        pr2.click('[data-act="rec-add"]')
+        pr2.fill('#rrows .rrow:nth-child(2) [data-r=name]', 'Milk, whole'); pr2.fill('#rrows .rrow:nth-child(2) [data-r=qty]', '200'); pr2.select_option('#rrows .rrow:nth-child(2) [data-r=unit]', 'ml')
+        check('recipe preview shows the total', '0.46' in pr2.locator('#rprev').inner_text(), pr2.locator('#rprev').inner_text())
+        pr2.click('#rform button[type=submit]')
+        rc = pr2.evaluate("(() => { const m = window.__mealcost; const e = m.S.entries.find(x => x.name === 'Banana'); return m.costOf(e).cost; })()")
+        check('a logged recipe costs the sum of its ingredients', rc == 0.46, rc)
+        pr2.goto(BASE + '#day'); pr2.wait_for_selector('.pricetag .n')
+        pr2.locator('[data-act="toggle-recipe"]').first.click()
+        check('ingredients expand under the recipe line', pr2.locator('.subitem').count() == 2)
+        pr2.goto(BASE + '#trends'); pr2.wait_for_selector('#tgrain')
+        pr2.select_option('#tgrain', 'day'); pr2.wait_for_selector('.trendgrid svg')
+        check('trends tab draws charts for each nutrient', pr2.locator('.trendgrid svg path').count() >= 4, pr2.locator('.trendgrid').inner_text()[:200])
+        pr2.goto(BASE + '#prices'); pr2.wait_for_selector('#pbody')
+        pr2.select_option('#sortsel', 'spent')
+        sp = [pr2.evaluate("n => window.__mealcost.IDX().meta && 0", None)]
+        vals = pr2.evaluate("[...document.querySelectorAll('#pbody tr .sp')].map(c => parseFloat(c.innerText.replace(/[^0-9.]/g, '')) || 0)")
+        check('sort by total spent is descending', vals == sorted(vals, reverse=True), vals[:8])
+        pr2.select_option('#sortsel', 'pro100')
+        names = pr2.evaluate("[...document.querySelectorAll('#pbody tr')].map(r => r.dataset.name)")
+        pv = [pr2.evaluate("n => { const x = window.__mealcost.macros(n, 'g'); return x ? x.p : -1; }", n) for n in names]
+        check('sort by protein per 100 g is descending', pv == sorted(pv, reverse=True), pv[:6])
+        pr2.select_option('#sortsel', 'pro100k')
+        names = pr2.evaluate("[...document.querySelectorAll('#pbody tr')].map(r => r.dataset.name)")
+        pv = [pr2.evaluate("n => { const x = window.__mealcost.macros(n, 'kcal'); return x ? x.p : -1; }", n) for n in names]
+        check('sort by protein per 100 kcal is descending', pv == sorted(pv, reverse=True), pv[:6])
+        pr2.close()
+
+        pc = fresh()
+        load(pc, H + '2026-11-01,Meal 1,Quark,200.00 g,200,24,8,4,Dairy,1\n2026-11-01,Meal 1,Mystery,50.00 g,100,1,1,1,,0\n')
+        check('fiber is read from the export', pc.evaluate("window.__mealcost.S.entries[0].fiber") == 1)
+        check('category is read from the export', pc.evaluate("window.__mealcost.catOf('Quark')") == 'Dairy')
+        check('foods without a category are listed', pc.evaluate("(window.__mealcost.catOf('Mystery'))") == 'Uncategorized')
+        pc.goto(BASE + '#prices'); pc.wait_for_selector('#pbody')
+        pc.locator('.card tr[data-name="Mystery"] input[data-cat]').fill('Snacks'); pc.locator('.card tr[data-name="Mystery"] input[data-cat]').press('Tab')
+        check('assigning a category sticks', pc.evaluate("window.__mealcost.catOf('Mystery')") == 'Snacks')
+        pc.reload(); pc.wait_for_selector('main h1')
+        check('assigned category survives a reload', pc.evaluate("window.__mealcost.catOf('Mystery')") == 'Snacks')
+        pc.close()
+
+        # old stored entries are re-read on load
+        po = fresh()
+        po.evaluate("""() => { localStorage.setItem('mcc.entries', JSON.stringify([{date:'2026-11-01',group:'Meal 1',name:'Cheese',qty:2,unit:'x 100.0 g',type:'count',kcal:10,pro:1,carb:1,fat:1}])); localStorage.removeItem('mcc.parser'); }""")
+        po.reload(); po.wait_for_selector('main h1')
+        check('amounts saved by an older version are re-read', po.evaluate("(() => { const e = window.__mealcost.S.entries[0]; return [e.qty, e.type]; })()") == [200, 'mass'])
+        po.close()
+
         # desktop screenshots
         for tab in ['day', 'prices', 'week']:
             page.goto(BASE + '#' + tab); page.wait_for_selector('main h1')

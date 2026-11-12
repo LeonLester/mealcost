@@ -23,8 +23,9 @@ const S = {
   budget: store.get('budget', null),
   merges: store.get('merges', {}),
   nomerge: store.get('nomerge', []),
-  sort: store.get('sort', 'freq'),
-  tab: 'day', day: null, range: 7, filter: '', chip: 'all', showAll: false, error: ''
+  sort: store.get('sort', 'freq'), flip: store.get('flip', false),
+  cats: store.get('cats', {}), ranges: store.get('ranges', []), recipes: store.get('recipes', {}), open: new Set(), grain: store.get('grain', 'week'), trange: store.get('trange', 90),
+  tab: 'day', day: null, cat: '', range: 7, filter: '', chip: 'all', showAll: false, error: ''
 };
 if (!CURRENCIES.includes(S.currency)) S.currency = 'EUR';
 
@@ -53,6 +54,7 @@ const dObj = d => new Date(d + 'T12:00:00');
 const dFmt = (d, o) => new Intl.DateTimeFormat(undefined, o).format(dObj(d));
 const dLong = d => dFmt(d, { weekday: 'long', day: 'numeric', month: 'long' });
 const dShort = d => dFmt(d, { weekday: 'short' }) + ' ' + dFmt(d, { day: 'numeric' });
+const dDM = d => dFmt(d, { day: 'numeric', month: 'short' });
 const dMed = d => dFmt(d, { weekday: 'short', day: 'numeric', month: 'short' });
 const pad = n => String(n).padStart(2, '0');
 const isoOf = x => x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate());
@@ -100,7 +102,7 @@ function mapCols(h) {
   return {
     date: find('day', 'date'), group: find('group', 'meal'), name: find('food name', 'name'),
     amount: find('amount'), kcal: find('energy', 'calories'), protein: find('protein'),
-    carbs: find('carbs', 'carbohydrates'), fat: find('fat (g)', 'fat')
+    carbs: find('carbs', 'carbohydrates'), fat: find('fat (g)', 'fat'), fiber: find('fiber', 'fibre'), cat: find('category')
   };
 }
 
@@ -166,7 +168,8 @@ function parseCronometer(text) {
     out.push({
       date, group: (c.group >= 0 && (r[c.group] || '').trim()) || 'Meal', name,
       qty: a.qty, unit: a.unit, type: a.type,
-      kcal: num(r[c.kcal]), pro: num(r[c.protein]), carb: num(r[c.carbs]), fat: num(r[c.fat])
+      kcal: num(r[c.kcal]), pro: num(r[c.protein]), carb: num(r[c.carbs]), fat: num(r[c.fat]), fiber: c.fiber >= 0 ? num(r[c.fiber]) : 0,
+      cat: c.cat >= 0 ? (r[c.cat] || '').trim() : ''
     });
   }
   if (!out.length) throw new Error('No food entries found in this file.');
@@ -186,39 +189,68 @@ function reindex() {
     byDate.get(e.date).push(e);
   }
   for (const [name, es] of byName) {
-    let count = 0, mass = 0, vol = 0, g = 0, ml = 0, cnt = 0; const labels = {}, srcs = new Set();
+    let count = 0, mass = 0, vol = 0, g = 0, ml = 0, cnt = 0, mk = 0, mq = 0, mp = 0, mc = 0, mf = 0, mb = 0, tk = 0, tp = 0, tc = 0, tf = 0, tb = 0; const labels = {}, srcs = new Set(), cc = {};
     for (const e of es) {
-      srcs.add(e.src);
+      srcs.add(e.src); if (e.cat) cc[e.cat] = (cc[e.cat] || 0) + 1;
+      tk += e.kcal; tp += e.pro; tc += e.carb; tf += e.fat; tb += e.fiber || 0;
       if (e.type === 'count') { count++; cnt += e.qty; const k = e.unit.toLowerCase(); labels[k] = (labels[k] || 0) + 1; }
-      else if (e.type === 'volume') { vol++; ml += e.qty; } else { mass++; g += e.qty; }
+      else if (e.type === 'volume') { vol++; ml += e.qty; mk += e.kcal; mq += e.qty; mp += e.pro; mc += e.carb; mf += e.fat; mb += e.fiber || 0; } else { mass++; g += e.qty; mk += e.kcal; mq += e.qty; mp += e.pro; mc += e.carb; mf += e.fat; mb += e.fiber || 0; }
     }
     const top = Object.entries(labels).sort((a, b) => b[1] - a[1])[0];
-    meta.set(name, { n: es.length, count, mass, vol, g, ml, cnt, unit: top ? top[0] : 'item', countFirst: count > mass + vol, members: [...srcs].filter(x => x !== name).sort() });
+    meta.set(name, { n: es.length, cat: (Object.entries(cc).sort((a, b) => b[1] - a[1])[0] || [''])[0], count, mass, vol, g, ml, cnt, kpg: mq >= 50 && mk > 0 ? mk / mq : 0, mq, mp, mc, mf, mb, tk, tp, tc, tf, tb, unit: top ? top[0] : 'item', countFirst: count > mass + vol, members: [...srcs].filter(x => x !== name).sort() });
+  }
+  for (const r of Object.values(S.recipes)) for (const it of r.items) {
+    const n = canon(it.name);
+    if (!meta.has(n)) meta.set(n, { n: 0, count: 0, mass: 0, vol: 0, g: 0, ml: 0, cnt: 0, kpg: 0, unit: 'item', countFirst: false, members: [], extra: true });
   }
   IDX = { byName, byDate, meta, dates: [...byDate.keys()].sort() };
 }
 
 function ensurePrices() {
   for (const [name, m] of IDX.meta) {
-    if (!S.prices[name]) S.prices[name] = { price: '', basis: m.countFirst ? 'unit' : '100', gpu: '' };
+    if (!S.prices[name]) S.prices[name] = { price: '', basis: m.countFirst && !/^(serving|portion|dose)s?$/.test(m.unit) ? 'unit' : m.countFirst ? 'kg' : '100', gpu: '' };
   }
 }
 
 /* ============ costing ============ */
+let RIDX = new Map();
+function indexRanges() {
+  RIDX = new Map();
+  for (const r of S.ranges) { if (!RIDX.has(r.name)) RIDX.set(r.name, []); RIDX.get(r.name).push(r); }
+  for (const l of RIDX.values()) l.sort((a, b) => b.from.localeCompare(a.from));
+}
+function rangeFor(name, date) {
+  const l = RIDX.get(name); if (!l) return null;
+  for (const r of l) if (r.from <= date && (!r.to || date <= r.to)) return r;
+  return null;
+}
 function priceInfo(name, date, useOverride = true) {
   const p = S.prices[name];
   if (!p) return null;
-  const ov = useOverride && S.overrides[date] ? S.overrides[date][name] : undefined;
+  let ov;
+  if (useOverride) {
+    ov = S.overrides[date] ? S.overrides[date][name] : undefined;
+    if (ov == null) { const r = rangeFor(name, date); if (r) ov = r.price; }
+  }
   const price = ov != null ? ov : p.price;
   if (price === '' || price == null || !Number.isFinite(Number(price))) return null;
   return { price: Number(price), basis: p.basis, gpu: Number(p.gpu) || 0, offer: ov != null, base: p.price === '' || p.price == null ? null : Number(p.price) };
+}
+// Grams (or ml) behind a logged amount. A serving or item uses your grams per item, or is estimated from its calories
+// using the same food's gram-logged entries.
+function gramsOf(e, gpu) {
+  if (e.type !== 'count') return { g: e.qty };
+  if (gpu > 0) return { g: e.qty * gpu };
+  const m = IDX.meta.get(e.name);
+  if (m && m.kpg > 0 && e.kcal > 0) return { g: e.kcal / m.kpg, est: true };
+  return null;
 }
 function calc(e, pi) {
   const { price, basis, gpu } = pi;
   if (e.type === 'count') {
     if (basis === 'unit') return e.qty * price;
-    if (gpu > 0) return e.qty * gpu / (basis === 'kg' ? 1000 : 100) * price;
-    return null;
+    const gm = gramsOf(e, gpu);
+    return gm ? gm.g / (basis === 'kg' ? 1000 : 100) * price : null;
   }
   if (basis === '100') return e.qty / 100 * price;
   if (basis === 'kg') return e.qty / 1000 * price;
@@ -226,13 +258,44 @@ function calc(e, pi) {
   return null;
 }
 function costOf(e, useOverride = true) {
+  if (S.recipes[e.name]) return recipeEntryCost(e, useOverride);
   const pi = priceInfo(e.name, e.date, useOverride);
   if (!pi) return { cost: null, why: 'noprice' };
   const c = calc(e, pi);
   if (c == null) return { cost: null, why: 'needgpu' };
-  return { cost: r2(c), offer: pi.offer, pi };
+  return { cost: r2(c), offer: pi.offer, pi, est: e.type === 'count' && pi.basis !== 'unit' && !(pi.gpu > 0) };
+}
+/* ---- recipes: a custom Cronometer recipe is exported as one line, so its ingredients are entered here ---- */
+function ingEntry(it, date) {
+  const type = it.unit === 'item' ? 'count' : it.unit === 'ml' ? 'volume' : 'mass';
+  return { name: canon(it.name), date, qty: Number(it.qty) || 0, unit: it.unit, type, kcal: 0, pro: 0, carb: 0, fat: 0, fiber: 0, group: '' };
+}
+function recipeCostOf(r, date, useOverride = true) {
+  const parts = []; let cost = 0, missing = 0, offer = false;
+  for (const it of r.items) {
+    const e = ingEntry(it, date), pi = priceInfo(e.name, date, useOverride);
+    let c = null, why = 'noprice';
+    if (pi) { const v = calc(e, pi); if (v == null) why = 'needgpu'; else { c = r2(v); if (pi.offer) offer = true; } }
+    if (c == null) missing++; else cost += c;
+    parts.push({ it, e, cost: c, why });
+  }
+  return { cost: missing ? null : r2(cost), missing, offer, parts };
+}
+function recipeFrac(r, e) {
+  if (e.type === 'count') return e.qty / (Number(r.servings) > 0 ? Number(r.servings) : 1);
+  return Number(r.yieldG) > 0 ? e.qty / Number(r.yieldG) : null;
+}
+function recipeEntryCost(e, useOverride = true) {
+  const r = S.recipes[e.name];
+  if (!r.items.length) return { cost: null, why: 'recipe' };
+  const frac = recipeFrac(r, e);
+  if (frac == null) return { cost: null, why: 'needyield' };
+  const rc = recipeCostOf(r, e.date, useOverride);
+  if (rc.cost == null) return { cost: null, why: 'recipe' };
+  return { cost: r2(rc.cost * frac), offer: rc.offer, recipe: { rc, frac } };
 }
 function issue(name) {
+  if (!(IDX.byName.get(name) || []).length) { const p = S.prices[name]; return p && p.price !== '' && p.price != null ? null : 'noprice'; }
   for (const e of IDX.byName.get(name) || []) {
     const c = costOf(e);
     if (c.cost == null) return c.why;
@@ -321,11 +384,11 @@ function siteFooter() {
 
 /* ============ view: shell ============ */
 function appView() {
-  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? weekView() : dayView();
+  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? weekView() : S.tab === 'trends' ? trendsView() : dayView();
   return `
   <header class="topbar"><div class="wrap">
     <div class="brand"><b>Coach Leonidas</b><span>Meal cost calculator</span></div>
-    <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${cap(t)}</a>`).join('')}</nav>
+    <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week', 'trends'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${cap(t)}</a>`).join('')}</nav>
     <div class="tools"><button class="btn sm" data-act="import">Add export</button><button class="btn sm" data-act="export-csv">Download CSV</button></div>
   </div></header>
   <main class="wrap">${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
@@ -337,6 +400,7 @@ function swapFor(es) {
   // Suggest a cheaper food with similar protein density for the priciest high-protein item.
   const rates = new Map();
   for (const [name, list] of IDX.byName) {
+    if (S.recipes[name]) continue;
     let g = 0, pro = 0, cpg = null;
     for (const e of list) {
       if (e.type === 'count') continue;
@@ -347,7 +411,7 @@ function swapFor(es) {
   }
   let best = null;
   for (const e of es) {
-    if (e.type === 'count' || e.pro < 15) continue;
+    if (e.type === 'count' || e.pro < 15 || S.recipes[e.name]) continue;
     const c = costOf(e); const mine = rates.get(e.name);
     if (c.cost == null || !mine || mine.ppg <= 0) continue;
     for (const [name, r] of rates) {
@@ -380,18 +444,31 @@ function dayView() {
 
   const mealHtml = groups.map(([g, list]) => {
     let cost = 0, kcal = 0;
-    const items = list.map(e => {
+    const items = list.map((e, li) => {
       const c = costOf(e); kcal += e.kcal;
+      const rec = S.recipes[e.name];
       let cell, note = '';
       if (c.cost == null) {
-        cell = `<button class="setprice" data-act="goto-price" data-name="${esc(e.name)}">${c.why === 'needgpu' ? 'Add grams per item' : 'Set price'}</button>`;
+        const lbl = { needgpu: 'Add grams per item', recipe: 'Price the ingredients', needyield: 'Set recipe weight' }[c.why] || 'Set price';
+        cell = `<button class="setprice" data-act="${rec ? 'edit-recipe' : 'goto-price'}" data-name="${esc(e.name)}">${lbl}</button>`;
       } else {
         cost += c.cost;
-        cell = `<button class="costbtn" data-act="offer" data-date="${day}" data-name="${esc(e.name)}" aria-label="Change the price of ${esc(e.name)} for this day">${c.offer ? '<span class="offer-tag">Offer</span>' : ''}<span>${money(c.cost)}</span></button>`;
-        if (c.offer && c.pi.base != null) note = `<div class="note">${money(c.pi.price)} per ${esc(basisText(c.pi.basis, e.name))} today, usually ${money(c.pi.base)}</div>`;
-        else if (c.offer) note = `<div class="note">${money(c.pi.price)} per ${esc(basisText(c.pi.basis, e.name))} today</div>`;
+        const tag = c.offer ? '<span class="offer-tag">Offer</span>' : '';
+        cell = rec
+          ? `<button class="costbtn" data-act="edit-recipe" data-name="${esc(e.name)}" aria-label="Edit the recipe ${esc(e.name)}">${tag}<span>${money(c.cost)}</span></button>`
+          : `<button class="costbtn" data-act="offer" data-date="${day}" data-name="${esc(e.name)}" aria-label="Change the price of ${esc(e.name)} for this day">${tag}<span>${money(c.cost)}</span></button>`;
+        if (!rec && c.offer && c.pi.base != null) note = `<div class="note">${money(c.pi.price)} per ${esc(basisText(c.pi.basis, e.name))} today, usually ${money(c.pi.base)}</div>`;
+        else if (!rec && c.offer) note = `<div class="note">${money(c.pi.price)} per ${esc(basisText(c.pi.basis, e.name))} today</div>`;
+        if (c.est) note += `<div class="note" style="color:var(--muted)">Serving size estimated from calories</div>`;
       }
-      return `<div class="item"><div style="min-width:0"><span style="font-size:17px">${esc(e.name)}</span><span class="amt">${qtyFmt(e.qty)} ${esc(e.unit)}</span>${note}</div><span class="lead"></span>${cell}</div>`;
+      const key = `${day}|${g}|${li}`, open = !!rec && S.open.has(key);
+      const toggle = rec ? `<div><button class="btn link" data-act="toggle-recipe" data-key="${esc(key)}" aria-expanded="${open}">${open ? 'Hide' : 'Show'} ingredients</button></div>` : '';
+      let subs = '';
+      if (open) {
+        const fr = recipeFrac(rec, e), rc = recipeCostOf(rec, e.date);
+        subs = `<div class="subitems">${rc.parts.map(p => `<div class="subitem"><span>${esc(p.it.name)}</span><span class="amt">${fr == null ? '' : qtyFmt(Number(p.it.qty) * fr) + ' ' + esc(p.it.unit)}</span><span class="lead"></span>${p.cost != null && fr != null ? `<span>${money(r2(p.cost * fr))}</span>` : `<button class="setprice" data-act="goto-price" data-name="${esc(p.e.name)}">${p.why === 'needgpu' ? 'Add grams per item' : 'Set price'}</button>`}</div>`).join('')}</div>`;
+      }
+      return `<div class="item"><div style="min-width:0"><span style="font-size:17px">${esc(e.name)}</span><span class="amt">${qtyFmt(e.qty)} ${esc(e.unit)}</span>${note}${toggle}</div><span class="lead"></span>${cell}</div>${subs}`;
     }).join('');
     return `<section class="meal"><div class="meal-head"><h2>${esc(g)}</h2><span class="kcal">${n0(kcal)} kcal</span><span class="cost">${money(r2(cost))}</span></div><div style="margin-top:8px">${items}</div></section>`;
   }).join('');
@@ -454,49 +531,82 @@ function amountKey(name) {
   const m = IDX.meta.get(name), gpu = Number((S.prices[name] || {}).gpu) || 0;
   return m.g + m.ml + m.cnt * gpu;
 }
+const catOf = n => S.cats[n] || (S.recipes[n] ? 'Recipes' : ((IDX.meta.get(n) || {}).cat || 'Uncategorized'));
+function estInfo(name) {
+  if (S.recipes[name] || Number((S.prices[name] || {}).gpu) > 0) return 0;
+  let g = 0, q = 0;
+  for (const e of IDX.byName.get(name) || []) { if (e.type !== 'count') continue; const gm = gramsOf(e, 0); if (gm) { g += gm.g; q += e.qty; } }
+  return q > 0 ? g / q : 0;
+}
 function subText(name, iss) {
-  const m = IDX.meta.get(name);
-  return `${iss === 'noprice' ? 'Needs a price. ' : iss === 'needgpu' ? 'Needs grams per item. ' : ''}Logged ${m.n} ${m.n === 1 ? 'time' : 'times'}, ${fmtAmount(m)}`;
+  const m = IDX.meta.get(name), r = S.recipes[name];
+  const pre = { noprice: 'Needs a price. ', needgpu: `Needs grams per ${/^(serving|portion|dose)s?$/.test(m.unit) ? m.unit : 'item'}. `, recipe: 'Some ingredients need a price. ', needyield: 'Needs the recipe weight in grams. ' }[iss] || '';
+  if (!m.n) return pre + 'Used as a recipe ingredient';
+  let t = `${pre}${r ? 'Recipe. ' : ''}Logged ${m.n} ${m.n === 1 ? 'time' : 'times'}, ${fmtAmount(m)}`;
+  const est = estInfo(name);
+  if (est) t += `. One ${m.unit} is about ${Math.round(est)} g, estimated from your calories`;
+  return t;
 }
 function offerCounts() {
   const m = new Map();
+  for (const r of S.ranges) m.set(r.name, (m.get(r.name) || 0) + 1);
   for (const d in S.overrides) for (const n in S.overrides[d]) m.set(n, (m.get(n) || 0) + 1);
   return m;
 }
 function priceRow(name, oc) {
-  const p = S.prices[name], m = IDX.meta.get(name), iss = issue(name), sp = spend(name), o = oc.get(name) || 0;
+  const p = S.prices[name], m = IDX.meta.get(name), iss = issue(name), sp = spend(name), o = oc.get(name) || 0, rec = S.recipes[name], est = estInfo(name);
   const vol = m.vol > m.mass;
   const sub = subText(name, iss), k = m.members.length;
   return `<tr data-name="${esc(name)}"${iss ? ' class="needs"' : ''}>
-    <th scope="row"><div>${esc(name)}${o ? ` <span class="offer-tag">${o} ${o === 1 ? 'offer' : 'offers'}</span>` : ''}</div><div class="sub sl">${esc(sub)}</div><div class="sub" style="margin-top:2px">${k ? `Includes ${k} other ${k === 1 ? 'name' : 'names'}. ` : ''}<button class="btn link" data-act="merge" data-name="${esc(name)}" aria-label="Merge ${esc(name)} with another food">${k ? 'Manage merges' : 'Merge with another food'}</button></div></th>
+    <th scope="row"><div>${esc(name)}${o ? ` <span class="offer-tag">${o} ${o === 1 ? 'offer' : 'offers'}</span>` : ''}</div><div class="sub sl">${esc(sub)}</div><div class="sub"><input class="catin" list="catlist" data-cat aria-label="Category of ${esc(name)}" placeholder="Add a category" value="${esc(catOf(name) === 'Uncategorized' ? '' : catOf(name))}"></div>${macroLine(name) ? `<div class="sub">${esc(macroLine(name))}</div>` : ''}${m.extra ? '' : `<div class="sub acts">${k ? `Includes ${k} other ${k === 1 ? 'name' : 'names'}. ` : ''}<button class="btn link" data-act="merge" data-name="${esc(name)}" aria-label="Merge ${esc(name)} with another food">${k ? 'Manage merges' : 'Merge'}</button>${rec ? '' : `<button class="btn link" data-act="edit-recipe" data-name="${esc(name)}" aria-label="Make ${esc(name)} a recipe with ingredients">Make a recipe</button>`}</div>`}</th>
+    ${rec ? `<td colspan="3"><div class="muted" style="font-size:15px">Recipe with ${rec.items.length} ${rec.items.length === 1 ? 'ingredient' : 'ingredients'}, ${esc(rec.servings)} ${Number(rec.servings) === 1 ? 'serving' : 'servings'}</div><button class="btn link" data-act="edit-recipe" data-name="${esc(name)}">Edit recipe</button></td>` : `
     <td><div class="money-in"><span>${esc(currencySymbol())}</span><input type="text" inputmode="decimal" data-f="price" aria-label="Price of ${esc(name)}" placeholder="0.00" value="${p.price === '' ? '' : esc(p.price)}"></div></td>
     <td><select class="field" data-f="basis" aria-label="Price unit for ${esc(name)}">
       <option value="kg"${p.basis === 'kg' ? ' selected' : ''}>per ${vol ? 'litre' : 'kg'}</option>
       <option value="100"${p.basis === '100' ? ' selected' : ''}>per ${vol ? '100 ml' : '100 g'}</option>
       <option value="unit"${p.basis === 'unit' ? ' selected' : ''}>per ${m.countFirst ? esc(m.unit) : 'item'}</option></select></td>
-    <td><input class="field gpu" type="text" inputmode="decimal" data-f="gpu" aria-label="Grams per item for ${esc(name)}" placeholder="optional" value="${p.gpu === '' ? '' : esc(p.gpu)}"></td>
+    <td><input class="field gpu" type="text" inputmode="decimal" data-f="gpu" aria-label="Grams per ${esc(m.unit)} for ${esc(name)}" placeholder="${est ? 'about ' + Math.round(est) : 'optional'}" value="${p.gpu === '' ? '' : esc(p.gpu)}"></td>`}
     <td class="r sp">${sp.count ? money(sp.total) : '<span class="muted">Not counted</span>'}</td></tr>`;
+}
+function macros(name, per) {
+  const m = IDX.meta.get(name);
+  if (!m) return null;
+  if (per === 'kcal') return m.tk > 0 ? { p: m.tp / m.tk * 100, c: m.tc / m.tk * 100, f: m.tf / m.tk * 100, b: m.tb / m.tk * 100 } : null;
+  return m.mq >= 50 ? { p: m.mp / m.mq * 100, c: m.mc / m.mq * 100, f: m.mf / m.mq * 100, b: m.mb / m.mq * 100 } : null;
+}
+function macroLine(name) {
+  const per = S.sort.endsWith('k') ? 'kcal' : 'g', x = macros(name, per);
+  return x ? `Per 100 ${per}: ${nf1.format(x.p)} g protein, ${nf1.format(x.c)} g carbs, ${nf1.format(x.f)} g fat, ${nf1.format(x.b)} g fiber` : '';
+}
+const MAC = { pro: ['Protein', 'p'], carb: ['Carbs', 'c'], fat: ['Fat', 'f'], fiber: ['Fiber', 'b'] };
+const SORTS = { freq: ['Times logged', 'most often logged first', 'least often logged first'], amount: ['Total amount logged', 'largest total amount first', 'smallest total amount first'], spent: ['Total spent', 'highest total spent first', 'lowest total spent first'], name: ['Name', 'A to Z', 'Z to A'] };
+for (const [k, [label]] of Object.entries(MAC)) {
+  SORTS[k + '100'] = [`${label} per 100 g`, `most ${label.toLowerCase()} per 100 g first`, `least ${label.toLowerCase()} per 100 g first`];
+  SORTS[k + '100k'] = [`${label} per 100 kcal`, `most ${label.toLowerCase()} per 100 kcal first`, `least ${label.toLowerCase()} per 100 kcal first`];
 }
 function filteredFoods() {
   const oc = offerCounts();
-  const key = new Map([...IDX.meta.keys()].map(n => [n, amountKey(n)]));
   const nOf = n => IDX.meta.get(n).n;
-  let names = [...IDX.meta.keys()].sort(S.sort === 'amount'
-    ? (a, b) => key.get(b) - key.get(a) || nOf(b) - nOf(a) || a.localeCompare(b)
-    : (a, b) => nOf(b) - nOf(a) || key.get(b) - key.get(a) || a.localeCompare(b));
+  const mk = S.sort.match(/^(pro|carb|fat|fiber)100(k?)$/);
+  const val = new Map([...IDX.meta.keys()].map(n => [n, mk ? (() => { const x = macros(n, mk[2] ? 'kcal' : 'g'); return x ? x[MAC[mk[1]][1]] : -1; })() : S.sort === 'amount' ? amountKey(n) : S.sort === 'spent' ? spend(n).total : nOf(n)]));
+  let names = [...IDX.meta.keys()].sort(S.sort === 'name'
+    ? (a, b) => a.localeCompare(b)
+    : (a, b) => val.get(b) - val.get(a) || nOf(b) - nOf(a) || a.localeCompare(b));
+  if (S.flip) names.reverse();
   const q = S.filter.trim().toLowerCase();
   if (q) names = names.filter(n => n.toLowerCase().includes(q) || IDX.meta.get(n).members.some(x => x.toLowerCase().includes(q)));
+  if (S.cat) names = names.filter(n => catOf(n) === S.cat);
   if (S.chip === 'unpriced') names = names.filter(n => issue(n));
   if (S.chip === 'offers') names = names.filter(n => oc.get(n));
   return { names, oc };
 }
 function priceBodyHtml() {
   const { names, oc } = filteredFoods();
-  const limited = !S.showAll && !S.filter && S.chip === 'all' && names.length > 12;
+  const limited = !S.showAll && !S.filter && !S.cat && S.chip === 'all' && names.length > 12;
   const shown = limited ? names.slice(0, 12) : names;
   const total = IDX.meta.size;
   const rows = shown.length ? shown.map(n => priceRow(n, oc)).join('') : `<tr><td colspan="5" style="padding:24px 20px" class="muted">No foods match. Clear the search or choose another filter.</td></tr>`;
-  const foot = `<span class="muted" style="font-size:15px">Showing ${shown.length} of ${total} foods, ${S.sort === 'amount' ? 'largest total amount first' : 'most often logged first'}</span>${limited ? '<button class="btn link" data-act="toggle-all">Show all foods</button>' : (S.showAll && total > 12 && !S.filter && S.chip === 'all' ? '<button class="btn link" data-act="toggle-all">Show fewer</button>' : '')}`;
+  const foot = `<span class="muted" style="font-size:15px">Showing ${shown.length} of ${total} foods, ${SORTS[S.sort][S.flip ? 2 : 1]}</span>${limited ? '<button class="btn link" data-act="toggle-all">Show all foods</button>' : (S.showAll && total > 12 && !S.filter && !S.cat && S.chip === 'all' ? '<button class="btn link" data-act="toggle-all">Show fewer</button>' : '')}`;
   return { rows, foot };
 }
 /* ---- merging foods ---- */
@@ -530,10 +640,12 @@ function doMerge(src, target) {
   for (const d in S.overrides) {
     if (S.overrides[d][src] != null) { if (S.overrides[d][target] == null) S.overrides[d][target] = S.overrides[d][src]; delete S.overrides[d][src]; }
   }
-  reindex(); ensurePrices(); saveAll();
+  for (const r of S.ranges) if (r.name === src) r.name = target;
+  if (S.recipes[src]) { if (!S.recipes[target]) S.recipes[target] = S.recipes[src]; delete S.recipes[src]; }
+  indexRanges(); reindex(); ensurePrices(); saveAll();
 }
 function openMerge(name) {
-  const dlg = $('#dlg'), m = IDX.meta.get(name);
+  const dlg = $('#dlg'), m = IDX.meta.get(name); dlg.classList.remove('wide');
   if (!m) return;
   const others = [...IDX.meta.keys()].filter(n => n !== name).sort((a, b) => IDX.meta.get(b).n - IDX.meta.get(a).n || a.localeCompare(b));
   dlg.innerHTML = `<form id="mform" method="dialog">
@@ -561,14 +673,24 @@ function counts() {
 function pricesView() {
   const c = counts(), { rows, foot } = priceBodyHtml();
   const offerList = [];
-  for (const d in S.overrides) for (const n in S.overrides[d]) offerList.push({ d, n, v: S.overrides[d][n] });
-  offerList.sort((a, b) => b.d.localeCompare(a.d) || a.n.localeCompare(b.n));
+  for (const d in S.overrides) for (const n in S.overrides[d]) offerList.push({ k: d, d, n, v: S.overrides[d][n] });
+  for (const r of S.ranges) offerList.push({ k: r.from, r, n: r.name, v: r.price });
+  offerList.sort((a, b) => b.k.localeCompare(a.k) || a.n.localeCompare(b.n));
   return `
   <h1 class="h1" id="h1" tabindex="-1">Your prices</h1>
   <p class="lede">Set a price once and it applies to every day you logged that food. Use an offer when a price was different on one day.</p>
   <div class="notice" id="unp" role="status"${c.un ? '' : ' hidden'}>${IC.info}<div id="unp-t">${unpText(c.un)}</div></div>
+  <datalist id="catlist">${[...new Set([...IDX.meta.keys()].map(catOf))].filter(k => k !== 'Uncategorized').sort().map(k => `<option value="${esc(k)}"></option>`).join('')}</datalist>
   <div class="cols" style="margin-top:24px">
     <div class="main2" style="flex:2 1 640px">
+      ${(() => {
+        const unc = [...IDX.meta.keys()].filter(n => catOf(n) === 'Uncategorized').sort((a, b) => IDX.meta.get(b).n - IDX.meta.get(a).n || a.localeCompare(b));
+        if (!unc.length) return '';
+        return `<div class="card" style="padding:20px 24px;margin-bottom:24px"><h2 style="font-size:20px">Foods without a category (${unc.length})</h2>
+          <p class="muted" style="margin-top:6px;font-size:15px">Cronometer did not give these a category. Pick one from the list or type your own. The change applies to charts and filters straight away.</p>
+          <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th scope="col">Food</th><th scope="col" class="r">Logged</th><th scope="col">Category</th></tr></thead><tbody>${unc.slice(0, 40).map(n => `<tr data-name="${esc(n)}"><th scope="row" style="font-weight:400">${esc(n)}</th><td class="r">${IDX.meta.get(n).n}</td><td><input class="field" style="width:100%;min-width:180px" list="catlist" data-cat aria-label="Category of ${esc(n)}" placeholder="Choose or type a category"></td></tr>`).join('')}</tbody></table></div>
+          ${unc.length > 40 ? `<p class="muted" style="margin-top:8px;font-size:14px">Showing the 40 most logged. The rest appear as you assign these.</p>` : ''}</div>`;
+      })()}
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px">
         <div class="search">${IC.search}<input type="search" id="q" aria-label="Search foods" placeholder="Search foods" value="${esc(S.filter)}"></div>
         <div role="group" aria-label="Filter foods" style="display:flex;flex-wrap:wrap;gap:8px">
@@ -577,11 +699,13 @@ function pricesView() {
           <button class="chip" data-act="chip" data-chip="offers" aria-pressed="${S.chip === 'offers'}">With offers <span id="c-of">${c.offers}</span></button>
         </div>
         <span class="grow"></span>
-        <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">Sort by <select class="field" id="sortsel"><option value="freq"${S.sort === 'freq' ? ' selected' : ''}>Times logged</option><option value="amount"${S.sort === 'amount' ? ' selected' : ''}>Total amount logged</option></select></label>
+        <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">Sort by <select class="field" id="sortsel">${[['Logging', ['freq', 'amount', 'spent', 'name']], ['Nutrients per 100 g', Object.keys(SORTS).filter(k => /^(pro|carb|fat|fiber)100$/.test(k))], ['Nutrients per 100 kcal', Object.keys(SORTS).filter(k => /^(pro|carb|fat|fiber)100k$/.test(k))]].map(([g, ks]) => `<optgroup label="${g}">${ks.map(k => `<option value="${k}"${S.sort === k ? ' selected' : ''}>${SORTS[k][0]}</option>`).join('')}</optgroup>`).join('')}</select></label>
+        <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">Category <select class="field" id="catsel"><option value="">All</option>${(() => { const m = new Map(); for (const n of IDX.meta.keys()) m.set(catOf(n), (m.get(catOf(n)) || 0) + 1); return [...m].sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => `<option value="${esc(k)}"${S.cat === k ? ' selected' : ''}>${esc(k)} (${v})</option>`).join(''); })()}</select></label>
+        <button class="btn sm" data-act="flip" aria-pressed="${S.flip}">${S.sort === 'name' ? (S.flip ? 'Z to A' : 'A to Z') : (S.flip ? 'Lowest first' : 'Highest first')}</button>
         <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">Currency <select class="field" id="cur">${CURRENCIES.map(x => `<option${x === S.currency ? ' selected' : ''}>${x}</option>`).join('')}</select></label>
       </div>
       <div class="tablewrap" style="margin-top:16px"><table>
-        <thead><tr><th scope="col">Food</th><th scope="col">Price</th><th scope="col">Per</th><th scope="col">Grams per item</th><th scope="col" class="r">Spent</th></tr></thead>
+        <thead><tr><th scope="col" aria-sort="${S.sort === 'name' ? (S.flip ? 'descending' : 'ascending') : 'none'}"><button class="thbtn" data-act="sort-col" data-sort="name">Food${S.sort === 'name' ? (S.flip ? ' \u2191' : ' \u2193') : ''}</button></th><th scope="col">Price</th><th scope="col">Per</th><th scope="col">Grams per serving or item</th><th scope="col" class="r" aria-sort="${S.sort === 'spent' ? (S.flip ? 'ascending' : 'descending') : 'none'}"><button class="thbtn" data-act="sort-col" data-sort="spent">Spent${S.sort === 'spent' ? (S.flip ? ' \u2191' : ' \u2193') : ''}</button></th></tr></thead>
         <tbody id="pbody">${rows}</tbody></table></div>
       <div id="pfoot" style="margin-top:12px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px">${foot}</div>
       <p class="muted" style="margin-top:8px;max-width:620px;font-size:14px">Grams per item is only needed when a food is logged one way and priced another, for example eggs logged as items but priced per kg.</p>
@@ -597,15 +721,17 @@ function pricesView() {
         </div>` : '';
       })()}
       <div class="card" style="padding:24px 24px 16px">
-        <h2 style="font-size:24px">Offers</h2>
-        <p class="muted" style="margin-top:8px;font-size:15px">An offer replaces your standard price for one day. Use it for sales, a different shop or a bulk buy.</p>
+        <h2 style="font-size:24px">Offers and price changes</h2>
+        <p class="muted" style="margin-top:8px;font-size:15px">Your standard price covers every date. Add a price for one day, a shopping trip or a period, and it replaces the standard price on those dates.</p>
         <div style="margin-top:12px">${offerList.length ? offerList.map(o => {
           const base = S.prices[o.n] && S.prices[o.n].price !== '' ? S.prices[o.n].price : null;
-          return `<div style="padding:14px 0;border-top:1px solid var(--line2)"><div style="display:flex;align-items:baseline;gap:10px"><span class="offer-tag">Offer</span><b>${esc(o.n)}</b></div>
-          <div style="margin-top:6px;font-size:15px">${esc(dMed(o.d))}: ${money(o.v)} per ${esc(basisText(S.prices[o.n] ? S.prices[o.n].basis : 'kg', o.n))}${base != null ? ` <span class="muted">(usually ${money(base)})</span>` : ''}</div>
-          <div style="display:flex;gap:16px"><button class="btn link" data-act="offer" data-date="${o.d}" data-name="${esc(o.n)}">Edit</button><button class="btn link" data-act="del-offer" data-date="${o.d}" data-name="${esc(o.n)}">Remove</button></div></div>`;
+          const when = o.r ? (o.r.to ? `${dMed(o.r.from)} to ${dMed(o.r.to)}` : `From ${dMed(o.r.from)}`) : dMed(o.d);
+          const edit = o.r ? `data-id="${esc(o.r.id)}"` : `data-date="${o.d}" data-name="${esc(o.n)}"`;
+          return `<div style="padding:14px 0;border-top:1px solid var(--line2)"><div style="display:flex;align-items:baseline;gap:10px"><span class="offer-tag">${o.r ? 'Period' : 'Offer'}</span><b>${esc(o.n)}</b></div>
+          <div style="margin-top:6px;font-size:15px">${esc(when)}: ${money(o.v)} per ${esc(basisText(S.prices[o.n] ? S.prices[o.n].basis : 'kg', o.n))}${base != null ? ` <span class="muted">(usually ${money(base)})</span>` : ''}</div>
+          <div style="display:flex;gap:16px"><button class="btn link" data-act="offer" ${edit}>Edit</button>${o.r ? `<button class="btn link" data-act="del-range" data-id="${esc(o.r.id)}">Remove</button>` : `<button class="btn link" data-act="del-offer" data-date="${o.d}" data-name="${esc(o.n)}">Remove</button>`}</div></div>`;
         }).join('') : '<p class="muted" style="padding:14px 0;border-top:1px solid var(--line2);font-size:15px">No offers yet.</p>'}</div>
-        <button class="btn primary" style="width:100%;margin-bottom:12px" data-act="offer">Add an offer</button>
+        <button class="btn primary" style="width:100%;margin-bottom:12px" data-act="offer">Add an offer or price change</button>
       </div>
       <div class="card" style="padding:24px">
         <h2 style="font-size:20px">Keep your prices safe</h2>
@@ -617,6 +743,123 @@ function pricesView() {
   </div>`;
 }
 const unpText = k => `<strong>${k} ${k === 1 ? 'food needs' : 'foods need'} a price.</strong> Totals leave ${k === 1 ? 'it' : 'them'} out until you add one.`;
+
+/* ============ view: trends ============ */
+const tOf = d => Date.parse(d + 'T00:00:00Z') / 864e5;
+const wkStart = d => isoAdd(d, -((dObj(d).getDay() + 6) % 7));
+const METRICS = [
+  { id: 'pro', title: 'Cost per 100 g protein', den: 'pro', scale: 100, min: 10 },
+  { id: 'carb', title: 'Cost per 100 g carbs', den: 'carb', scale: 100, min: 20 },
+  { id: 'fat', title: 'Cost per 100 g fat', den: 'fat', scale: 100, min: 5 },
+  { id: 'fiber', title: 'Cost per 10 g fiber', den: 'fiber', scale: 10, min: 5 },
+  { id: 'kcal', title: 'Cost per 1,000 kcal', den: 'kcal', scale: 1000, min: 300 }
+];
+// A point needs at least half of that period's calories to have a price, otherwise the ratio would be misleading.
+const covered = s => s.kall > 0 && s.kcal / s.kall >= 0.5;
+const ratio = (m, s, force) => (force || covered(s)) && s[m.den] >= m.min && s.cost > 0 ? s.cost / s[m.den] * m.scale : null;
+const zero = d => ({ d, cost: 0, kcal: 0, kall: 0, pro: 0, carb: 0, fat: 0, fiber: 0, n: 0, days: 0 });
+function dayStat(d) {
+  const o = zero(d);
+  for (const e of IDX.byDate.get(d)) {
+    const c = costOf(e); o.kall += e.kcal; if (c.cost == null) continue;
+    o.cost += c.cost; o.kcal += e.kcal; o.pro += e.pro; o.carb += e.carb; o.fat += e.fat; o.fiber += e.fiber || 0; o.n++;
+  }
+  o.days = o.n ? 1 : 0;
+  return o;
+}
+const addTo = (a, b) => { for (const k of ['cost', 'kcal', 'kall', 'pro', 'carb', 'fat', 'fiber', 'n', 'days']) a[k] += b[k]; return a; };
+function niceMax(v) {
+  const raw = (v || 1) * 1.08, mag = Math.pow(10, Math.floor(Math.log10(raw / 4)));
+  for (const k of [1, 2, 2.5, 5, 10]) if (k * mag * 4 >= raw) return k * mag * 4;
+  return raw;
+}
+function chartFrame(label, inner, ymax, xl) {
+  const W = 600, H = 240, L = 58, R = 16, T = 14, B = 32;
+  const fmt = v => ymax >= 10 ? money0(v) : money(v);
+  const grid = [0, 1, 2, 3, 4].map(i => { const v = ymax * i / 4, y = T + (1 - v / ymax) * (H - T - B); return `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--line2)"/><text x="${L - 8}" y="${y + 4}" text-anchor="end" font-size="12" fill="var(--muted)">${esc(fmt(v))}</text>`; }).join('');
+  const xs = xl.map(([x, t, a]) => `<text x="${x}" y="${H - 8}" text-anchor="${a}" font-size="12" fill="var(--muted)">${esc(t)}</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}" style="width:100%;height:auto;display:block">${grid}${inner}${xs}</svg>`;
+}
+function lineChart(pts, ma, label, weekly) {
+  const W = 600, H = 240, L = 58, R = 16, T = 14, B = 32, all = pts.concat(ma || []);
+  const x0 = Math.min(...all.map(p => tOf(p.d))), x1 = Math.max(...all.map(p => tOf(p.d)));
+  const ymax = niceMax(Math.max(...all.map(p => p.v)));
+  const X = d => L + (x1 > x0 ? (tOf(d) - x0) / (x1 - x0) : 0.5) * (W - L - R), Y = v => T + (1 - v / ymax) * (H - T - B);
+  const first = all.reduce((a, p) => tOf(p.d) < tOf(a) ? p.d : a, all[0].d), last = all.reduce((a, p) => tOf(p.d) > tOf(a) ? p.d : a, all[0].d);
+  const xl = [[X(first), dDM(first), 'start'], [X(last), dDM(last), 'end']];
+  if (x1 - x0 >= 20) { const mid = isoAdd(first, Math.round((x1 - x0) / 2)); xl.splice(1, 0, [X(mid), dDM(mid), 'middle']); }
+  const line = (ma || pts).map((p, i) => `${i ? 'L' : 'M'}${X(p.d).toFixed(1)} ${Y(p.v).toFixed(1)}`).join('');
+  const dots = weekly
+    ? pts.map(p => `<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="4" fill="var(--brand)"><title>Week of ${esc(dDM(p.d))}: ${esc(money(p.v))}</title></circle>`).join('')
+    : pts.map(p => `<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.5" fill="var(--muted)" fill-opacity=".5"><title>${esc(dDM(p.d))}: ${esc(money(p.v))}</title></circle>`).join('');
+  return chartFrame(label, `${dots}<path d="${line}" fill="none" stroke="var(--brand)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`, ymax, xl);
+}
+function barChart(pts, label) {
+  const W = 600, H = 240, L = 58, R = 16, T = 14, B = 32, n = pts.length;
+  const ymax = niceMax(Math.max(...pts.map(p => p.v))), bw = (W - L - R) / n, Y = v => T + (1 - v / ymax) * (H - T - B);
+  const bars = pts.map((p, i) => { const x = L + i * bw + bw * 0.15, w = bw * 0.7, y = Y(p.v); return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${(H - B - y).toFixed(1)}" rx="3" fill="var(--brand)"><title>Week of ${esc(dDM(p.d))}: ${esc(money(p.v))} a day</title></rect>${n <= 14 ? `<text x="${(x + w / 2).toFixed(1)}" y="${(y - 5).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">${esc(money(p.v))}</text>` : ''}`; }).join('');
+  const xl = [[L + bw / 2, dDM(pts[0].d), 'start'], [L + (n - 0.5) * bw, dDM(pts[n - 1].d), 'end']];
+  return chartFrame(label, bars, ymax, n > 1 ? xl : [xl[0]]);
+}
+function trendsView() {
+  const dates = IDX.dates, last = dates[dates.length - 1];
+  const from = S.trange > 0 ? isoAdd(last, -(S.trange - 1)) : dates[0];
+  const days = dates.filter(d => d >= from).map(dayStat).filter(s => s.n > 0 && s.cost > 0);
+  const head = `<h1 class="h1" id="h1" tabindex="-1">Trends</h1>
+  <p class="lede">How the price of your protein, carbs, fat, fiber and calories moves over time. Only foods with a price are counted.</p>
+  <div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+    <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">Show <select class="field" id="tgrain"><option value="day"${S.grain === 'day' ? ' selected' : ''}>Each day</option><option value="week"${S.grain === 'week' ? ' selected' : ''}>Each week</option></select></label>
+    <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">Period <select class="field" id="trange">${[[30, 'Last 30 days'], [90, 'Last 90 days'], [180, 'Last 6 months'], [0, 'All days']].map(([v, t]) => `<option value="${v}"${S.trange === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+  </div>`;
+  if (!days.length) return `${head}<div class="notice" style="margin-top:24px">${IC.info}<div>No priced days in this period yet. Add prices on the Prices tab and the charts appear here.</div></div>`;
+  const wk = new Map();
+  for (const s of days) { const w = wkStart(s.d); wk.set(w, addTo(wk.get(w) || zero(w), s)); }
+  const weeks = [...wk.values()].filter(w => w.days >= 3 && covered(w)).sort((a, b) => a.d.localeCompare(b.d));
+  const total = days.reduce((a, s) => addTo(a, s), zero(''));
+  const weekly = S.grain === 'week';
+  const cards = METRICS.map(m => {
+    let pts, ma = null, note;
+    if (weekly) {
+      pts = weeks.map(w => ({ d: w.d, v: ratio(m, w) })).filter(p => p.v != null);
+      note = 'Each point is one week with at least 3 logged days.';
+    } else {
+      pts = days.map(s => ({ d: s.d, v: ratio(m, s) })).filter(p => p.v != null);
+      ma = days.map(s => { const w = zero(s.d); for (const x of days) if (tOf(x.d) <= tOf(s.d) && tOf(x.d) > tOf(s.d) - 7) addTo(w, x); return { d: s.d, v: ratio(m, w) }; }).filter(p => p.v != null);
+      note = 'Dots are single days. The line is the average of the last 7 days.';
+    }
+    const avg = ratio(m, total, true);
+    if (pts.length < 2 || avg == null) return `<div class="card tcard"><h2>${m.title}</h2><p class="muted" style="margin-top:12px">Not enough priced days yet.</p></div>`;
+    const cur = (ma || pts)[(ma || pts).length - 1];
+    const prev = weekly && pts.length > 1 ? pts[pts.length - 2].v : null;
+    const delta = prev ? Math.round((cur.v - prev) / prev * 100) : null;
+    const best = pts.reduce((a, p) => p.v < a.v ? p : a, pts[0]);
+    return `<div class="card tcard"><h2>${m.title}</h2>
+      <div style="display:flex;align-items:baseline;gap:12px;margin-top:8px"><span class="tbig">${money(cur.v)}</span><span class="muted" style="font-size:15px">${weekly ? 'latest week' : 'last 7 days'}${delta != null && delta !== 0 ? `, ${delta > 0 ? 'up' : 'down'} ${Math.abs(delta)}% on the week before` : ''}</span></div>
+      <p class="muted" style="margin-top:4px;font-size:15px">Average ${money(avg)}. Lowest ${money(best.v)} ${weekly ? 'in the week of' : 'on'} ${esc(dMed(best.d))}.</p>
+      ${lineChart(pts, ma, `${m.title}, ${weekly ? 'by week' : 'by day'}`, weekly)}
+      <p class="muted" style="font-size:14px;margin-top:4px">${note}</p></div>`;
+  }).join('');
+  let weekCard = '';
+  if (weeks.length >= 2) {
+    const pts = weeks.map(w => ({ d: w.d, v: w.cost / w.days }));
+    const cur = pts[pts.length - 1].v, avg = pts.reduce((a, p) => a + p.v, 0) / pts.length;
+    weekCard = `<div class="card tcard"><h2>Average daily cost, by week</h2>
+      <div style="display:flex;align-items:baseline;gap:12px;margin-top:8px"><span class="tbig">${money(cur)}</span><span class="muted" style="font-size:15px">latest week</span></div>
+      <p class="muted" style="margin-top:4px;font-size:15px">Average across weeks ${money(avg)} a day.</p>
+      ${barChart(pts, 'Average daily cost by week')}
+      <p class="muted" style="font-size:14px;margin-top:4px">Weeks with at least 3 logged days. Days with no priced food are left out.</p></div>`;
+  }
+  const byCat = new Map();
+  for (const d of dates.filter(x => x >= from)) for (const e of IDX.byDate.get(d)) { const c = costOf(e); if (c.cost != null) byCat.set(catOf(e.name), (byCat.get(catOf(e.name)) || 0) + c.cost); }
+  const catRows = [...byCat].sort((a, b) => b[1] - a[1]), catTotal = catRows.reduce((a, r) => a + r[1], 0);
+  const catCard = catRows.length ? `<div class="card tcard"><h2>Where the money goes, by category</h2>
+    <div style="margin-top:12px">${catRows.slice(0, 12).map(([k, v]) => `<div class="catrow"><div class="catname">${esc(k)}</div><div class="catbar" role="img" aria-label="${esc(k)}: ${esc(money(v))}, ${Math.round(v / catTotal * 100)} percent"><i style="width:${(v / catRows[0][1] * 100).toFixed(1)}%"></i></div><div class="catval">${money(v)} <span class="muted">${Math.round(v / catTotal * 100)}%</span></div></div>`).join('')}</div>
+    ${catRows.length > 12 ? `<p class="muted" style="font-size:14px;margin-top:8px">Plus ${catRows.length - 12} smaller categories.</p>` : ''}</div>` : '';
+  const allKcal = dates.filter(x => x >= from).reduce((a, d) => a + IDX.byDate.get(d).reduce((b, e) => b + e.kcal, 0), 0);
+  const pctAll = allKcal > 0 ? Math.round(total.kcal / allKcal * 100) : 0;
+  const cov = pctAll < 95 ? `<div class="notice" style="margin-top:24px">${IC.info}<div><strong>Prices cover ${pctAll}% of the calories you logged in this period.</strong> Days and weeks with fewer than half their calories priced are left out of the charts. Price more foods on the Prices tab to fill them in.</div></div>` : '';
+  return `${head}${cov}<div class="trendgrid" style="margin-top:24px">${cards}${weekCard}${catCard}</div>`;
+}
 
 /* ============ view: week ============ */
 function proteinRank(es) {
@@ -724,7 +967,7 @@ function render() {
 }
 function route() {
   const h = location.hash.replace('#', '');
-  const t = ['day', 'prices', 'week'].includes(h) ? h : 'day';
+  const t = ['day', 'prices', 'week', 'trends'].includes(h) ? h : 'day';
   const changed = t !== S.tab;
   S.tab = t;
   S.error = '';
@@ -742,7 +985,7 @@ function toast(msg) {
 /* ============ persistence ============ */
 let _save;
 function saveSoon() { clearTimeout(_save); _save = setTimeout(saveAll, 250); }
-function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); }
+function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('grain', S.grain); store.set('trange', S.trange); }
 function saveEntries() { store.set('entries', S.entries.map(({ src, ...r }) => ({ ...r, name: src !== undefined ? src : r.name }))); }
 
 /* ============ import ============ */
@@ -809,43 +1052,113 @@ function loadSample() {
 }
 
 /* ============ offers + budget dialog ============ */
-function openOffer(date, name) {
-  const dlg = $('#dlg');
+function openOffer(date, name, id) {
+  const dlg = $('#dlg'); dlg.classList.remove('wide');
   const dates = IDX.dates.slice().reverse();
-  const foods = [...IDX.meta.keys()].sort((a, b) => a.localeCompare(b));
-  date = date || S.day || dates[0]; name = name || foods[0];
+  const foods = [...IDX.meta.keys()].filter(n => !S.recipes[n]).sort((a, b) => a.localeCompare(b));
+  const rg = id ? S.ranges.find(r => r.id === id) : null;
+  const d0 = rg ? rg.from : (date || S.day || dates[0]);
+  name = rg ? rg.name : (name && foods.includes(name) ? name : foods[0]);
+  const mode0 = rg ? (rg.to ? 'range' : 'from') : 'day';
   dlg.innerHTML = `<form id="oform" method="dialog">
-    <h2 id="dlg-title" style="font-size:24px">Price for one day</h2>
-    <p class="muted" style="font-size:15px">An offer replaces your standard price for that day only. Use it for a sale, a different shop or a bulk buy.</p>
-    <div><label for="od">Day</label><select class="field" id="od">${dates.map(d => `<option value="${d}"${d === date ? ' selected' : ''}>${esc(dLong(d))}</option>`).join('')}</select></div>
+    <h2 id="dlg-title" style="font-size:24px">${rg ? 'Change this price' : 'Price for a day or a period'}</h2>
+    <p class="muted" style="font-size:15px">Your standard price applies to every date. Use this when a price was different on one day, for one shop trip, or from a date onward.</p>
     <div><label for="of">Food</label><select class="field" id="of">${foods.map(n => `<option${n === name ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
-    <div><label for="op" id="oplabel">Price that day</label><div class="money-in wide"><span>${esc(currencySymbol())}</span><input id="op" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off"></div><div class="sub" id="oinfo" style="margin-top:6px"></div></div>
+    <div><label for="om">Applies to</label><select class="field" id="om"><option value="day"${mode0 === 'day' ? ' selected' : ''}>One day</option><option value="range"${mode0 === 'range' ? ' selected' : ''}>A date range</option><option value="from"${mode0 === 'from' ? ' selected' : ''}>From a date onward</option></select></div>
+    <div style="display:flex;gap:12px"><div style="flex:1"><label for="od" id="odlabel">Day</label><input class="field" style="width:100%" type="date" id="od" value="${esc(d0)}"></div><div style="flex:1" id="otwrap"><label for="ot">Last day</label><input class="field" style="width:100%" type="date" id="ot" value="${esc(rg && rg.to ? rg.to : d0)}"></div></div>
+    <div><label for="op" id="oplabel">Price</label><div class="money-in wide"><span>${esc(currencySymbol())}</span><input id="op" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off" value="${rg ? esc(rg.price) : ''}"></div><div class="sub" id="oinfo" style="margin-top:6px"></div></div>
     <div id="oerr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">Save offer</button><button type="button" class="btn" data-act="close-dlg">Cancel</button></div>
-    <button type="button" class="btn link" id="odel" data-act="dlg-del" hidden>Remove this offer</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">Save price</button><button type="button" class="btn" data-act="close-dlg">Cancel</button></div>
+    <button type="button" class="btn link" id="odel" data-act="dlg-del"${rg ? ` data-id="${esc(rg.id)}"` : ' hidden'}>Remove this price</button>
   </form>`;
-  const refresh = () => {
-    const d = $('#od').value, n = $('#of').value, p = S.prices[n];
-    $('#oplabel').textContent = `Price that day, per ${basisText(p ? p.basis : 'kg', n)}`;
-    const cur = S.overrides[d] && S.overrides[d][n];
-    $('#op').value = cur != null ? cur : '';
-    $('#odel').hidden = cur == null;
-    $('#oinfo').textContent = p && p.price !== '' ? `Your usual price is ${money(Number(p.price))} per ${basisText(p.basis, n)}.` : 'You have not set a usual price for this food yet.';
+  const refresh = (fill) => {
+    const d = $('#od').value, n = $('#of').value, m = $('#om').value, p = S.prices[n];
+    $('#odlabel').textContent = m === 'day' ? 'Day' : 'First day';
+    $('#otwrap').hidden = m !== 'range';
+    $('#oplabel').textContent = `Price, per ${basisText(p ? p.basis : 'kg', n)}`;
+    if (!rg && fill) {
+      const cur = m === 'day' && S.overrides[d] ? S.overrides[d][n] : null;
+      $('#op').value = cur != null ? cur : '';
+      $('#odel').hidden = cur == null;
+    }
+    $('#oinfo').textContent = p && p.price !== '' ? `Your standard price is ${money(Number(p.price))} per ${basisText(p.basis, n)}.` : 'You have not set a standard price for this food yet.';
   };
-  $('#od').addEventListener('change', refresh); $('#of').addEventListener('change', refresh);
+  ['od', 'of', 'om'].forEach(k => $('#' + k).addEventListener('change', () => refresh(true)));
   $('#oform').addEventListener('submit', ev => {
     ev.preventDefault();
-    const d = $('#od').value, n = $('#of').value, v = $('#op').value.trim().replace(',', '.');
+    const n = $('#of').value, m = $('#om').value, f = $('#od').value, t = $('#ot').value, v = $('#op').value.trim().replace(',', '.');
+    const iso = /^\d{4}-\d{2}-\d{2}$/;
+    if (!iso.test(f)) { $('#oerr').textContent = 'Choose the first day.'; $('#od').focus(); return; }
+    if (m === 'range' && (!iso.test(t) || t < f)) { $('#oerr').textContent = 'Choose a last day that is the same as or after the first day.'; $('#ot').focus(); return; }
     if (v === '' || !Number.isFinite(Number(v)) || Number(v) < 0) { $('#oerr').textContent = 'Enter a price, for example 4.50.'; $('#op').focus(); return; }
-    (S.overrides[d] = S.overrides[d] || {})[n] = Number(v);
-    saveAll(); dlg.close(); S.day = d; render(); toast('Offer saved');
+    if (rg) S.ranges = S.ranges.filter(r => r.id !== rg.id);
+    if (m === 'day') (S.overrides[f] = S.overrides[f] || {})[n] = Number(v);
+    else S.ranges.push({ id: Math.random().toString(36).slice(2, 9), name: n, from: f, to: m === 'range' ? t : '', price: Number(v) });
+    indexRanges(); saveAll(); dlg.close();
+    if (IDX.byDate.has(f)) S.day = f;
+    render(); toast('Price saved');
   });
-  refresh();
+  refresh(!rg);
   if (!dlg.open) dlg.showModal();
   $('#op').focus();
 }
+/* ---- recipe editor ---- */
+let REC = null;
+function openRecipe(name) {
+  const cur = S.recipes[name];
+  REC = { name, servings: cur ? cur.servings : 1, yieldG: cur ? cur.yieldG : '', items: cur ? cur.items.map(x => ({ ...x })) : [{ name: '', qty: '', unit: 'g' }], isNew: !cur };
+  drawRecipe();
+  const dlg = $('#dlg'); if (!dlg.open) dlg.showModal();
+  const f = $('#rform input[data-r="name"]'); if (f) f.focus();
+}
+function drawRecipe() {
+  const dlg = $('#dlg'); dlg.classList.add('wide');
+  const foods = [...IDX.meta.keys()].filter(n => n !== REC.name && !S.recipes[n]).sort((a, b) => a.localeCompare(b));
+  dlg.innerHTML = `<form id="rform" method="dialog">
+    <h2 id="dlg-title" style="font-size:24px">Recipe: ${esc(REC.name)}</h2>
+    <p class="muted" style="font-size:15px">Cronometer exports a recipe as a single line, so list its ingredients here. Each logged serving is costed from your ingredient prices.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap"><div style="flex:1 1 160px"><label for="rs">Servings it makes</label><input class="field" style="width:100%" id="rs" inputmode="decimal" value="${esc(REC.servings)}"></div><div style="flex:1 1 220px"><label for="ry">Total weight in grams (needed if you log it in grams)</label><input class="field" style="width:100%" id="ry" inputmode="decimal" placeholder="optional" value="${esc(REC.yieldG)}"></div></div>
+    <div id="rrows">${REC.items.map((it, i) => `<div class="rrow"><input class="field" data-r="name" list="rlist" aria-label="Ingredient ${i + 1}" placeholder="Ingredient" autocomplete="off" value="${esc(it.name)}"><input class="field" data-r="qty" inputmode="decimal" aria-label="Amount" placeholder="Amount" value="${esc(it.qty)}"><select class="field" data-r="unit" aria-label="Unit">${['g', 'ml', 'item'].map(u => `<option value="${u}"${it.unit === u ? ' selected' : ''}>${u}</option>`).join('')}</select><button type="button" class="btn link" data-act="rec-del" data-i="${i}" aria-label="Remove ingredient ${i + 1}">Remove</button></div>`).join('')}</div>
+    <datalist id="rlist">${foods.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
+    <div><button type="button" class="btn sm" data-act="rec-add">Add ingredient</button></div>
+    <div class="sub" id="rprev" aria-live="polite"></div>
+    <div id="rerr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">Save recipe</button><button type="button" class="btn" data-act="close-dlg">Cancel</button></div>
+    ${REC.isNew ? '' : '<button type="button" class="btn link" data-act="rec-delete">Remove this recipe</button>'}
+  </form>`;
+  $('#rform').addEventListener('submit', ev => { ev.preventDefault(); saveRecipe(); });
+  previewRecipe();
+}
+function syncRecipe() {
+  if (!$('#rform')) return;
+  REC.servings = $('#rs').value; REC.yieldG = $('#ry').value;
+  REC.items = [...document.querySelectorAll('#rrows .rrow')].map(r => ({ name: $('[data-r=name]', r).value, qty: $('[data-r=qty]', r).value, unit: $('[data-r=unit]', r).value }));
+}
+function recipeFromDraft() {
+  const items = REC.items.map(i => ({ name: canon(i.name.trim()), qty: num(i.qty), unit: i.unit })).filter(i => i.name && i.qty > 0);
+  return { servings: num(REC.servings) > 0 ? num(REC.servings) : 1, yieldG: num(REC.yieldG) > 0 ? num(REC.yieldG) : '', items };
+}
+function previewRecipe() {
+  const el = $('#rprev'); if (!el) return;
+  syncRecipe();
+  const r = recipeFromDraft();
+  if (!r.items.length) { el.textContent = ''; return; }
+  const rc = recipeCostOf(r, IDX.dates[IDX.dates.length - 1]);
+  el.textContent = rc.cost != null
+    ? `The whole recipe costs ${money(rc.cost)} at your latest prices, ${money(rc.cost / r.servings)} per serving.`
+    : `${rc.missing} ${rc.missing === 1 ? 'ingredient needs' : 'ingredients need'} a price. After saving, add ${rc.missing === 1 ? 'it' : 'them'} on the Prices tab.`;
+}
+function saveRecipe() {
+  syncRecipe();
+  const r = recipeFromDraft(), err = m => { $('#rerr').textContent = m; };
+  if (!r.items.length) return err('Add at least one ingredient with a name and an amount.');
+  if (r.items.some(i => i.name === REC.name)) return err('A recipe cannot contain itself.');
+  if (r.items.some(i => S.recipes[i.name])) return err('An ingredient cannot be another recipe.');
+  S.recipes[REC.name] = r;
+  reindex(); ensurePrices(); saveAll(); $('#dlg').close(); render(); toast('Recipe saved');
+}
 function openBudget() {
-  const dlg = $('#dlg');
+  const dlg = $('#dlg'); dlg.classList.remove('wide');
   dlg.innerHTML = `<form id="bform" method="dialog">
     <h2 id="dlg-title" style="font-size:24px">Daily budget</h2>
     <p class="muted" style="font-size:15px">Set what you want to spend on food each day. It shows on the Day and Week screens. Leave it empty to remove it.</p>
@@ -873,16 +1186,16 @@ function download(name, blob) {
 }
 function exportCsv() {
   const q = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-  const rows = [['Date', 'Meal', 'Food', 'Amount', `Cost (${S.currency})`, 'Offer', 'kcal', 'Protein (g)', 'Carbs (g)', 'Fat (g)'].join(',')];
+  const rows = [['Date', 'Meal', 'Food', 'Amount', `Cost (${S.currency})`, 'Offer', 'kcal', 'Protein (g)', 'Carbs (g)', 'Fat (g)', 'Fiber (g)'].join(',')];
   for (const e of S.entries) {
     const c = costOf(e);
-    rows.push([e.date, e.group, e.name, qtyFmt(e.qty) + ' ' + e.unit, c.cost == null ? '' : c.cost.toFixed(2), c.offer ? 'yes' : '', Math.round(e.kcal), e.pro.toFixed(1), e.carb.toFixed(1), e.fat.toFixed(1)].map(q).join(','));
+    rows.push([e.date, e.group, e.name, qtyFmt(e.qty) + ' ' + e.unit, c.cost == null ? '' : c.cost.toFixed(2), c.offer ? 'yes' : '', Math.round(e.kcal), e.pro.toFixed(1), e.carb.toFixed(1), e.fat.toFixed(1), (e.fiber || 0).toFixed(1)].map(q).join(','));
   }
   download('meal-costs.csv', new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' }));
   toast('CSV downloaded');
 }
 function backup() {
-  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges };
+  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges, ranges: S.ranges, recipes: S.recipes, cats: S.cats };
   download('meal-cost-prices.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   toast('Backup downloaded');
 }
@@ -901,10 +1214,20 @@ async function restore(file) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dt) || !o || typeof o !== 'object') continue;
       for (const [n, v] of Object.entries(o)) if (Number.isFinite(Number(v)) && Number(v) >= 0) (S.overrides[dt] = S.overrides[dt] || {})[n] = Number(v);
     }
+    for (const r of Array.isArray(d.ranges) ? d.ranges : []) {
+      if (!r || typeof r.name !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.from) || (r.to && !/^\d{4}-\d{2}-\d{2}$/.test(r.to)) || !Number.isFinite(Number(r.price))) continue;
+      const rr = { id: String(r.id || Math.random().toString(36).slice(2, 9)), name: r.name, from: r.from, to: r.to || '', price: Number(r.price) };
+      S.ranges = S.ranges.filter(x => x.id !== rr.id).concat(rr);
+    }
+    for (const [n, r] of Object.entries(d.recipes && typeof d.recipes === 'object' ? d.recipes : {})) {
+      if (!r || !Array.isArray(r.items)) continue;
+      S.recipes[n] = { servings: Number(r.servings) > 0 ? Number(r.servings) : 1, yieldG: Number(r.yieldG) > 0 ? Number(r.yieldG) : '', items: r.items.filter(i => i && typeof i.name === 'string' && ['g', 'ml', 'item'].includes(i.unit) && Number(i.qty) > 0).map(i => ({ name: i.name, qty: Number(i.qty), unit: i.unit })) };
+    }
+    for (const [a, b] of Object.entries(d.cats && typeof d.cats === 'object' ? d.cats : {})) if (typeof b === 'string' && b.trim()) S.cats[a] = b.trim();
     for (const [a, b] of Object.entries(d.merges || {})) if (typeof b === 'string' && a !== b && b) S.merges[a] = b;
     if (CURRENCIES.includes(d.currency)) S.currency = d.currency;
     if (d.budget > 0) S.budget = Number(d.budget);
-    reindex(); if (S.entries.length) ensurePrices();
+    indexRanges(); reindex(); if (S.entries.length) ensurePrices();
     saveAll(); render(); toast(S.entries.length ? 'Backup restored' : 'Prices restored. Now drop in your Cronometer export.');
   } catch (e) { S.error = 'That file is not a Meal cost backup.'; render(); }
 }
@@ -989,15 +1312,27 @@ document.addEventListener('click', e => {
     case 'pick-day': S.day = d.date; render(); break;
     case 'prev-day': { const i = IDX.dates.indexOf(S.day); if (i > 0) { S.day = IDX.dates[i - 1]; render(); } break; }
     case 'next-day': { const i = IDX.dates.indexOf(S.day); if (i < IDX.dates.length - 1) { S.day = IDX.dates[i + 1]; render(); } break; }
-    case 'offer': openOffer(d.date, d.name); break;
+    case 'offer': openOffer(d.date, d.name, d.id); break;
     case 'del-offer': if (S.overrides[d.date]) { delete S.overrides[d.date][d.name]; if (!Object.keys(S.overrides[d.date]).length) delete S.overrides[d.date]; saveAll(); render(); toast('Offer removed'); } break;
-    case 'dlg-del': { const dt = $('#od').value, n = $('#of').value; if (S.overrides[dt]) { delete S.overrides[dt][n]; if (!Object.keys(S.overrides[dt]).length) delete S.overrides[dt]; } saveAll(); $('#dlg').close(); render(); toast('Offer removed'); break; }
+    case 'dlg-del': {
+      if (d.id) { S.ranges = S.ranges.filter(r => r.id !== d.id); indexRanges(); }
+      else { const dt = $('#od').value, n = $('#of').value; if (S.overrides[dt]) { delete S.overrides[dt][n]; if (!Object.keys(S.overrides[dt]).length) delete S.overrides[dt]; } }
+      saveAll(); $('#dlg').close(); render(); toast('Price removed'); break;
+    }
     case 'close-dlg': $('#dlg').close(); break;
     case 'budget': openBudget(); break;
     case 'goto-price': S.filter = d.name; S.chip = 'all'; go('prices'); break;
     case 'unpriced-link': S.chip = 'unpriced'; S.filter = ''; break;
     case 'chip': S.chip = d.chip; S.showAll = false; render(); break;
     case 'toggle-all': S.showAll = !S.showAll; refreshPriceBody(); break;
+    case 'flip': S.flip = !S.flip; saveAll(); render(); break;
+    case 'sort-col': if (S.sort === d.sort) S.flip = !S.flip; else { S.sort = d.sort; S.flip = false; } saveAll(); render(); break;
+    case 'edit-recipe': openRecipe(d.name); break;
+    case 'toggle-recipe': if (S.open.has(d.key)) S.open.delete(d.key); else S.open.add(d.key); render(); break;
+    case 'rec-add': syncRecipe(); REC.items.push({ name: '', qty: '', unit: 'g' }); drawRecipe(); break;
+    case 'rec-del': syncRecipe(); REC.items.splice(Number(d.i), 1); if (!REC.items.length) REC.items.push({ name: '', qty: '', unit: 'g' }); drawRecipe(); break;
+    case 'rec-delete': delete S.recipes[REC.name]; reindex(); ensurePrices(); saveAll(); $('#dlg').close(); render(); toast('Recipe removed'); break;
+    case 'del-range': S.ranges = S.ranges.filter(r => r.id !== d.id); indexRanges(); saveAll(); render(); toast('Price removed'); break;
     case 'merge': openMerge(d.name); break;
     case 'merge-now': doMerge(d.drop, d.keep); render(); toast(`Merged into ${d.keep}`); break;
     case 'not-same': S.nomerge.push(pairKey(d.drop, d.keep)); saveAll(); render(); break;
@@ -1007,7 +1342,7 @@ document.addEventListener('click', e => {
     case 'restore': $('#pfile').click(); break;
     case 'reset':
       if (confirm('Delete all imported entries, prices and offers from this browser? This cannot be undone.')) {
-        store.clear(); S.entries = []; S.prices = {}; S.overrides = {}; S.merges = {}; S.nomerge = []; S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
+        store.clear(); S.entries = []; S.prices = {}; S.overrides = {}; S.merges = {}; S.nomerge = []; S.ranges = []; S.recipes = {}; S.cats = {}; indexRanges(); S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
         history.replaceState(null, '', location.pathname); S.tab = 'day'; render(); toast('All data deleted');
       }
       break;
@@ -1036,6 +1371,7 @@ function refreshRow(tr) {
 
 document.addEventListener('input', e => {
   const t = e.target;
+  if (t.closest && t.closest('#rform')) { previewRecipe(); return; }
   if (t.id === 'q') { S.filter = t.value; S.showAll = false; refreshPriceBody(); return; }
   const f = t.dataset && t.dataset.f; if (!f) return;
   const tr = t.closest('tr'); if (!tr) return;
@@ -1050,9 +1386,17 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   const t = e.target;
+  if (t.dataset && t.dataset.cat !== undefined) {
+    const n = t.closest('[data-name]').dataset.name, v = t.value.trim();
+    if (v) S.cats[n] = v; else delete S.cats[n];
+    saveAll(); render(); toast(v ? `Category set to ${v}` : 'Category cleared'); return;
+  }
   if (t.dataset && t.dataset.f === 'basis') { const tr = t.closest('tr'); S.prices[tr.dataset.name].basis = t.value; saveSoon(); refreshRow(tr); refreshMeta(); }
   else if (t.id === 'cur') { S.currency = t.value; saveAll(); render(); }
-  else if (t.id === 'sortsel') { S.sort = t.value === 'amount' ? 'amount' : 'freq'; saveAll(); refreshPriceBody(); }
+  else if (t.id === 'sortsel') { S.sort = SORTS[t.value] ? t.value : 'freq'; S.flip = false; saveAll(); render(); }
+  else if (t.id === 'catsel') { S.cat = t.value; S.showAll = false; render(); }
+  else if (t.id === 'tgrain') { S.grain = t.value === 'day' ? 'day' : 'week'; saveAll(); render(); }
+  else if (t.id === 'trange') { S.trange = Number(t.value) || 0; saveAll(); render(); }
   else if (t.id === 'range') { S.range = Number(t.value); render(); }
   else if (t.id === 'daysel') { S.day = t.value; render(); }
   else if (t.id === 'file') { handleFile(t.files[0]); t.value = ''; }
@@ -1065,6 +1409,12 @@ window.addEventListener('hashchange', route);
 window.addEventListener('pagehide', saveAll);
 
 /* ============ start ============ */
-reindex(); if (S.entries.length) ensurePrices();
+if (store.get('parser', 1) < 2) {
+  // Entries saved by an older version: re-read amounts such as "2.00 x 100.0 g" that were stored as item counts.
+  S.entries = S.entries.map(e => { if (e.type !== 'count') return e; const a = parseAmount(`${e.qty} ${e.unit}`); return { ...e, qty: a.qty, unit: a.unit, type: a.type }; });
+  if (S.entries.length) saveEntries();
+  store.set('parser', 2);
+}
+indexRanges(); reindex(); if (S.entries.length) ensurePrices();
 route();
-window.__mealcost = { S, parseCronometer, costOf, summarize, IDX: () => IDX };
+window.__mealcost = { S, parseCronometer, costOf, summarize, macros, catOf, recipeCostOf, IDX: () => IDX };
