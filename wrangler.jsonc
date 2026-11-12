@@ -12,7 +12,7 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "mealcost", "database_id": "24736b66-9b56-47f7-ae26-1d409bda043e", "migrations_dir": "migrations" }
   ],
-  "vars": { "GOOGLE_CLIENT_ID": "" },
+  "vars": { "GOOGLE_CLIENT_ID": "354815097557-3sef5saof4h49p1dbif4kpkdjfiom774.apps.googleusercontent.com" },
   "routes": [
     { "pattern": "mealcost.coachleonidas.com", "custom_domain": true }
   ]

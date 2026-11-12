@@ -7,3 +7,4 @@ tests/out/
 *.csv
 meal-cost-*.png
 meal-cost-*.json
+client_secret*.json
