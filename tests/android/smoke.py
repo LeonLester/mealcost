@@ -35,7 +35,7 @@ class Page:
         else:
             raise SystemExit('no app page found')
         self.url = t['url']
-        self.ws = create_connection(t['webSocketDebuggerUrl'], timeout=30)
+        self.ws = create_connection(t['webSocketDebuggerUrl'], timeout=30, suppress_origin=True)
         self.n = 0
         self.call('Runtime.enable')
     def call(self, method, **params):
