@@ -21,6 +21,9 @@ const S = {
   overrides: store.get('overrides', {}),
   currency: store.get('currency', 'EUR'),
   budget: store.get('budget', null),
+  merges: store.get('merges', {}),
+  nomerge: store.get('nomerge', []),
+  sort: store.get('sort', 'freq'),
   tab: 'day', day: null, range: 7, filter: '', chip: 'all', showAll: false, error: ''
 };
 if (!CURRENCIES.includes(S.currency)) S.currency = 'EUR';
@@ -118,6 +121,14 @@ function parseAmount(s) {
   const qty = parseFloat(m[1].replace(',', '.'));
   const raw = m[2].trim(), l = raw.toLowerCase();
   if (/^fl\.?\s*oz/.test(l)) return { qty: qty * 29.5735, unit: 'ml', type: 'volume' };
+  // Cronometer can log a serving as a multiple of a fixed size, for example "2.00 x 100.0 g", "1.05 100g" or "1.22 per 100g".
+  const mm = l.replace(/^(?:x|\u00d7|per)\s*/, '').match(/^(\d+(?:[.,]\d+)?)\s*(.*)$/);
+  if (mm && /[a-z]/.test(mm[2])) {
+    const size = parseFloat(mm[1].replace(',', '.'));
+    const u = mm[2].replace(/^\d+(?:[.,]\d+)?\s*(?=g\b|ml\b)/, '').trim().split(/[\s(]/)[0];
+    const f = { g: ['g', 'mass', 1], gr: ['g', 'mass', 1], gram: ['g', 'mass', 1], grams: ['g', 'mass', 1], kg: ['g', 'mass', 1000], ml: ['ml', 'volume', 1], l: ['ml', 'volume', 1000] }[u];
+    if (f) return { qty: qty * size * f[2], unit: f[0], type: f[1] };
+  }
   const tok = l.split(/[\s(]/)[0].replace(/\.$/, '');
   switch (tok) {
     case 'g': case 'gram': case 'grams': case 'gr': return { qty, unit: 'g', type: 'mass' };
@@ -127,7 +138,11 @@ function parseAmount(s) {
     case 'lb': case 'lbs': return { qty: qty * 453.592, unit: 'g', type: 'mass' };
     case 'ml': return { qty, unit: 'ml', type: 'volume' };
     case 'l': case 'liter': case 'litre': return { qty: qty * 1000, unit: 'ml', type: 'volume' };
-    default: return { qty, unit: raw || 'serving', type: 'count' };
+    default: {
+      let u = raw.replace(/^per\s*/i, '').trim() || 'serving';
+      if (/^servings?$/i.test(u)) u = 'serving';
+      return { qty, unit: u, type: 'count' };
+    }
   }
 }
 
@@ -160,8 +175,10 @@ function parseCronometer(text) {
 
 /* ============ indexes ============ */
 let IDX = { byName: new Map(), byDate: new Map(), dates: [], meta: new Map() };
+function canon(n) { let k = 0; while (S.merges[n] && k++ < 25) n = S.merges[n]; return n; }
 function reindex() {
   const byName = new Map(), byDate = new Map(), meta = new Map();
+  for (const e of S.entries) { if (e.src === undefined) e.src = e.name; e.name = canon(e.src); }
   for (const e of S.entries) {
     if (!byName.has(e.name)) byName.set(e.name, []);
     byName.get(e.name).push(e);
@@ -169,13 +186,14 @@ function reindex() {
     byDate.get(e.date).push(e);
   }
   for (const [name, es] of byName) {
-    let count = 0, mass = 0, vol = 0; const labels = {};
+    let count = 0, mass = 0, vol = 0, g = 0, ml = 0, cnt = 0; const labels = {}, srcs = new Set();
     for (const e of es) {
-      if (e.type === 'count') { count++; const k = e.unit.toLowerCase(); labels[k] = (labels[k] || 0) + 1; }
-      else if (e.type === 'volume') vol++; else mass++;
+      srcs.add(e.src);
+      if (e.type === 'count') { count++; cnt += e.qty; const k = e.unit.toLowerCase(); labels[k] = (labels[k] || 0) + 1; }
+      else if (e.type === 'volume') { vol++; ml += e.qty; } else { mass++; g += e.qty; }
     }
     const top = Object.entries(labels).sort((a, b) => b[1] - a[1])[0];
-    meta.set(name, { n: es.length, count, mass, vol, unit: top ? top[0] : 'item', countFirst: count > mass + vol });
+    meta.set(name, { n: es.length, count, mass, vol, g, ml, cnt, unit: top ? top[0] : 'item', countFirst: count > mass + vol, members: [...srcs].filter(x => x !== name).sort() });
   }
   IDX = { byName, byDate, meta, dates: [...byDate.keys()].sort() };
 }
@@ -270,6 +288,7 @@ function importView() {
         </div>
         <div style="margin-top:18px;display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px">
           <button class="btn outline" data-act="sample">Try it with sample data</button>
+          <button class="btn link" data-act="restore">Restore saved prices</button>
           <span class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">${IC.lock}Your file is read in this browser. Nothing is uploaded.</span>
         </div>
       </div>
@@ -422,6 +441,23 @@ function dayView() {
 }
 
 /* ============ view: prices ============ */
+const nf1 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
+function fmtAmount(m) {
+  const parts = [];
+  if (m.g > 0) parts.push(m.g >= 1000 ? nf1.format(m.g / 1000) + ' kg' : Math.round(m.g) + ' g');
+  if (m.ml > 0) parts.push(m.ml >= 1000 ? nf1.format(m.ml / 1000) + ' l' : Math.round(m.ml) + ' ml');
+  if (m.cnt > 0) parts.push(`${nf1.format(m.cnt)} ${m.unit}${m.cnt === 1 || /s$/.test(m.unit) ? '' : 's'}`);
+  return parts.join(' + ');
+}
+// Total logged as grams or ml. Foods logged as pieces count by grams per item when you have set it.
+function amountKey(name) {
+  const m = IDX.meta.get(name), gpu = Number((S.prices[name] || {}).gpu) || 0;
+  return m.g + m.ml + m.cnt * gpu;
+}
+function subText(name, iss) {
+  const m = IDX.meta.get(name);
+  return `${iss === 'noprice' ? 'Needs a price. ' : iss === 'needgpu' ? 'Needs grams per item. ' : ''}Logged ${m.n} ${m.n === 1 ? 'time' : 'times'}, ${fmtAmount(m)}`;
+}
 function offerCounts() {
   const m = new Map();
   for (const d in S.overrides) for (const n in S.overrides[d]) m.set(n, (m.get(n) || 0) + 1);
@@ -430,9 +466,9 @@ function offerCounts() {
 function priceRow(name, oc) {
   const p = S.prices[name], m = IDX.meta.get(name), iss = issue(name), sp = spend(name), o = oc.get(name) || 0;
   const vol = m.vol > m.mass;
-  const sub = iss === 'noprice' ? 'Needs a price' : iss === 'needgpu' ? 'Needs grams per item' : `Logged ${m.n} ${m.n === 1 ? 'time' : 'times'}${m.countFirst ? ', as items' : ''}`;
+  const sub = subText(name, iss), k = m.members.length;
   return `<tr data-name="${esc(name)}"${iss ? ' class="needs"' : ''}>
-    <th scope="row"><div>${esc(name)}${o ? ` <span class="offer-tag">${o} ${o === 1 ? 'offer' : 'offers'}</span>` : ''}</div><div class="sub sl">${sub}</div></th>
+    <th scope="row"><div>${esc(name)}${o ? ` <span class="offer-tag">${o} ${o === 1 ? 'offer' : 'offers'}</span>` : ''}</div><div class="sub sl">${esc(sub)}</div><div class="sub" style="margin-top:2px">${k ? `Includes ${k} other ${k === 1 ? 'name' : 'names'}. ` : ''}<button class="btn link" data-act="merge" data-name="${esc(name)}" aria-label="Merge ${esc(name)} with another food">${k ? 'Manage merges' : 'Merge with another food'}</button></div></th>
     <td><div class="money-in"><span>${esc(currencySymbol())}</span><input type="text" inputmode="decimal" data-f="price" aria-label="Price of ${esc(name)}" placeholder="0.00" value="${p.price === '' ? '' : esc(p.price)}"></div></td>
     <td><select class="field" data-f="basis" aria-label="Price unit for ${esc(name)}">
       <option value="kg"${p.basis === 'kg' ? ' selected' : ''}>per ${vol ? 'litre' : 'kg'}</option>
@@ -443,9 +479,13 @@ function priceRow(name, oc) {
 }
 function filteredFoods() {
   const oc = offerCounts();
-  let names = [...IDX.meta.keys()].sort((a, b) => IDX.meta.get(b).n - IDX.meta.get(a).n || a.localeCompare(b));
+  const key = new Map([...IDX.meta.keys()].map(n => [n, amountKey(n)]));
+  const nOf = n => IDX.meta.get(n).n;
+  let names = [...IDX.meta.keys()].sort(S.sort === 'amount'
+    ? (a, b) => key.get(b) - key.get(a) || nOf(b) - nOf(a) || a.localeCompare(b)
+    : (a, b) => nOf(b) - nOf(a) || key.get(b) - key.get(a) || a.localeCompare(b));
   const q = S.filter.trim().toLowerCase();
-  if (q) names = names.filter(n => n.toLowerCase().includes(q));
+  if (q) names = names.filter(n => n.toLowerCase().includes(q) || IDX.meta.get(n).members.some(x => x.toLowerCase().includes(q)));
   if (S.chip === 'unpriced') names = names.filter(n => issue(n));
   if (S.chip === 'offers') names = names.filter(n => oc.get(n));
   return { names, oc };
@@ -456,8 +496,61 @@ function priceBodyHtml() {
   const shown = limited ? names.slice(0, 12) : names;
   const total = IDX.meta.size;
   const rows = shown.length ? shown.map(n => priceRow(n, oc)).join('') : `<tr><td colspan="5" style="padding:24px 20px" class="muted">No foods match. Clear the search or choose another filter.</td></tr>`;
-  const foot = `<span class="muted" style="font-size:15px">Showing ${shown.length} of ${total} foods, most logged first</span>${limited ? '<button class="btn link" data-act="toggle-all">Show all foods</button>' : (S.showAll && total > 12 && !S.filter && S.chip === 'all' ? '<button class="btn link" data-act="toggle-all">Show fewer</button>' : '')}`;
+  const foot = `<span class="muted" style="font-size:15px">Showing ${shown.length} of ${total} foods, ${S.sort === 'amount' ? 'largest total amount first' : 'most often logged first'}</span>${limited ? '<button class="btn link" data-act="toggle-all">Show all foods</button>' : (S.showAll && total > 12 && !S.filter && S.chip === 'all' ? '<button class="btn link" data-act="toggle-all">Show fewer</button>' : '')}`;
   return { rows, foot };
+}
+/* ---- merging foods ---- */
+const STOP = new Set(['raw', 'fresh', 'with', 'the', 'and', 'of', 'in', 'classic', 'skin', 'whole']);
+function toks(name) {
+  return new Set(name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/[^a-z0-9]+/)
+    .filter(t => t.length > 1 && !STOP.has(t)).map(t => t.length > 3 && t.endsWith('s') ? t.slice(0, -1) : t));
+}
+const pairKey = (a, b) => [a, b].sort().join('|');
+function mergeSuggestions() {
+  const names = [...IDX.meta.keys()], T = names.map(toks), out = [];
+  for (let i = 0; i < names.length; i++) {
+    if (!T[i].size) continue;
+    for (let j = i + 1; j < names.length; j++) {
+      if (!T[j].size) continue;
+      let inter = 0; for (const t of T[i]) if (T[j].has(t)) inter++;
+      if (!inter) continue;
+      const mn = Math.min(T[i].size, T[j].size), mx = Math.max(T[i].size, T[j].size), un = T[i].size + T[j].size - inter;
+      if (!((inter === mn && inter / mx >= 0.5) || inter / un >= 0.7)) continue;
+      if (S.nomerge.includes(pairKey(names[i], names[j]))) continue;
+      const [keep, drop] = IDX.meta.get(names[i]).n >= IDX.meta.get(names[j]).n ? [names[i], names[j]] : [names[j], names[i]];
+      out.push({ keep, drop, w: IDX.meta.get(keep).n + IDX.meta.get(drop).n });
+    }
+  }
+  return out.sort((a, b) => b.w - a.w).slice(0, 6);
+}
+function doMerge(src, target) {
+  S.merges[src] = target;
+  const ps = S.prices[src], pt = S.prices[target];
+  if (ps && ps.price !== '' && ps.price != null && (!pt || pt.price === '' || pt.price == null)) S.prices[target] = { ...ps };
+  for (const d in S.overrides) {
+    if (S.overrides[d][src] != null) { if (S.overrides[d][target] == null) S.overrides[d][target] = S.overrides[d][src]; delete S.overrides[d][src]; }
+  }
+  reindex(); ensurePrices(); saveAll();
+}
+function openMerge(name) {
+  const dlg = $('#dlg'), m = IDX.meta.get(name);
+  if (!m) return;
+  const others = [...IDX.meta.keys()].filter(n => n !== name).sort((a, b) => IDX.meta.get(b).n - IDX.meta.get(a).n || a.localeCompare(b));
+  dlg.innerHTML = `<form id="mform" method="dialog">
+    <h2 id="dlg-title" style="font-size:24px">Merge foods</h2>
+    <p class="muted" style="font-size:15px">Count <b>${esc(name)}</b> as another food. Its entries then share that food's name and price. Your Cronometer data is not changed, and you can undo this.</p>
+    <div><label for="mt">Merge into</label><input class="field" style="width:100%" id="mt" list="mlist" autocomplete="off" placeholder="Start typing a food name"><datalist id="mlist">${others.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist></div>
+    <div id="merr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
+    ${m.members.length ? `<div><div style="font-weight:600;font-size:15px">Already merged into ${esc(name)}</div>${m.members.map(x => `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line2)"><span style="flex:1;min-width:0;overflow-wrap:anywhere">${esc(x)}</span><button type="button" class="btn link" data-act="unmerge" data-src="${esc(x)}">Undo</button></div>`).join('')}</div>` : ''}
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">Merge</button><button type="button" class="btn" data-act="close-dlg">Cancel</button></div>
+  </form>`;
+  $('#mform').addEventListener('submit', ev => {
+    ev.preventDefault();
+    const t = $('#mt').value.trim();
+    if (!IDX.meta.has(t) || t === name) { $('#merr').textContent = 'Choose a food from the list.'; $('#mt').focus(); return; }
+    dlg.close(); doMerge(name, t); render(); toast(`Merged into ${t}`);
+  });
+  dlg.showModal(); $('#mt').focus();
 }
 function counts() {
   const all = IDX.meta.size; let un = 0;
@@ -484,6 +577,7 @@ function pricesView() {
           <button class="chip" data-act="chip" data-chip="offers" aria-pressed="${S.chip === 'offers'}">With offers <span id="c-of">${c.offers}</span></button>
         </div>
         <span class="grow"></span>
+        <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">Sort by <select class="field" id="sortsel"><option value="freq"${S.sort === 'freq' ? ' selected' : ''}>Times logged</option><option value="amount"${S.sort === 'amount' ? ' selected' : ''}>Total amount logged</option></select></label>
         <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:15px">Currency <select class="field" id="cur">${CURRENCIES.map(x => `<option${x === S.currency ? ' selected' : ''}>${x}</option>`).join('')}</select></label>
       </div>
       <div class="tablewrap" style="margin-top:16px"><table>
@@ -493,6 +587,15 @@ function pricesView() {
       <p class="muted" style="margin-top:8px;max-width:620px;font-size:14px">Grams per item is only needed when a food is logged one way and priced another, for example eggs logged as items but priced per kg.</p>
     </div>
     <aside class="side">
+      ${(() => {
+        const sg = mergeSuggestions();
+        return sg.length ? `<div class="card" style="padding:24px 24px 16px">
+          <h2 style="font-size:24px">Possible duplicates</h2>
+          <p class="muted" style="margin-top:8px;font-size:15px">These look like the same food. Merging counts them as one food with one price.</p>
+          <div style="margin-top:12px">${sg.map(x => `<div style="padding:14px 0;border-top:1px solid var(--line2)"><div style="font-size:15px;overflow-wrap:anywhere">${esc(x.drop)}</div><div class="muted" style="font-size:14px;margin:2px 0;overflow-wrap:anywhere">and ${esc(x.keep)}</div>
+            <div style="display:flex;gap:16px"><button class="btn link" data-act="merge-now" data-drop="${esc(x.drop)}" data-keep="${esc(x.keep)}">Merge</button><button class="btn link" data-act="not-same" data-drop="${esc(x.drop)}" data-keep="${esc(x.keep)}">Not the same</button></div></div>`).join('')}</div>
+        </div>` : '';
+      })()}
       <div class="card" style="padding:24px 24px 16px">
         <h2 style="font-size:24px">Offers</h2>
         <p class="muted" style="margin-top:8px;font-size:15px">An offer replaces your standard price for one day. Use it for sales, a different shop or a bulk buy.</p>
@@ -639,14 +742,15 @@ function toast(msg) {
 /* ============ persistence ============ */
 let _save;
 function saveSoon() { clearTimeout(_save); _save = setTimeout(saveAll, 250); }
-function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); }
+function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); }
+function saveEntries() { store.set('entries', S.entries.map(({ src, ...r }) => ({ ...r, name: src !== undefined ? src : r.name }))); }
 
 /* ============ import ============ */
 function mergeEntries(list) {
   const dates = new Set(list.map(e => e.date));
   S.entries = S.entries.filter(e => !dates.has(e.date)).concat(list).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
   reindex(); ensurePrices();
-  store.set('entries', S.entries); saveAll();
+  saveEntries(); saveAll();
   S.day = IDX.dates[IDX.dates.length - 1];
 }
 function importText(text) {
@@ -778,7 +882,7 @@ function exportCsv() {
   toast('CSV downloaded');
 }
 function backup() {
-  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides };
+  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges };
   download('meal-cost-prices.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   toast('Backup downloaded');
 }
@@ -797,10 +901,11 @@ async function restore(file) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dt) || !o || typeof o !== 'object') continue;
       for (const [n, v] of Object.entries(o)) if (Number.isFinite(Number(v)) && Number(v) >= 0) (S.overrides[dt] = S.overrides[dt] || {})[n] = Number(v);
     }
+    for (const [a, b] of Object.entries(d.merges || {})) if (typeof b === 'string' && a !== b && b) S.merges[a] = b;
     if (CURRENCIES.includes(d.currency)) S.currency = d.currency;
     if (d.budget > 0) S.budget = Number(d.budget);
-    if (S.entries.length) ensurePrices();
-    saveAll(); render(); toast('Backup restored');
+    reindex(); if (S.entries.length) ensurePrices();
+    saveAll(); render(); toast(S.entries.length ? 'Backup restored' : 'Prices restored. Now drop in your Cronometer export.');
   } catch (e) { S.error = 'That file is not a Meal cost backup.'; render(); }
 }
 function dayText(d) {
@@ -893,12 +998,16 @@ document.addEventListener('click', e => {
     case 'unpriced-link': S.chip = 'unpriced'; S.filter = ''; break;
     case 'chip': S.chip = d.chip; S.showAll = false; render(); break;
     case 'toggle-all': S.showAll = !S.showAll; refreshPriceBody(); break;
+    case 'merge': openMerge(d.name); break;
+    case 'merge-now': doMerge(d.drop, d.keep); render(); toast(`Merged into ${d.keep}`); break;
+    case 'not-same': S.nomerge.push(pairKey(d.drop, d.keep)); saveAll(); render(); break;
+    case 'unmerge': delete S.merges[d.src]; reindex(); ensurePrices(); saveAll(); { const cur = canon(d.src); $('#dlg').close(); render(); toast(`${d.src} is separate again`); void cur; } break;
     case 'export-csv': exportCsv(); break;
     case 'backup': backup(); break;
     case 'restore': $('#pfile').click(); break;
     case 'reset':
       if (confirm('Delete all imported entries, prices and offers from this browser? This cannot be undone.')) {
-        store.clear(); S.entries = []; S.prices = {}; S.overrides = {}; S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
+        store.clear(); S.entries = []; S.prices = {}; S.overrides = {}; S.merges = {}; S.nomerge = []; S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
         history.replaceState(null, '', location.pathname); S.tab = 'day'; render(); toast('All data deleted');
       }
       break;
@@ -921,7 +1030,7 @@ function refreshMeta() {
 function refreshRow(tr) {
   const name = tr.dataset.name, iss = issue(name), sp = spend(name), m = IDX.meta.get(name);
   tr.classList.toggle('needs', !!iss);
-  $('.sl', tr).textContent = iss === 'noprice' ? 'Needs a price' : iss === 'needgpu' ? 'Needs grams per item' : `Logged ${m.n} ${m.n === 1 ? 'time' : 'times'}${m.countFirst ? ', as items' : ''}`;
+  $('.sl', tr).textContent = subText(name, iss);
   $('.sp', tr).innerHTML = sp.count ? esc(money(sp.total)) : '<span class="muted">Not counted</span>';
 }
 
@@ -943,6 +1052,7 @@ document.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset && t.dataset.f === 'basis') { const tr = t.closest('tr'); S.prices[tr.dataset.name].basis = t.value; saveSoon(); refreshRow(tr); refreshMeta(); }
   else if (t.id === 'cur') { S.currency = t.value; saveAll(); render(); }
+  else if (t.id === 'sortsel') { S.sort = t.value === 'amount' ? 'amount' : 'freq'; saveAll(); refreshPriceBody(); }
   else if (t.id === 'range') { S.range = Number(t.value); render(); }
   else if (t.id === 'daysel') { S.day = t.value; render(); }
   else if (t.id === 'file') { handleFile(t.files[0]); t.value = ''; }

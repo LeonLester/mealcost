@@ -10,7 +10,8 @@ Live at https://mealcost.coachleonidas.com
 - Prices can be per kg or litre, per 100 g or ml, or per item. Add grams per item to bridge a mismatch between a price and a logged amount.
 - Offers: override a price for one day without changing the price book.
 - Day and week views, daily budget, cost per 100 g protein and per 1,000 kcal, cheaper protein swaps.
-- Backup and restore as JSON, CSV export, copy as text, 1080x1350 share image.
+- Prices tab: sort by times logged or total amount logged, merge duplicate foods (with suggestions), search across merged names.
+- Backup and restore as JSON (prices, offers, merges), CSV export, copy as text, 1080x1350 share image.
 
 ## Run locally
 

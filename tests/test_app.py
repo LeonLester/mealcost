@@ -162,6 +162,66 @@ try:
         m.goto(BASE + '#week'); m.screenshot(path=os.path.join(here, 'out', 'mobile-week.png'), full_page=True)
         check('no page errors on mobile', not merr, merr)
 
+
+        # amount formats seen in real exports
+        pa = b.new_context(viewport={'width': 1360, 'height': 900}, locale='en-US').new_page(); pa.goto(BASE)
+        AMT = 'Day,Group,Food Name,Amount,Energy (kcal),Protein (g),Carbs (g),Fat (g)\n' + '\n'.join([
+            '2026-11-01,Meal 1,Egg X,2.00 x 100.0 g,100,10,1,5', '2026-11-01,Meal 1,Beef Y,1.00 x 100.0 100g,100,10,1,5',
+            '2026-11-01,Meal 1,Wrap Z,1.22 per 100g,100,10,1,5', '2026-11-01,Meal 1,Chips W,1.05 100g,100,10,1,5',
+            '2026-11-01,Meal 1,Drink V,1.00 x 500.0 mL,100,10,1,5', '2026-11-01,Meal 1,Snack U,2.00 per serving,100,10,1,5',
+            '2026-11-01,Meal 1,Snack T,3.00 Serving,100,10,1,5'])
+        parsed = pa.evaluate('t => window.__mealcost.parseCronometer(t).map(e => [e.qty, e.unit, e.type])', AMT)
+        check('amount "2.00 x 100.0 g" is 200 g', parsed[0] == [200, 'g', 'mass'], parsed[0])
+        check('amount "1.00 x 100.0 100g" is 100 g', parsed[1] == [100, 'g', 'mass'], parsed[1])
+        check('amount "1.22 per 100g" is 122 g', parsed[2][0] == 122 and parsed[2][2] == 'mass', parsed[2])
+        check('amount "1.05 100g" is 105 g', abs(parsed[3][0] - 105) < 1e-9, parsed[3])
+        check('amount "1.00 x 500.0 mL" is 500 ml', parsed[4] == [500, 'ml', 'volume'], parsed[4])
+        check('"per serving" and "Serving" share a unit', parsed[5][1] == 'serving' and parsed[6][1] == 'serving', parsed[5:])
+        pa.close()
+
+        # sort, merge, backup restore on the prices tab
+        pm = b.new_context(viewport={'width': 1360, 'height': 900}, locale='en-US').new_page(); pm.goto(BASE); pm.click('text=Try it with sample data'); pm.wait_for_selector('.pricetag .n')
+        pm.goto(BASE + '#prices'); pm.wait_for_selector('#sortsel')
+        pm.click('[data-act="toggle-all"]')
+        first = lambda: pm.locator('#pbody tr').first.get_attribute('data-name')
+        pm.select_option('#sortsel', 'amount')
+        names = pm.evaluate("[...document.querySelectorAll('#pbody tr')].map(r => r.dataset.name)")
+        grams = [pm.evaluate("n => { const m = window.__mealcost.IDX().meta.get(n); return m.g + m.ml; }", n) for n in names[:6]]
+        check('total amount sort is descending', grams == sorted(grams, reverse=True), grams)
+        pm.select_option('#sortsel', 'freq')
+        cnts = [pm.evaluate("n => window.__mealcost.IDX().meta.get(n).n", n) for n in pm.evaluate("[...document.querySelectorAll('#pbody tr')].map(r => r.dataset.name)")[:8]]
+        check('times logged sort is descending', cnts == sorted(cnts, reverse=True), cnts)
+        n_before = pm.evaluate("window.__mealcost.IDX().meta.size")
+        cost_before = pm.evaluate("window.__mealcost.summarize(window.__mealcost.S.entries).cost")
+        pm.locator('#pbody tr[data-name="Skyr, plain"] [data-act="merge"]').click()
+        pm.fill('#mt', 'Cottage cheese'); pm.click('#mform button[type=submit]')
+        pm.wait_for_selector('#toast.show, #toast:not([hidden])')
+        check('merging reduces the number of foods by one', pm.evaluate("window.__mealcost.IDX().meta.size") == n_before - 1)
+        check('merged food carries both names', pm.evaluate("window.__mealcost.IDX().meta.get('Cottage cheese').members") == ['Skyr, plain'])
+        pm.reload(); pm.wait_for_selector('main h1')
+        check('merge survives a reload', pm.evaluate("window.__mealcost.IDX().meta.get('Cottage cheese').members.length") == 1)
+        check('original names are kept in storage', 'Skyr, plain' in pm.evaluate("localStorage.getItem('mcc.entries')"))
+        pm.goto(BASE + '#prices'); pm.wait_for_selector('#pbody')
+        pm.fill('#q', 'skyr'); 
+        check('search finds a merged name', pm.locator('#pbody tr[data-name="Cottage cheese"]').count() == 1)
+        pm.fill('#q', '')
+        pm.locator('#pbody tr[data-name="Cottage cheese"] [data-act="merge"]').click()
+        pm.click('[data-act="unmerge"]'); pm.wait_for_timeout(200)
+        check('undo restores the separate food', pm.evaluate("window.__mealcost.IDX().meta.size") == n_before)
+        check('undo restores the total cost', pm.evaluate("window.__mealcost.summarize(window.__mealcost.S.entries).cost") == cost_before)
+        pm.close()
+
+        # restoring a price backup before any data is loaded
+        pr = b.new_context(viewport={'width': 1360, 'height': 900}, locale='en-US').new_page(); pr.goto(BASE)
+        BK = '{"app":"mealcost","version":1,"currency":"EUR","budget":null,"prices":{"Egg X":{"price":2,"basis":"kg","gpu":""}},"overrides":{},"merges":{}}'
+        open(os.path.join(tempfile.gettempdir(), 'bk.json'), 'w').write(BK)
+        pr.set_input_files('#pfile', os.path.join(tempfile.gettempdir(), 'bk.json'))
+        open(os.path.join(tempfile.gettempdir(), 'amt.csv'), 'w').write(AMT)
+        pr.set_input_files('#file', os.path.join(tempfile.gettempdir(), 'amt.csv')); pr.wait_for_selector('main h1')
+        c = pr.evaluate("window.__mealcost.costOf(window.__mealcost.S.entries.find(e => e.name === 'Egg X')).cost")
+        check('prices restored on the landing page apply after import (200 g at 2 per kg)', c == 0.4, c)
+        pr.close()
+
         # desktop screenshots
         for tab in ['day', 'prices', 'week']:
             page.goto(BASE + '#' + tab); page.wait_for_selector('main h1')
