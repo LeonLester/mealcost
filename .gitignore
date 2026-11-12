@@ -5,3 +5,5 @@ node_modules
 .DS_Store
 tests/out/
 *.csv
+meal-cost-*.png
+meal-cost-*.json
