@@ -531,6 +531,7 @@ function amountKey(name) {
   const m = IDX.meta.get(name), gpu = Number((S.prices[name] || {}).gpu) || 0;
   return m.g + m.ml + m.cnt * gpu;
 }
+const DEFAULT_CATS = ['Meat', 'Fish and seafood', 'Eggs', 'Dairy', 'Grains', 'Bread and bakery', 'Vegetables', 'Fruit', 'Legumes', 'Nuts and seeds', 'Oils and fats', 'Sweets and snacks', 'Drinks', 'Supplements', 'Sauces and spices', 'Ready meals', 'Other'];
 const catOf = n => S.cats[n] || (S.recipes[n] ? 'Recipes' : ((IDX.meta.get(n) || {}).cat || 'Uncategorized'));
 function estInfo(name) {
   if (S.recipes[name] || Number((S.prices[name] || {}).gpu) > 0) return 0;
@@ -680,15 +681,18 @@ function pricesView() {
   <h1 class="h1" id="h1" tabindex="-1">Your prices</h1>
   <p class="lede">Set a price once and it applies to every day you logged that food. Use an offer when a price was different on one day.</p>
   <div class="notice" id="unp" role="status"${c.un ? '' : ' hidden'}>${IC.info}<div id="unp-t">${unpText(c.un)}</div></div>
-  <datalist id="catlist">${[...new Set([...IDX.meta.keys()].map(catOf))].filter(k => k !== 'Uncategorized').sort().map(k => `<option value="${esc(k)}"></option>`).join('')}</datalist>
+  <datalist id="catlist">${[...new Set([...DEFAULT_CATS, ...[...IDX.meta.keys()].map(catOf)])].filter(k => k !== 'Uncategorized').sort().map(k => `<option value="${esc(k)}"></option>`).join('')}</datalist>
   <div class="cols" style="margin-top:24px">
     <div class="main2" style="flex:2 1 640px">
       ${(() => {
         const unc = [...IDX.meta.keys()].filter(n => catOf(n) === 'Uncategorized').sort((a, b) => IDX.meta.get(b).n - IDX.meta.get(a).n || a.localeCompare(b));
         if (!unc.length) return '';
-        return `<div class="card" style="padding:20px 24px;margin-bottom:24px"><h2 style="font-size:20px">Foods without a category (${unc.length})</h2>
-          <p class="muted" style="margin-top:6px;font-size:15px">Cronometer did not give these a category. Pick one from the list or type your own. The change applies to charts and filters straight away.</p>
-          <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th scope="col">Food</th><th scope="col" class="r">Logged</th><th scope="col">Category</th></tr></thead><tbody>${unc.slice(0, 40).map(n => `<tr data-name="${esc(n)}"><th scope="row" style="font-weight:400">${esc(n)}</th><td class="r">${IDX.meta.get(n).n}</td><td><input class="field" style="width:100%;min-width:180px" list="catlist" data-cat aria-label="Category of ${esc(n)}" placeholder="Choose or type a category"></td></tr>`).join('')}</tbody></table></div>
+        const stale = ![...IDX.meta.values()].some(m => m.cat) && !Object.keys(S.cats).length;
+        const head = `<button type="button" class="btn" style="width:100%;justify-content:space-between;background:none;border:0;padding:0" data-act="toggle-unc" aria-expanded="${S.uncOpen ? 'true' : 'false'}"><span style="font-family:var(--display);font-weight:700;font-size:20px">Foods without a category (${unc.length})</span><span class="muted">${S.uncOpen ? 'Hide' : 'Show'}</span></button>`;
+        if (!S.uncOpen) return `<div class="card" style="padding:16px 24px;margin-bottom:24px">${head}</div>`;
+        return `<div class="card" style="padding:20px 24px;margin-bottom:24px">${head}
+          <p class="muted" style="margin-top:10px;font-size:15px">${stale ? 'No categories came in with your saved data, because it was imported before categories were read. Import your Cronometer export again to bring them in, or assign them here.' : 'Cronometer did not give these a category.'} Click a field to pick from the list, or type your own.</p>
+          <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th scope="col">Food</th><th scope="col" class="r">Logged</th><th scope="col">Category</th></tr></thead><tbody>${unc.slice(0, 40).map(n => `<tr data-name="${esc(n)}"><th scope="row" style="font-weight:400">${esc(n)}</th><td class="r">${IDX.meta.get(n).n}</td><td><input class="field" style="width:100%;min-width:180px" list="catlist" data-cat aria-label="Category of ${esc(n)}" placeholder="Pick or type a category"></td></tr>`).join('')}</tbody></table></div>
           ${unc.length > 40 ? `<p class="muted" style="margin-top:8px;font-size:14px">Showing the 40 most logged. The rest appear as you assign these.</p>` : ''}</div>`;
       })()}
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px">
@@ -854,7 +858,7 @@ function trendsView() {
   const catRows = [...byCat].sort((a, b) => b[1] - a[1]), catTotal = catRows.reduce((a, r) => a + r[1], 0);
   const catCard = catRows.length ? `<div class="card tcard"><h2>Where the money goes, by category</h2>
     <div style="margin-top:12px">${catRows.slice(0, 12).map(([k, v]) => `<div class="catrow"><div class="catname">${esc(k)}</div><div class="catbar" role="img" aria-label="${esc(k)}: ${esc(money(v))}, ${Math.round(v / catTotal * 100)} percent"><i style="width:${(v / catRows[0][1] * 100).toFixed(1)}%"></i></div><div class="catval">${money(v)} <span class="muted">${Math.round(v / catTotal * 100)}%</span></div></div>`).join('')}</div>
-    ${catRows.length > 12 ? `<p class="muted" style="font-size:14px;margin-top:8px">Plus ${catRows.length - 12} smaller categories.</p>` : ''}</div>` : '';
+    ${catRows.length === 1 && catRows[0][0] === 'Uncategorized' ? `<p class="muted" style="font-size:14px;margin-top:8px">Every food is uncategorized. Import your Cronometer export again to bring in its categories, or assign them on the Prices tab.</p>` : ''}${catRows.length > 12 ? `<p class="muted" style="font-size:14px;margin-top:8px">Plus ${catRows.length - 12} smaller categories.</p>` : ''}</div>` : '';
   const allKcal = dates.filter(x => x >= from).reduce((a, d) => a + IDX.byDate.get(d).reduce((b, e) => b + e.kcal, 0), 0);
   const pctAll = allKcal > 0 ? Math.round(total.kcal / allKcal * 100) : 0;
   const cov = pctAll < 95 ? `<div class="notice" style="margin-top:24px">${IC.info}<div><strong>Prices cover ${pctAll}% of the calories you logged in this period.</strong> Days and weeks with fewer than half their calories priced are left out of the charts. Price more foods on the Prices tab to fill them in.</div></div>` : '';
@@ -1328,6 +1332,7 @@ document.addEventListener('click', e => {
     case 'flip': S.flip = !S.flip; saveAll(); render(); break;
     case 'sort-col': if (S.sort === d.sort) S.flip = !S.flip; else { S.sort = d.sort; S.flip = false; } saveAll(); render(); break;
     case 'edit-recipe': openRecipe(d.name); break;
+    case 'toggle-unc': S.uncOpen = !S.uncOpen; render(); break;
     case 'toggle-recipe': if (S.open.has(d.key)) S.open.delete(d.key); else S.open.add(d.key); render(); break;
     case 'rec-add': syncRecipe(); REC.items.push({ name: '', qty: '', unit: 'g' }); drawRecipe(); break;
     case 'rec-del': syncRecipe(); REC.items.splice(Number(d.i), 1); if (!REC.items.length) REC.items.push({ name: '', qty: '', unit: 'g' }); drawRecipe(); break;
