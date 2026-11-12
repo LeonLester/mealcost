@@ -53,6 +53,17 @@ One-time setup for sign-in and sync:
 
 Without the database and Google settings the app still works as before, and the sign-in link reports that it is not configured.
 
+## Continuous deployment
+
+Pushing to `main` runs the tests and then deploys through GitHub Actions (`.github/workflows/deploy.yml`). Pull requests run the tests only. The deploy job applies pending D1 migrations first, then runs `wrangler deploy`.
+
+Add these repository secrets (Settings, Secrets and variables, Actions), and create an environment named `production`:
+
+- `CLOUDFLARE_API_TOKEN`: a token with Workers Scripts edit, D1 edit, and Workers Routes edit on the coachleonidas.com zone.
+- `CLOUDFLARE_ACCOUNT_ID`: shown on the Workers overview page in the Cloudflare dashboard.
+
+`GOOGLE_CLIENT_SECRET` stays in Cloudflare (`wrangler secret put`) and is never stored in GitHub.
+
 ## Test sync locally
 
     python3 tests/mock_google.py 9100 &
