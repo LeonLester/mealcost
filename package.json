@@ -1,0 +1,15 @@
+{
+  "name": "mealcost",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Free meal cost calculator for Cronometer exports. Static, private, runs in the browser.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "python3 tests/test_app.py"
+  },
+  "devDependencies": {
+    "wrangler": "^4.160.0"
+  }
+}
