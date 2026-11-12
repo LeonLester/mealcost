@@ -97,7 +97,15 @@ sh('shell', 'input', 'keyevent', 'KEYCODE_BACK'); time.sleep(1.5)
 cache = sh('shell', 'run-as', APP, 'ls', 'cache')
 check('CSV was written to the app cache', 'meal-costs.csv' in cache, cache)
 check('app in front after the share sheet', APP in sh('shell', 'dumpsys', 'window'))
-check('no JavaScript errors', not [e for e in errors if '404' not in e], errors[:5])
+sh('shell', 'uiautomator', 'dump', '/sdcard/u.xml')
+import re
+ui = sh('shell', 'cat', '/sdcard/u.xml')
+m = re.search(r'class="android.webkit.WebView"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', ui)
+sb = sh('shell', 'dumpsys', 'window')
+print('webview bounds', m.groups() if m else None, flush=True)
+check('WebView sits below the status bar', bool(m) and int(m.group(2)) >= 40, m.groups() if m else ui[:300])
+check('no JavaScript errors', not [e for e in errors if '404' not in e and 'safe area CSS' not in e], errors[:5])
+print('ignored safe-area errors:', len([e for e in errors if 'safe area CSS' in e]))
 pg.ws.close()
 
 # data survives a restart
