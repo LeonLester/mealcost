@@ -116,6 +116,13 @@ jobs:
     concurrency:
       group: fdroid-pages
       cancel-in-progress: false
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -142,6 +149,18 @@ jobs:
           RUN: ${{ github.run_number }}
           APK: dist/mealcost.apk
         run: ./scripts/fdroid.sh
+      - name: Turn on GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+        continue-on-error: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/pages
+      - name: Publish the repository
+        id: deploy
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
 
   smoke:
     needs: build
