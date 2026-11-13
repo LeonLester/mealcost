@@ -513,3 +513,8 @@ h1,h2,h3{font-weight:650;letter-spacing:-.01em}
 .bcrow{display:flex;gap:8px}
 .bcrow .field{flex:1;min-width:0}
 #fvid{width:100%;max-height:240px;border-radius:14px;background:#000;object-fit:cover}
+
+@media (max-width:640px){
+  .topbar.plain .wrap > .muted{display:none}
+  .topbar.plain .brand,.topbar.plain .btn{white-space:nowrap}
+}

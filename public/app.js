@@ -665,7 +665,7 @@ function priceBodyHtml() {
   const limited = !S.showAll && !S.filter && !S.cat && S.chip === 'all' && names.length > 12;
   const shown = limited ? names.slice(0, 12) : names;
   const total = IDX.meta.size;
-  const rows = shown.length ? shown.map(n => priceRow(n, oc)).join('') : `<tr><td colspan="5" style="padding:24px 20px" class="muted">No foods match. Clear the search or choose another filter.</td></tr>`;
+  const rows = shown.length ? shown.map(n => priceRow(n, oc)).join('') : `<tr><td colspan="5" style="padding:24px 20px" class="muted">${total ? 'No foods match. Clear the search or choose another filter.' : 'No foods yet. Use Add a food, or log something on the Day tab, and it appears here to price.'}</td></tr>`;
   const foot = `<span class="muted" style="font-size:14px">Showing ${shown.length} of ${total} foods, ${SORTS[S.sort][S.flip ? 2 : 1]}</span>${limited ? '<button class="btn link" data-act="toggle-all">Show all foods</button>' : (S.showAll && total > 12 && !S.filter && !S.cat && S.chip === 'all' ? '<button class="btn link" data-act="toggle-all">Show fewer</button>' : '')}`;
   return { rows, foot };
 }
@@ -791,7 +791,7 @@ function openFood(name) {
   dlg.innerHTML = `<form id="fform" method="dialog" novalidate>
     <h2 id="dlg-title" style="font-size:20px">${cf ? 'Edit food' : 'Add a food'}</h2>
     <p class="muted" style="font-size:14px">Enter what the label says and what you pay. Then use it in meals and rankings. No other app needed.</p>
-    ${cf ? '' : `<div class="bc"><label for="fbc">Barcode</label><div class="bcrow"><input class="field" id="fbc" inputmode="numeric" autocomplete="off" placeholder="Type the number under the barcode"><button type="button" class="btn" id="fbl">Look up</button>${canScan() ? '<button type="button" class="btn" id="fscan">Scan</button>' : ''}</div><video id="fvid" playsinline muted hidden></video><div id="fbs" class="sub" role="status"></div></div>`}
+    ${cf ? '' : `<div class="bc"><label for="fbc">Barcode</label><div class="bcrow"><input class="field" id="fbc" inputmode="numeric" autocomplete="off" placeholder="Barcode number"><button type="button" class="btn" id="fbl">Look up</button>${canScan() ? '<button type="button" class="btn" id="fscan">Scan</button>' : ''}</div><video id="fvid" playsinline muted hidden></video><div id="fbs" class="sub" role="status"></div></div>`}
     <div><label for="fn">Name</label><input class="field" style="width:100%" id="fn" maxlength="60" autocomplete="off" placeholder="For example, Greek yogurt"${cf ? ' readonly' : ''} value="${v(name)}"></div>
     <div><label for="fper">Nutrition is for</label><select class="field" style="width:100%" id="fper"><option value="100g"${per === '100g' ? ' selected' : ''}>100 g (or 100 ml)</option><option value="item"${per === 'item' ? ' selected' : ''}>1 item or serving</option></select></div>
     <div class="fgrid"><div><label for="fk">Calories</label><input class="field" id="fk" inputmode="decimal" placeholder="kcal" value="${v(cf && cf.kcal)}"></div><div><label for="fp">Protein (g)</label><input class="field" id="fp" inputmode="decimal" placeholder="0" value="${v(cf && cf.pro)}"></div><div><label for="fc">Carbs (g)</label><input class="field" id="fc" inputmode="decimal" placeholder="0" value="${v(cf && cf.carb)}"></div><div><label for="ff">Fat (g)</label><input class="field" id="ff" inputmode="decimal" placeholder="0" value="${v(cf && cf.fat)}"></div></div>
@@ -1883,9 +1883,9 @@ document.addEventListener('click', e => {
     case 'add-food': openFood(); break;
     case 'edit-food': openFood(d.name); break;
     case 'del-food': if (confirm(`Remove ${d.name} from your foods?`)) { delete S.foods[d.name]; if (!(IDX.byName.get(d.name) || []).length) delete S.prices[d.name]; reindex(); saveAll(); $('#dlg').close(); render(); toast('Food removed'); } break;
-    case 'log-food': openEntry(-1, d.date, d.group); break;
+    case 'log-food': if (!IDX.meta.size) { toast('Add a food first, then log it'); openFood(); } else openEntry(-1, d.date, d.group); break;
     case 'edit-entry': openEntry(Number(d.i)); break;
-    case 'start-manual': S.started = true; saveAll(); go('prices'); break;
+    case 'start-manual': S.started = true; saveAll(); go('day'); break;
     case 'tview': S.tview = d.v; saveAll(); render(); break;
     case 'vmacro': S.vmacro = d.v; S.vall = false; saveAll(); render(); break;
     case 'vall': S.vall = !S.vall; render(); break;
