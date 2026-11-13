@@ -395,6 +395,7 @@ function siteFooter() {
 }
 
 /* ============ view: shell ============ */
+const LOGO = '<svg class="logo" viewBox="0 0 64 64" width="30" height="30" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#B5532A"/><circle cx="29" cy="30" r="15" fill="none" stroke="#fff" stroke-width="4.5"/><path d="M33 38h15l9 9-9 9H33z" fill="#FFD43B"/><circle cx="39" cy="47" r="2.6" fill="#B5532A"/></svg>';
 const TABLBL = { week: 'Summary' };
 const tabLbl = t => TABLBL[t] || cap(t);
 const TABIC = {
@@ -412,6 +413,9 @@ const TOOLIC = {
   'add-food': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.500v9L12 21l-8-4.500v-9zM4 7.500l8 4.500 8-4.500M12 12v9"/></svg>',
   'log-food': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6zM6 3v18M10 9h5M10 13h3"/></svg>',
   currency: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.8 9.2A3.4 3.4 0 0 0 12 8c-1.7 0-3 .9-3 2.2 0 3 6 1.6 6 4.6 0 1.3-1.300 2.200-3 2.200a3.400 3.400 0 0 1-2.800-1.200M12 6.500V8m0 8v1.500"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16zM13.500 6.500l4 4"/></svg>',
+  close: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
   theme: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>',
 };
 const themeLabel = () => ({ auto: 'Auto', light: 'Light', dark: 'Dark' })[window.MealTheme ? MealTheme.get() : 'auto'];
@@ -432,13 +436,13 @@ function appView() {
   <div class="shell">
   <header class="topbar"><div class="wrap">
     <button class="burger" data-act="drawer" aria-label="Menu" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    <div class="brand"><b>Meal cost</b><span>by Coach Leonidas</span></div>
+    <div class="brand">${LOGO}<b>Meal cost</b><span>by Coach Leonidas</span></div>
     <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week', 'trends', 'meals'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${TABIC[t]}<span>${tabLbl(t)}</span></a>`).join('')}</nav>
     <div class="tools">${toolBtn('add-food', 'New food')}${toolBtn('import', 'Add export', 'pri')}${toolBtn('export-csv', 'Download CSV')}${toolBtn('theme', 'Theme: ' + themeLabel())}<label class="curtool">${curSelect('sm')}</label><a class="btn sm tb" href="#account" aria-label="Account" title="Account"${S.tab === 'account' ? ' aria-current="page"' : ''}>${TOOLIC.account}<span class="lbl">Account</span></a>${window.MealSync ? MealSync.topHtml() : ''}</div>
   </div></header>
   <div class="scrim" data-act="drawer-close"></div>
   <aside class="drawer" id="drawer" aria-label="Menu">
-    <div class="dhead"><b>Meal cost</b><button class="burger" data-act="drawer-close" aria-label="Close menu"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="dhead"><b class="dlogo">${LOGO}Meal cost</b><button class="burger" data-act="drawer-close" aria-label="Close menu"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <a class="ditem" href="#account">${TOOLIC.account}<span>Account and data</span></a>
     <button class="ditem" data-act="log-food">${TOOLIC['log-food']}<span>Log a food to your diary</span></button>
     <button class="ditem" data-act="add-food">${TOOLIC['add-food']}<span>Create a custom food</span></button>
@@ -564,7 +568,8 @@ function dayView() {
         const fr = recipeFrac(rec, e), rc = recipeCostOf(rec, e.date);
         subs = `<div class="subitems">${rc.parts.map(p => `<div class="subitem"><span>${esc(p.it.name)}</span><span class="amt">${fr == null ? '' : qtyFmt(Number(p.it.qty) * fr) + ' ' + esc(p.it.unit)}</span><span class="lead"></span>${p.cost != null && fr != null ? `<span>${money(r2(p.cost * fr))}</span>` : `<button class="setprice" data-act="goto-price" data-name="${esc(p.e.name)}">${p.why === 'needgpu' ? 'Add grams per item' : 'Set price'}</button>`}</div>`).join('')}</div>`;
       }
-      return `<div class="item"><div style="min-width:0"><span style="font-size:17px">${esc(e.name)}</span><span class="amt">${qtyFmt(e.qty)} ${esc(e.unit)}</span>${note}<div style="display:flex;gap:16px"><button class="btn link" data-act="edit-entry" data-i="${S.entries.indexOf(e)}">Edit</button>${rec ? `<button class="btn link" data-act="toggle-recipe" data-key="${esc(key)}" aria-expanded="${open}">${open ? 'Hide' : 'Show'} ingredients</button>` : ''}</div></div><span class="lead"></span>${cell}</div>${subs}`;
+      const ei = S.entries.indexOf(e), en = esc(e.name);
+      return `<div class="swipe"><button class="swipe-del" data-act="del-entry" data-i="${ei}" aria-label="Delete ${en}" tabindex="-1">${TOOLIC.trash}</button><div class="item"><button class="ibtn" data-act="edit-entry" data-i="${ei}" aria-label="Edit ${en}">${TOOLIC.edit}</button><div class="imain"><button class="iname" data-act="edit-entry" data-i="${ei}"><span class="nm">${en}</span><span class="amt">${qtyFmt(e.qty)} ${esc(e.unit)}</span></button>${note}${rec ? `<button class="btn link" data-act="toggle-recipe" data-key="${esc(key)}" aria-expanded="${open}">${open ? 'Hide' : 'Show'} ingredients</button>` : ''}</div>${cell}</div></div>${subs}`;
     }).join('');
     return `<section class="meal"><div class="meal-head"><h2>${esc(g)}</h2><span class="kcal">${n0(kcal)} kcal</span><span class="cost">${money(r2(cost))}</span></div><div style="margin-top:8px">${items}<button class="btn link" data-act="log-food" data-date="${day}" data-group="${esc(g)}">Add to ${esc(g.toLowerCase())}</button></div></section>`;
   }).join('');
@@ -1011,15 +1016,16 @@ function niceMax(v) {
   for (const k of [1, 2, 2.5, 5, 10]) if (k * mag * 4 >= raw) return k * mag * 4;
   return raw;
 }
+const CHW = () => window.innerWidth <= 640 ? 360 : 600, CHH = () => window.innerWidth <= 640 ? 260 : 240;
 function chartFrame(label, inner, ymax, xl) {
-  const W = 600, H = 240, L = 58, R = 16, T = 14, B = 32;
+  const W = CHW(), H = CHH(), L = 52, R = 16, T = 14, B = 32;
   const fmt = v => ymax >= 10 ? money0(v) : money(v);
-  const grid = [0, 1, 2, 3, 4].map(i => { const v = ymax * i / 4, y = T + (1 - v / ymax) * (H - T - B); return `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--line2)"/><text x="${L - 8}" y="${y + 4}" text-anchor="end" font-size="12" fill="var(--muted)">${esc(fmt(v))}</text>`; }).join('');
-  const xs = xl.map(([x, t, a]) => `<text x="${x}" y="${H - 8}" text-anchor="${a}" font-size="12" fill="var(--muted)">${esc(t)}</text>`).join('');
+  const grid = [0, 1, 2, 3, 4].map(i => { const v = ymax * i / 4, y = T + (1 - v / ymax) * (H - T - B); return `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${L - 8}" y="${y + 4}" text-anchor="end" font-size="13" fill="var(--muted)">${esc(fmt(v))}</text>`; }).join('');
+  const xs = xl.map(([x, t, a]) => `<text x="${x}" y="${H - 8}" text-anchor="${a}" font-size="13" fill="var(--muted)">${esc(t)}</text>`).join('');
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}" style="width:100%;height:auto;display:block">${grid}${inner}${xs}</svg>`;
 }
 function lineChart(pts, ma, label, weekly) {
-  const W = 600, H = 240, L = 58, R = 16, T = 14, B = 32, all = pts.concat(ma || []);
+  const W = CHW(), H = CHH(), L = 52, R = 16, T = 14, B = 32, all = pts.concat(ma || []);
   const x0 = Math.min(...all.map(p => tOf(p.d))), x1 = Math.max(...all.map(p => tOf(p.d)));
   const ymax = niceMax(Math.max(...all.map(p => p.v)));
   const X = d => L + (x1 > x0 ? (tOf(d) - x0) / (x1 - x0) : 0.5) * (W - L - R), Y = v => T + (1 - v / ymax) * (H - T - B);
@@ -1033,7 +1039,7 @@ function lineChart(pts, ma, label, weekly) {
   return chartFrame(label, `${dots}<path d="${line}" fill="none" stroke="var(--brand)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`, ymax, xl);
 }
 function barChart(pts, label) {
-  const W = 600, H = 240, L = 58, R = 16, T = 14, B = 32, n = pts.length;
+  const W = CHW(), H = CHH(), L = 52, R = 16, T = 14, B = 32, n = pts.length;
   const ymax = niceMax(Math.max(...pts.map(p => p.v))), bw = (W - L - R) / n, Y = v => T + (1 - v / ymax) * (H - T - B);
   const bars = pts.map((p, i) => { const x = L + i * bw + bw * 0.15, w = bw * 0.7, y = Y(p.v); return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${(H - B - y).toFixed(1)}" rx="3" fill="var(--brand)"><title>Week of ${esc(dDM(p.d))}: ${esc(money(p.v))} a day</title></rect>${n <= 14 ? `<text x="${(x + w / 2).toFixed(1)}" y="${(y - 5).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">${esc(money(p.v))}</text>` : ''}`; }).join('');
   const xl = [[L + bw / 2, dDM(pts[0].d), 'start'], [L + (n - 0.5) * bw, dDM(pts[n - 1].d), 'end']];
@@ -1067,19 +1073,19 @@ function priceHistoryCard(from, last) {
   const plot = data.filter(x => x.pts.length);
   let chart = '';
   if (plot.length) {
-    const W = 600, H = 240, L = 58, R = 16, T = 14, B = 32, x0 = tOf(from), x1 = tOf(last);
+    const W = CHW(), H = CHH(), L = 52, R = 16, T = 14, B = 32, x0 = tOf(from), x1 = tOf(last);
     const ymax = niceMax(Math.max(...plot.flatMap(x => x.pts.map(p => p.v))));
     const X = d => L + (x1 > x0 ? (tOf(d) - x0) / (x1 - x0) : 0.5) * (W - L - R), Y = v => T + (1 - v / ymax) * (H - T - B);
     const inner = plot.map(x => {
       const path = x.pts.map((p, i) => i ? `H${X(p.d).toFixed(1)}V${Y(p.v).toFixed(1)}` : `M${X(p.d).toFixed(1)} ${Y(p.v).toFixed(1)}`).join('') + `H${X(last).toFixed(1)}`;
-      const dots = x.pts.map(p => `<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="4.5" fill="${x.col}" stroke="#fff" stroke-width="1.5"><title>${esc(x.n)}, ${esc(dMed(p.d))}: ${esc(money(p.v))} per kg${p.offer ? ' (offer)' : ''}</title></circle>`).join('');
-      return `<path d="${path}" fill="none" stroke="${x.col}" stroke-width="2.5" stroke-linejoin="round"/>${dots}`;
+      const dots = x.pts.map(p => `<circle cx="${X(p.d).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="5" fill="${x.col}" stroke="var(--paper)" stroke-width="2"><title>${esc(x.n)}, ${esc(dMed(p.d))}: ${esc(money(p.v))} per kg${p.offer ? ' (offer)' : ''}</title></circle>`).join('');
+      return `<path d="${path}" fill="none" stroke="${x.col}" stroke-width="3" stroke-linejoin="round"/>${dots}`;
     }).join('');
     const xl = [[L, dDM(from), 'start'], [W - R, dDM(last), 'end']];
     if (x1 - x0 >= 20) xl.splice(1, 0, [L + (W - L - R) / 2, dDM(isoAdd(from, Math.round((x1 - x0) / 2))), 'middle']);
     chart = chartFrame('Price per kg over time for ' + plot.map(x => x.n).join(', '), inner, ymax, xl);
   }
-  const chips = data.map(x => `<span class="phchip"><i style="background:${x.col}" aria-hidden="true"></i>${esc(x.n)}<button type="button" class="btn link" data-act="ph-del" data-name="${esc(x.n)}" aria-label="Remove ${esc(x.n)} from the chart">Remove</button></span>`).join('');
+  const chips = data.map(x => `<span class="phchip"><i style="background:${x.col}" aria-hidden="true"></i><span class="phn">${esc(x.n)}${x.pts.length ? `<small>${esc(money(x.pts[x.pts.length - 1].v))} per kg now</small>` : ''}</span><button type="button" class="phx" data-act="ph-del" data-name="${esc(x.n)}" aria-label="Remove ${esc(x.n)} from the chart" title="Remove">${TOOLIC.close}</button></span>`).join('');
   const notes = data.map(x => x.nopk ? `<p class="muted" style="font-size:13px;margin-top:6px">${esc(x.n)} is priced per item. Add its grams per item on the Prices tab to chart it per kg.</p>` : !x.pts.length ? `<p class="muted" style="font-size:13px;margin-top:6px">${esc(x.n)} has no price in this period.</p>` : '').join('');
   const list = plot.map(x => `<h3 style="font-size:16px;margin-top:12px">${esc(x.n)}</h3><ul style="margin:4px 0 0 18px;font-size:14px">${x.pts.map(p => `<li>${esc(dMed(p.d))}: ${esc(money(p.v))} per kg${p.was != null ? `, from ${esc(money(p.was))}` : ''}${p.offer ? ', offer' : ''}</li>`).join('')}</ul>`).join('');
   return `<div class="card tcard" id="phist" style="margin-top:24px"><h2>Price history</h2>
@@ -1174,11 +1180,11 @@ function valueCard() {
   const m = S.vmacro in VM ? S.vmacro : 'pro', rows = valueRows(m), shown = S.vall ? rows : rows.slice(0, 10), sym = currencySymbol();
   const seg = `<div class="seg" role="group" aria-label="Nutrient">${Object.entries(VM).map(([k, v]) => `<button type="button" data-act="vmacro" data-v="${k}" aria-pressed="${k === m}">${v[0]}</button>`).join('')}</div>`;
   const unit = VM[m][2] === 'g' ? `g of ${VM[m][0].toLowerCase()}` : 'kcal';
-  const body = rows.length ? `<table class="vtab"><thead><tr><th scope="col">Food</th><th scope="col" class="r">Price</th><th scope="col" class="r">${esc(unit === 'kcal' ? 'kcal' : 'g')} per ${esc(sym)}1</th></tr></thead><tbody>${shown.map((r, i) => `<tr><td><span class="rk">${i + 1}</span>${esc(r.name)}</td><td class="r muted">${esc(r.price)}</td><td class="r"><b>${r.v >= 100 ? Math.round(r.v) : r.v.toFixed(1)}</b></td></tr>`).join('')}</tbody></table>
+  const body = rows.length ? `<table class="vtab bvtab"><thead><tr><th scope="col">Food</th><th scope="col" class="r">${esc(unit === 'kcal' ? 'kcal' : 'g')} per ${esc(sym)}1</th></tr></thead><tbody>${shown.map((r, i) => `<tr><td><div class="bvn"><span class="rk">${i + 1}</span><span class="bvt"><span>${esc(r.name)}</span><span class="note muted">${esc(r.price)}</span></span></div><div class="bvbar" aria-hidden="true"><i style="width:${(r.v / rows[0].v * 100).toFixed(1)}%"></i></div></td><td class="r"><b>${r.v >= 100 ? Math.round(r.v) : r.v.toFixed(1)}</b></td></tr>`).join('')}</tbody></table>
     ${rows.length > 10 ? `<button class="btn link" data-act="vall">${S.vall ? 'Show the top 10' : `Show all ${rows.length}`}</button>` : ''}
     <p class="muted" style="font-size:13px;margin-top:8px">Higher is better value. Uses each food's current price and nutrition. Foods without a price or nutrition are left out.</p>`
     : `<div class="notice" style="margin-top:16px">${IC.info}<div>Nothing to rank yet. Add a food with its nutrition and price, or set prices on the Prices tab.</div></div><p style="margin-top:12px"><button class="btn primary" data-act="add-food">Add a food</button></p>`;
-  return `<div class="card pad" style="margin-top:16px"><h2 style="font-size:17px">${esc(unit === 'kcal' ? 'Calories' : cap(unit))} per ${esc(sym)}1 spent</h2><div style="margin-top:12px">${seg}</div><div style="margin-top:12px">${body}</div></div>`;
+  return `<div class="card pad" style="margin-top:16px"><h2 style="font-size:17px">${esc(VM[m][0])} per ${esc(sym)}1 spent</h2><div style="margin-top:12px">${seg}</div><div style="margin-top:12px">${body}</div></div>`;
 }
 function nutritionRows() {
   const out = [];
@@ -1193,10 +1199,12 @@ function nutritionRows() {
   }
   return out;
 }
+const NS = { k: '', dir: -1 };
 function nutritionCard() {
-  const q = (S.nq || '').toLowerCase(), all = nutritionRows(), rows = all.filter(r => !q || r.name.toLowerCase().includes(q)).sort((a, b) => (b.flags.length - a.flags.length) || a.name.localeCompare(b.name));
+  const q = (S.nq || '').toLowerCase(), all = nutritionRows(), rows = all.filter(r => !q || r.name.toLowerCase().includes(q)).sort((a, b) => NS.k ? ((NS.k === 'name' ? a.name.localeCompare(b.name) : a[NS.k] - b[NS.k]) * NS.dir || a.name.localeCompare(b.name)) : (b.flags.length - a.flags.length) || a.name.localeCompare(b.name));
+  const nth = (k, l, cls = 'r') => `<th scope="col" class="${cls}" aria-sort="${NS.k === k ? (NS.dir > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="thbtn" data-act="nsort" data-k="${k}">${l}${NS.k === k ? (NS.dir > 0 ? ' \u2191' : ' \u2193') : ''}</button></th>`;
   const bad = all.filter(r => r.flags.length).length, d1 = v => v >= 100 ? String(Math.round(v)) : String(Math.round(v * 10) / 10);
-  const body = all.length ? `<table class="vtab ntab"><thead><tr><th scope="col">Food</th><th scope="col" class="r">kcal</th><th scope="col" class="r">Prot</th><th scope="col" class="r">Carb</th><th scope="col" class="r">Fat</th></tr></thead><tbody>${rows.map(r => `<tr${r.flags.length ? ' class="flag"' : ''}><td>${esc(r.name)}<div class="note muted">per ${r.basis}, from ${r.custom ? 'your entry' : r.n + (r.n === 1 ? ' log' : ' logs')}${r.flags.length ? `. <b>Check:</b> ${esc(r.flags.join('; '))}.` : ''}${r.custom ? ` <button class="btn link" data-act="edit-food" data-name="${esc(r.name)}">Edit</button>` : ''}</div></td><td class="r">${d1(r.k)}</td><td class="r">${d1(r.p)}</td><td class="r">${d1(r.c)}</td><td class="r">${d1(r.f)}</td></tr>`).join('')}</tbody></table>${rows.length ? '' : '<p class="muted" style="margin-top:12px">No food matches.</p>'}`
+  const body = all.length ? `<table class="vtab ntab"><thead><tr>${nth('name', 'Food', '')}${nth('k', 'kcal')}${nth('p', 'Prot')}${nth('c', 'Carb')}${nth('f', 'Fat')}</tr></thead><tbody>${rows.map(r => `<tr${r.flags.length ? ' class="flag"' : ''}><td>${esc(r.name)}<div class="note muted">per ${r.basis}, from ${r.custom ? 'your entry' : r.n + (r.n === 1 ? ' log' : ' logs')}${r.flags.length ? `. <b>Check:</b> ${esc(r.flags.join('; '))}.` : ''}${r.custom ? ` <button class="btn link" data-act="edit-food" data-name="${esc(r.name)}">Edit</button>` : ''}</div></td><td class="r">${d1(r.k)}</td><td class="r">${d1(r.p)}</td><td class="r">${d1(r.c)}</td><td class="r">${d1(r.f)}</td></tr>`).join('')}</tbody></table>${rows.length ? '' : '<p class="muted" style="margin-top:12px">No food matches.</p>'}`
     : `<div class="notice" style="margin-top:16px">${IC.info}<div>No nutrition yet. Add a food or import a Cronometer export.</div></div>`;
   return `<div class="card pad" style="margin-top:16px"><h2 style="font-size:17px">Nutrition per food</h2>
     <p class="muted" style="font-size:14px;margin-top:6px">Values are averaged from every time you logged the food, in grams. ${bad ? `<b>${bad} ${bad === 1 ? 'food looks' : 'foods look'} off</b> and ${bad === 1 ? 'is' : 'are'} listed first. Foods logged in items or servings, or with a wrong weight, are the usual cause. Fix the entry on the Day tab, or add the food by hand to override.` : 'Nothing looks off.'}</p>
@@ -1206,7 +1214,7 @@ function nutritionCard() {
 function trendsView() {
   const dates = IDX.dates, last = dates[dates.length - 1];
   const view = !dates.length ? (S.tview === 'nutrition' ? 'nutrition' : 'value') : (['value', 'cost', 'prices', 'nutrition'].includes(S.tview) ? S.tview : 'cost');
-  const seg = `<div class="seg" role="group" aria-label="Trends view" style="margin-top:16px">${[['cost', 'Cost over time'], ['value', 'Best value'], ['nutrition', 'Nutrition'], ['prices', 'Price history']].filter(x => dates.length || x[0] === 'value' || x[0] === 'nutrition').map(([k, t]) => `<button type="button" data-act="tview" data-v="${k}" aria-pressed="${k === view}">${t}</button>`).join('')}</div>`;
+  const seg = `<div class="seg seg4" role="group" aria-label="Trends view" style="margin-top:16px">${[['cost', 'Cost'], ['value', 'Best value'], ['nutrition', 'Nutrition'], ['prices', 'Prices']].filter(x => dates.length || x[0] === 'value' || x[0] === 'nutrition').map(([k, t]) => `<button type="button" data-act="tview" data-v="${k}" aria-pressed="${k === view}">${t}</button>`).join('')}</div>`;
   const head = `<h1 class="h1" id="h1" tabindex="-1">Trends</h1>
   <p class="lede">${view === 'value' ? 'Rank your foods by how much protein, carbs, fat or calories each currency unit buys.' : view === 'nutrition' ? 'The calories and macros the app uses for each food. Check these if a Best value rank looks wrong.' : view === 'prices' ? 'How the price of single foods changed, one point for every price change.' : 'How the price of your protein, carbs, fat, fiber and calories moves over time. Only foods with a price are counted.'}</p>${seg}`;
   if (view === 'value') return head + valueCard();
@@ -1990,10 +1998,12 @@ document.addEventListener('click', e => {
     case 'del-food': if (confirm(`Remove ${d.name} from your foods?`)) { delete S.foods[d.name]; if (!(IDX.byName.get(d.name) || []).length) delete S.prices[d.name]; reindex(); saveAll(); $('#dlg').close(); render(); toast('Food removed'); } break;
     case 'log-food': if (!IDX.meta.size) { toast('Add a food first, then log it'); openFood(); } else openEntry(-1, d.date, d.group); break;
     case 'edit-entry': openEntry(Number(d.i)); break;
+    case 'del-entry': { const en = S.entries[Number(d.i)]; if (en && confirm(`Delete ${en.name} from your diary?`)) { S.entries.splice(Number(d.i), 1); reindex(); ensurePrices(); saveEntries(); saveAll(); if (!IDX.byDate.has(S.day)) S.day = null; render(); toast('Entry deleted'); } break; }
     case 'imp-append': case 'imp-replace': { const l = PENDING_IMPORT; PENDING_IMPORT = null; $('#dlg').close(); if (l) finishImport(l, a === 'imp-append' ? 'append' : 'replace'); break; }
     case 'imp-cancel': PENDING_IMPORT = null; $('#dlg').close(); toast('Import cancelled'); break;
     case 'pnav': periodNav(Number(d.dir)); break;
     case 'start-manual': S.started = true; saveAll(); go('day'); break;
+    case 'nsort': { const k = d.k; if (NS.k === k) NS.dir = -NS.dir; else { NS.k = k; NS.dir = k === 'name' ? 1 : -1; } render(); break; }
     case 'tview': S.tview = d.v; saveAll(); render(); break;
     case 'vmacro': S.vmacro = d.v; S.vall = false; saveAll(); render(); break;
     case 'vall': S.vall = !S.vall; render(); break;
@@ -2128,6 +2138,32 @@ window.addEventListener('drop', e => { e.preventDefault(); const d = $('#drop');
 document.addEventListener('submit', e => { if (e.target.id === 'mform') { e.preventDefault(); saveMeal(); } });
 window.addEventListener('hashchange', route);
 window.addEventListener('pagehide', () => { if (!window.__mcNoSave) saveAll(); });
+
+/* Swipe an entry left to reveal Delete. */
+(() => {
+  let sw = null, x0 = 0, y0 = 0, dx = 0, mode = '';
+  const W = 88, close = except => document.querySelectorAll('.swipe.open').forEach(el => { if (el !== except) { el.classList.remove('open'); el.firstElementChild.nextElementSibling.style.transform = ''; } });
+  document.addEventListener('touchstart', e => {
+    const el = e.target.closest && e.target.closest('.swipe'); close(el);
+    if (!el) { sw = null; return; }
+    sw = el; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; mode = '';
+    el._base = el.classList.contains('open') ? -W : 0; el.classList.add('dragging');
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!sw) return;
+    const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+    if (!mode) { if (Math.abs(mx) < 8 && Math.abs(my) < 8) return; mode = Math.abs(mx) > Math.abs(my) ? 'h' : 'v'; }
+    if (mode !== 'h') return;
+    dx = Math.max(-W - 24, Math.min(0, sw._base + mx));
+    sw.querySelector('.item').style.transform = `translateX(${dx}px)`;
+  }, { passive: true });
+  document.addEventListener('touchend', () => {
+    if (!sw) return; const el = sw; sw = null; el.classList.remove('dragging');
+    if (mode !== 'h') return;
+    const open = dx < -W / 2; el.classList.toggle('open', open);
+    el.querySelector('.item').style.transform = open ? `translateX(${-W}px)` : '';
+  });
+})();
 
 /* ============ start ============ */
 if (store.get('parser', 1) < 2) {
