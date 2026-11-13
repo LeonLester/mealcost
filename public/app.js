@@ -875,12 +875,12 @@ function pricesView() {
           <button class="chip" data-act="chip" data-chip="offers" aria-pressed="${S.chip === 'offers'}">With offers <span id="c-of">${c.offers}</span></button>
         </div>
       </div>
-      <div class="ptools2">
+      <details class="more"${window.innerWidth > 640 ? ' open' : ''}><summary>Sort and currency</summary><div class="ptools2">
         <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Sort by <select class="field" id="sortsel">${[['Logging', ['freq', 'amount', 'spent', 'name']], ['Nutrients per 100 g', Object.keys(SORTS).filter(k => /^(pro|carb|fat|fiber)100$/.test(k))], ['Nutrients per 100 kcal', Object.keys(SORTS).filter(k => /^(pro|carb|fat|fiber)100k$/.test(k))]].map(([g, ks]) => `<optgroup label="${g}">${ks.map(k => `<option value="${k}"${S.sort === k ? ' selected' : ''}>${SORTS[k][0]}</option>`).join('')}</optgroup>`).join('')}</select></label>
         <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Category <select class="field" id="catsel"><option value="">All</option>${(() => { const m = new Map(); for (const n of IDX.meta.keys()) m.set(catOf(n), (m.get(catOf(n)) || 0) + 1); return [...m].sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => `<option value="${esc(k)}"${S.cat === k ? ' selected' : ''}>${esc(k)} (${v})</option>`).join(''); })()}</select></label>
         <button class="btn sm" data-act="flip" aria-pressed="${S.flip}">${S.sort === 'name' ? (S.flip ? 'Z to A' : 'A to Z') : (S.flip ? 'Lowest first' : 'Highest first')}</button>
         <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Currency <select class="field" id="cur">${CURRENCIES.map(x => `<option${x === S.currency ? ' selected' : ''}>${x}</option>`).join('')}</select></label>
-      </div>
+      </div></details>
       <div class="tablewrap" style="margin-top:16px"><table>
         <thead><tr><th scope="col" aria-sort="${S.sort === 'name' ? (S.flip ? 'descending' : 'ascending') : 'none'}"><button class="thbtn" data-act="sort-col" data-sort="name">Food${S.sort === 'name' ? (S.flip ? ' \u2191' : ' \u2193') : ''}</button></th><th scope="col">Price</th><th scope="col">Per</th><th scope="col">Grams per serving or item</th><th scope="col" class="r" aria-sort="${S.sort === 'spent' ? (S.flip ? 'ascending' : 'descending') : 'none'}"><button class="thbtn" data-act="sort-col" data-sort="spent">Spent${S.sort === 'spent' ? (S.flip ? ' \u2191' : ' \u2193') : ''}</button></th></tr></thead>
         <tbody id="pbody">${rows}</tbody></table></div>
