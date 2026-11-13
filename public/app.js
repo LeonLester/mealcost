@@ -404,6 +404,7 @@ const TABIC = {
 };
 
 const TOOLIC = {
+  account: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/></svg>',
   import: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>',
   'export-csv': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg>',
   'add-food': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
@@ -414,38 +415,62 @@ function toolBtn(act, label, cls = '') {
   return `<button class="btn sm tb ${cls}" data-act="${act}" aria-label="${esc(label)}" title="${esc(label)}">${TOOLIC[act]}<span class="lbl">${esc(label)}</span></button>`;
 }
 function appView() {
-  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? weekView() : S.tab === 'trends' ? trendsView() : S.tab === 'meals' ? mealsView() : dayView();
+  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? weekView() : S.tab === 'trends' ? trendsView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : dayView();
   return `
   <div class="shell">
   <header class="topbar"><div class="wrap">
     <button class="burger" data-act="drawer" aria-label="Menu" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="brand"><b>Meal cost</b><span>by Coach Leonidas</span></div>
     <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week', 'trends', 'meals'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${TABIC[t]}<span>${cap(t)}</span></a>`).join('')}</nav>
-    <div class="tools">${toolBtn('add-food', 'Add a food')}${toolBtn('import', 'Add export', 'pri')}${toolBtn('export-csv', 'Download CSV')}${toolBtn('theme', 'Theme: ' + themeLabel())}${window.MealSync ? MealSync.topHtml() : ''}</div>
+    <div class="tools">${toolBtn('add-food', 'Add a food')}${toolBtn('import', 'Add export', 'pri')}${toolBtn('export-csv', 'Download CSV')}${toolBtn('theme', 'Theme: ' + themeLabel())}<a class="btn sm tb" href="#account" aria-label="Account" title="Account"${S.tab === 'account' ? ' aria-current="page"' : ''}>${TOOLIC.account}<span class="lbl">Account</span></a>${window.MealSync ? MealSync.topHtml() : ''}</div>
   </div></header>
   <div class="scrim" data-act="drawer-close"></div>
   <aside class="drawer" id="drawer" aria-label="Menu">
     <div class="dhead"><b>Meal cost</b><button class="burger" data-act="drawer-close" aria-label="Close menu"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <a class="ditem" href="#account">${TOOLIC.account}<span>Account and data</span></a>
     <button class="ditem" data-act="log-food">${TOOLIC['add-food']}<span>Log a food</span></button>
     <button class="ditem" data-act="add-food">${TOOLIC['add-food']}<span>Add a food</span></button>
     <button class="ditem" data-act="import">${TOOLIC.import}<span>Add Cronometer export</span></button>
     <a class="ditem" href="https://cronometer.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>Get a new Cronometer export</span></a>
     <button class="ditem" data-act="export-csv">${TOOLIC['export-csv']}<span>Download CSV</span></button>
     <button class="ditem" data-act="theme">${TOOLIC.theme}<span>Theme: ${themeLabel()}</span></button>
-    <div class="dsec">Account and data</div>
-    ${window.MealSync && MealSync.available ? (MealSync.signed
-      ? `<div class="dwho">Signed in as ${esc(MealSync.email)}</div><button class="ditem" data-sync="now"><span>Sync now</span></button><button class="ditem" data-sync="out"><span>Sign out</span></button>`
-      : MealSync.ready ? `<a class="ditem" href="/auth/google" data-sync="signin"><span>Sign in with Google</span></a>` : '') : ''}
-    <button class="ditem" data-act="backup"><span>Download backup</span></button>
-    <button class="ditem" data-act="restore"><span>Restore backup</span></button>
-    <button class="ditem danger" data-act="reset"><span>Delete all data from this browser</span></button>
-    ${window.MealSync && MealSync.available && MealSync.signed ? `<button class="ditem danger" data-sync="delete"><span>Delete my account and cloud data</span></button>` : ''}
     <div class="dlinks"><a href="/android">Get the Android app</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="https://coachleonidas.com">coachleonidas.com</a></div>
   </aside>
   <div class="scroll" id="scroller">
   <main class="wrap">${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
   ${siteFooter()}
   </div>
+  </div>`;
+}
+
+
+/* ============ view: account ============ */
+function accountView() {
+  const M = window.MealSync, on = M && M.available, signed = on && M.signed;
+  const nE = S.entries.length, nF = IDX.meta.size, nM = Object.keys(S.meals).length;
+  const row = (title, text, btn) => `<div class="arow"><div><b>${title}</b><p class="muted">${text}</p></div>${btn}</div>`;
+  const signCard = !on
+    ? `<p class="muted" style="margin-top:8px">Sign-in is not available right now. Your data is safe on this device.</p>`
+    : signed
+      ? `<p class="muted" style="margin-top:8px">Signed in as <b style="color:var(--ink)">${esc(M.email)}</b>. <span id="syncstat" aria-live="polite">${esc(M.statusText())}</span></p>
+         <div class="abtns"><button class="btn" data-sync="now">Sync now</button><button class="btn" data-sync="out">Sign out</button></div>`
+      : `<p class="muted" style="margin-top:8px">Signing in is optional. It keeps your prices and diary in your account so they follow you to your phone and laptop. Without it, everything stays on this device.</p>
+         ${M && M.ready ? `<div class="abtns"><a class="btn primary" href="/auth/google" data-sync="signin">Sign in with Google</a></div>` : ''}`;
+  return `
+  <div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Account and data</h1></div>
+  <div class="acct">
+    <section class="card pad"><h2>Sign in and sync</h2>${signCard}</section>
+    <section class="card pad"><h2>Your data on this device</h2>
+      <p class="muted" style="margin-top:8px">${nE} diary entries, ${nF} foods, ${nM} saved meals.</p>
+      ${row('Download a backup', 'A file with your prices, foods and meals. Keep it somewhere safe.', '<button class="btn" data-act="backup">Download backup</button>')}
+      ${row('Restore a backup', 'Load a backup file you saved earlier. It merges into what is here.', '<button class="btn" data-act="restore">Restore backup</button>')}
+      ${row('Download your diary', 'Every logged entry as a CSV spreadsheet.', '<button class="btn" data-act="export-csv">Download CSV</button>')}
+    </section>
+    <section class="card pad"><h2>Delete</h2>
+      ${row('Delete data on this device', 'Removes your diary, prices, foods and meals from this device. Your cloud copy, if you have one, is not touched.', '<button class="btn danger" data-act="reset">Delete data</button>')}
+      ${signed ? row('Delete my account', 'Permanently removes your account and everything stored in the cloud. This cannot be undone.', '<button class="btn danger" data-sync="delete">Delete account</button>') : ''}
+    </section>
+    <p class="muted" style="font-size:14px"><a href="/privacy">Privacy policy</a> &middot; <a href="/terms">Terms of service</a> &middot; <a href="/android">Get the Android app</a></p>
   </div>`;
 }
 
@@ -1263,7 +1288,7 @@ function render() {
 }
 function route() {
   const h = location.hash.replace('#', '');
-  const t = ['day', 'prices', 'week', 'trends', 'meals'].includes(h) ? h : 'day';
+  const t = ['day', 'prices', 'week', 'trends', 'meals', 'account'].includes(h) ? h : 'day';
   const changed = t !== S.tab;
   S.tab = t;
   S.error = '';
@@ -1941,7 +1966,7 @@ document.addEventListener('click', e => {
     case 'backup': backup(); break;
     case 'restore': $('#pfile').click(); break;
     case 'reset':
-      if (confirm('Delete all imported entries, prices and offers from this browser? This cannot be undone.')) {
+      if (confirm('Delete all entries, prices, foods and meals from this device? This cannot be undone.')) {
         store.clear(); S.entries = []; S.prices = {}; S.overrides = {}; S.merges = {}; S.nomerge = []; S.ranges = []; S.recipes = {}; S.meals = {}; S.foods = {}; S.started = false; MB.draft = null; MB.cmp = []; S.cats = {}; indexRanges(); S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
         history.replaceState(null, '', location.pathname); S.tab = 'day'; render(); toast('All data deleted');
       }
