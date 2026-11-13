@@ -426,6 +426,23 @@ try:
         check('amounts saved by an older version are re-read', po.evaluate("(() => { const e = window.__mealcost.S.entries[0]; return [e.qty, e.type]; })()") == [200, 'mass'])
         po.close()
 
+        # phone layout and theme
+        ph = b.new_context(viewport={'width': 412, 'height': 860}, is_mobile=True, has_touch=True, locale='en-US', color_scheme='light').new_page()
+        ph.goto(BASE); ph.wait_for_selector('#app h1')
+        ph.click('text=Try it with sample data'); ph.wait_for_selector('.pricetag .n')
+        for tab in ['day', 'prices', 'week', 'trends', 'meals']:
+            ph.evaluate(f"location.hash='{tab}'"); ph.wait_for_timeout(300)
+            m = ph.evaluate("(() => { const t = document.querySelector('.tabs').getBoundingClientRect(); const sc = document.getElementById('scroller'); return [Math.round(t.bottom), innerHeight, document.documentElement.scrollWidth, innerWidth, sc.scrollWidth <= sc.clientWidth + 1, document.documentElement.scrollTop]; })()")
+            check(f'phone: {tab} keeps the tab bar on screen', m[0] == m[1] and m[2] <= m[3] and m[4] and m[5] == 0, m)
+        ph.evaluate("document.getElementById('scroller').scrollTop = 400"); ph.wait_for_timeout(200)
+        check('phone: tab bar stays put while scrolling', ph.evaluate("Math.round(document.querySelector('.tabs').getBoundingClientRect().bottom) === innerHeight"))
+        check('theme starts on auto/light', ph.evaluate("MealTheme.get()") == 'auto' and ph.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(243, 244, 240)')
+        ph.click('[data-act=theme]'); ph.click('[data-act=theme]')
+        check('theme cycles to dark', ph.evaluate("document.documentElement.getAttribute('data-theme')") == 'dark' and ph.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(14, 20, 17)')
+        ph.reload(); ph.wait_for_selector('#app h1')
+        check('dark theme persists', ph.evaluate("document.documentElement.getAttribute('data-theme')") == 'dark')
+        ph.close()
+
         # desktop screenshots
         for tab in ['day', 'prices', 'week']:
             page.goto(BASE + '#' + tab); page.wait_for_selector('main h1')

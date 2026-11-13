@@ -65,10 +65,10 @@ const IC = {
   check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   info: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5"/><path d="M12 16.5v.01"/></svg>',
   lock: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
-  upload: '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#12614A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>',
+  upload: '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" style="stroke:var(--brand)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>',
   left: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
   right: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>',
-  search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E6A75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>'
+  search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="stroke:var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>'
 };
 
 /* ============ Cronometer parsing ============ */
@@ -391,16 +391,29 @@ const TABIC = {
   meals: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16a8 8 0 0 1-16 0zM8 8c0-1.5 1-1.5 1-3M13 8c0-1.5 1-1.5 1-3"/></svg>',
 };
 
+const TOOLIC = {
+  import: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>',
+  'export-csv': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg>',
+  theme: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>',
+};
+const themeLabel = () => ({ auto: 'Auto', light: 'Light', dark: 'Dark' })[window.MealTheme ? MealTheme.get() : 'auto'];
+function toolBtn(act, label, cls = '') {
+  return `<button class="btn sm tb ${cls}" data-act="${act}" aria-label="${esc(label)}" title="${esc(label)}">${TOOLIC[act]}<span class="lbl">${esc(label)}</span></button>`;
+}
 function appView() {
   const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? weekView() : S.tab === 'trends' ? trendsView() : S.tab === 'meals' ? mealsView() : dayView();
   return `
+  <div class="shell">
   <header class="topbar"><div class="wrap">
-    <div class="brand"><b>Coach Leonidas</b><span>Meal cost calculator</span></div>
+    <div class="brand"><b>Meal cost</b><span>by Coach Leonidas</span></div>
     <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week', 'trends', 'meals'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${TABIC[t]}<span>${cap(t)}</span></a>`).join('')}</nav>
-    <div class="tools"><button class="btn sm" data-act="import">Add export</button><button class="btn sm" data-act="export-csv">Download CSV</button>${window.MealSync ? MealSync.topHtml() : ''}</div>
+    <div class="tools">${toolBtn('import', 'Add export', 'pri')}${toolBtn('export-csv', 'Download CSV')}${toolBtn('theme', 'Theme: ' + themeLabel())}${window.MealSync ? MealSync.topHtml() : ''}</div>
   </div></header>
+  <div class="scroll" id="scroller">
   <main class="wrap">${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
-  ${siteFooter()}`;
+  ${siteFooter()}
+  </div>
+  </div>`;
 }
 
 /* ============ view: day ============ */
@@ -501,7 +514,7 @@ function dayView() {
     <aside class="side">
       <div class="card" style="padding:28px 28px 24px">
         <div class="pricetag"><span class="n">${money(sm.cost)}</span><span class="l">for the day</span></div>
-        ${sm.saved > 0.004 ? `<p style="margin-top:16px;color:#0B4A37">${offerNames.length === 1 ? `Your offer on ${esc(offerNames[0])}` : `Your ${offerNames.length} offers`} saved you ${money(sm.saved)} today.</p>` : ''}
+        ${sm.saved > 0.004 ? `<p style="margin-top:16px;color:var(--brand-dark)">${offerNames.length === 1 ? `Your offer on ${esc(offerNames[0])}` : `Your ${offerNames.length} offers`} saved you ${money(sm.saved)} today.</p>` : ''}
         ${sm.unpriced ? `<p style="margin-top:12px;font-size:14px">Totals leave out ${sm.unpriced} ${sm.unpriced === 1 ? 'item' : 'items'} without a price.</p>` : ''}
         <div style="margin-top:22px">
           ${budget ? `<div class="row" style="justify-content:space-between;font-size:14px"><span>Daily budget ${money(budget)}</span><b>${left >= 0 ? money(left) + ' left' : money(-left) + ' over'}</b></div>
@@ -816,7 +829,7 @@ function barChart(pts, label) {
   return chartFrame(label, bars, ymax, n > 1 ? xl : [xl[0]]);
 }
 /* ---- price history: one point each time a food's price changes ---- */
-const PH_COL = ['#12614A', '#C8102E', '#1F5FBF', '#B8860B', '#7B3FA0', '#E07B00'];
+const PH_COL = ['#2E9E7C', '#E5484D', '#4C8DF6', '#D9A21B', '#A66BD6', '#F08A24'];
 function pricePerKg(name, date) {
   const pi = priceInfo(name, date);
   if (!pi) return null;
@@ -1001,7 +1014,7 @@ function weekView() {
       <p class="muted" style="margin-top:6px;font-size:14px">${esc(sub)}</p>
       <div class="chart">
         ${budget ? `<div class="hline" style="bottom:${budget / top * H}px;border-color:var(--ink)"></div>` : ''}
-        ${nd ? `<div class="hline" style="bottom:${avg / top * H}px;border-color:#7C8A83"></div>` : ''}
+        ${nd ? `<div class="hline" style="bottom:${avg / top * H}px;border-color:var(--field)"></div>` : ''}
         <div class="cols2">${cdays.map((d, i) => `<div class="c">${nB <= 10 ? `<b>${money(vals[i])}</b>` : ''}<i title="${esc(dMed(d))}: ${money(vals[i])}" style="height:${vals[i] ? Math.max(2, vals[i] / top * H) : 0}px;background:${budget && vals[i] > budget ? 'var(--ink)' : 'var(--bar)'}"></i></div>`).join('')}</div>
       </div>
       <div class="xlabels">${cdays.map((d, i) => `<span>${nB <= 10 ? esc(dShort(d)) : (i % step === 0 ? esc(dFmt(d, { day: 'numeric' })) : '')}</span>`).join('')}</div>
@@ -1035,7 +1048,9 @@ function weekView() {
 
 /* ============ render + routing ============ */
 function render() {
+  const sc0 = $('#scroller'), keep = sc0 ? sc0.scrollTop : 0;
   $('#app').innerHTML = S.entries.length ? appView() : importView();
+  { const sc = $('#scroller'); if (sc && keep) sc.scrollTop = keep; }
   document.title = (S.entries.length ? cap(S.tab) + ' | ' : '') + 'Meal cost calculator | Coach Leonidas';
 }
 function route() {
@@ -1045,7 +1060,7 @@ function route() {
   S.tab = t;
   S.error = '';
   render();
-  if (changed) { window.scrollTo(0, 0); const h1 = $('#h1'); if (h1) h1.focus({ preventScroll: true }); }
+  if (changed) { window.scrollTo(0, 0); const sc = $('#scroller'); if (sc) sc.scrollTop = 0; const h1 = $('#h1'); if (h1) h1.focus({ preventScroll: true }); }
 }
 function go(tab) { if (location.hash === '#' + tab) { S.tab = tab; render(); } else location.hash = tab; }
 let _toast;
@@ -1411,7 +1426,7 @@ function loadMeal(name, copy) {
   let nm = name;
   if (copy) { nm = `${name} copy`; for (let i = 2; S.meals[nm]; i++) nm = `${name} copy ${i}`; }
   MB.draft = { name: nm, servings: String(m.servings), orig: copy ? '' : name, items: m.items.map(i => ({ name: i.name, qty: String(i.qty), unit: i.unit })) };
-  render(); window.scrollTo(0, 0); const f = $('#mn'); if (f) f.focus({ preventScroll: true });
+  render(); window.scrollTo(0, 0); { const sc = $('#scroller'); if (sc) sc.scrollTop = 0; } const f = $('#mn'); if (f) f.focus({ preventScroll: true });
 }
 function openDiary(name) {
   const m = S.meals[name]; if (!m) return;
@@ -1650,6 +1665,7 @@ document.addEventListener('click', e => {
     case 'not-same': S.nomerge.push(pairKey(d.drop, d.keep)); saveAll(); render(); break;
     case 'unmerge': delete S.merges[d.src]; reindex(); ensurePrices(); saveAll(); { const cur = canon(d.src); $('#dlg').close(); render(); toast(`${d.src} is separate again`); void cur; } break;
     case 'export-csv': exportCsv(); break;
+    case 'theme': { const t = MealTheme.cycle(); render(); toast('Theme: ' + cap(t)); break; }
     case 'backup': backup(); break;
     case 'restore': $('#pfile').click(); break;
     case 'reset':
