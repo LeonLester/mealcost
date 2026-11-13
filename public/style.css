@@ -1,7 +1,7 @@
 :root{
   --paper:#FFFFFF; --card:#F5F5F6; --ink:#17181A; --muted:#6B7076;
   --line:#E3E4E6; --line2:#EDEEEF; --field:#C4C7CB;
-  --brand:#C25A2B; --brand-dark:#9E4620; --bar:#EBC2AB;
+  --brand:#B5532A; --brand-dark:#9E4620; --bar:#EBC2AB;
   --tag:#FFD43B; --offer:#C8102E; --offer-ink:#A30D26; --note:#FFF6CC;
   --display:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
   --body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -31,8 +31,9 @@ a:hover{color:var(--brand-dark)}
 .brand b{font:800 22px var(--display);letter-spacing:-.01em}
 .brand span{color:var(--muted)}
 .tabs{display:flex;gap:4px;flex-grow:1}
-.tab{background:none;border:0;border-bottom:3px solid transparent;padding:14px 14px 11px;color:var(--muted);text-decoration:none}
-.tab[aria-current=page]{color:var(--ink);font-weight:600;border-bottom-color:var(--brand)}
+.tab{position:relative;background:none;border:0;padding:14px 14px 14px;color:var(--muted);text-decoration:none}
+.tab[aria-current=page]{color:var(--ink);font-weight:600}
+.tab[aria-current=page]::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:3px;border-radius:2px 2px 0 0;background:var(--brand)}
 .tools{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:8px;align-items:center}
 .grow{flex-grow:1}
 
@@ -471,7 +472,8 @@ h1,h2,h3{font-weight:650;letter-spacing:-.01em}
 .vtab{min-width:0;width:100%;border-collapse:collapse}
 .vtab th{font-size:13px;font-weight:500;color:var(--muted);text-align:left;padding:8px 8px 8px 0;border-bottom:1px solid var(--line)}
 .vtab td{padding:12px 8px 12px 0;border-bottom:1px solid var(--line2);vertical-align:baseline}
-.vtab tr.flag td:first-child{box-shadow:inset 3px 0 0 var(--offer-ink);padding-left:10px}
+.vtab tr.flag td:first-child{position:relative;padding-left:14px}
+.vtab tr.flag td:first-child::before{content:"";position:absolute;left:0;top:1.05em;width:7px;height:7px;border-radius:50%;background:var(--offer-ink)}
 .ntab{font-size:14px}
 .ntab th.r,.ntab td.r{padding-left:12px;white-space:nowrap}
 .ntab td:first-child{overflow-wrap:anywhere}
