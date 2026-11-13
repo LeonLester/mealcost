@@ -1,11 +1,11 @@
 :root{
-  --paper:#F3F4F0; --card:#FFFFFF; --ink:#1B2430; --muted:#5E6A75;
-  --line:#D9DDD6; --line2:#E4E7E1; --field:#AEB6AF;
-  --brand:#12614A; --brand-dark:#0B3F30; --bar:#8CBFA9;
+  --paper:#FFFFFF; --card:#F5F5F6; --ink:#17181A; --muted:#6B7076;
+  --line:#E3E4E6; --line2:#EDEEEF; --field:#C4C7CB;
+  --brand:#C25A2B; --brand-dark:#9E4620; --bar:#EBC2AB;
   --tag:#FFD43B; --offer:#C8102E; --offer-ink:#A30D26; --note:#FFF6CC;
-  --display:'Bricolage Grotesque','IBM Plex Sans',system-ui,sans-serif;
+  --display:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
   --body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
-  --on-ink:#fff; --on-brand:#fff; --dropover:#EAF3EE; --card-shadow:0 1px 2px rgba(18,97,74,.05),0 8px 24px rgba(18,97,74,.07);
+  --on-ink:#fff; --on-brand:#fff; --dropover:#F1F1F2; --card-shadow:none;
   color-scheme:light;
 }
 *{box-sizing:border-box}
@@ -344,20 +344,20 @@ body{font-size:15px}
 
 /* ---------- dark theme ---------- */
 :root[data-theme=dark]{
-  --paper:#0E1411; --card:#171F1B; --ink:#E8EEEA; --muted:#9AA8A1;
-  --line:#2A3530; --line2:#222C27; --field:#3A4741;
-  --brand:#3DB58F; --brand-dark:#6FD3B1; --bar:#2F7F66;
+  --paper:#000000; --card:#111214; --ink:#EDEDEE; --muted:#9A9DA2;
+  --line:#232427; --line2:#1B1C1E; --field:#3A3D42;
+  --brand:#E58A5A; --brand-dark:#F2A57F; --bar:#7A4A33;
   --tag:#FFD43B; --offer:#D6334A; --offer-ink:#FF8A98; --note:#3A3410;
-  --on-ink:#0E1411; --on-brand:#04231A; --dropover:#16261F; --card-shadow:none;
+  --on-ink:#000; --on-brand:#1A0D05; --dropover:#16171A; --card-shadow:none;
   color-scheme:dark;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme]){
-    --paper:#0E1411; --card:#171F1B; --ink:#E8EEEA; --muted:#9AA8A1;
-    --line:#2A3530; --line2:#222C27; --field:#3A4741;
-    --brand:#3DB58F; --brand-dark:#6FD3B1; --bar:#2F7F66;
+    --paper:#000000; --card:#111214; --ink:#EDEDEE; --muted:#9A9DA2;
+    --line:#232427; --line2:#1B1C1E; --field:#3A3D42;
+    --brand:#E58A5A; --brand-dark:#F2A57F; --bar:#7A4A33;
     --tag:#FFD43B; --offer:#D6334A; --offer-ink:#FF8A98; --note:#3A3410;
-    --on-ink:#0E1411; --on-brand:#04231A; --dropover:#16261F; --card-shadow:none;
+    --on-ink:#000; --on-brand:#1A0D05; --dropover:#16171A; --card-shadow:none;
     color-scheme:dark;
   }
 }
@@ -425,4 +425,28 @@ footer.site a.btn{margin-bottom:24px}
 @media (max-width:640px){
   .tb.pri{background:color-mix(in srgb,var(--brand) 16%,transparent);color:var(--brand)}
   .btn.primary{font-weight:600}
+}
+
+/* ---------- restrained, neutral style (v2) ---------- */
+h1,h2,h3{font-weight:650;letter-spacing:-.01em}
+.h1{font:650 clamp(22px,2.4vw,26px)/1.15 var(--display);letter-spacing:-.01em}
+.hero h1{font:700 clamp(30px,5vw,48px)/1.08 var(--display);letter-spacing:-.02em}
+.steps h2{font-size:22px;margin-bottom:24px}
+.meal-head h2,.tcard h2{font-size:17px}
+.brand b{font-weight:700}
+.tab[aria-current=page]{color:var(--brand)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+.chip[aria-pressed=true],.daybtn[aria-pressed=true]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+@media (max-width:640px){
+  .brand b{font-size:18px}
+  .brand span{display:none}
+  .h1,h1{font-size:22px}
+  h2{font-size:17px}
+  .tab[aria-current=page]{background:transparent;color:var(--brand)}
+  .tabs{box-shadow:none;background:var(--paper)}
+  .field,.money-in,.search{background:var(--card)}
+  .tb.pri{background:transparent;color:var(--brand)}
+  #pbody tr,.card,.tablewrap,.notice,.daybtn{box-shadow:none}
+  #pbody tr,.card{background:var(--card)}
+  .shell{background:var(--paper)}
 }

@@ -527,7 +527,7 @@ function dayView() {
         ${pk != null ? `<div><div class="big">${money(pk)}</div><div class="muted" style="font-size:13px">per 1,000 kcal</div></div>` : ''}
         <div><div class="big">${n0(sm.pro)} g</div><div class="muted" style="font-size:13px">protein, ${n0(sm.kcal)} kcal</div></div>
       </div>
-      ${swap ? `<div class="card" style="padding:24px 28px"><h2 style="font-size:20px">A cheaper way to hit your protein</h2>
+      ${swap ? `<div class="card" style="padding:24px 28px"><h2 style="font-size:17px">A cheaper way to hit your protein</h2>
         <p style="margin-top:10px">Swap the ${qtyFmt(swap.qty)} ${esc(swap.unit)} of ${esc(swap.from)} for ${qtyFmt(swap.qty)} ${esc(swap.unit)} of ${esc(swap.to)}. It saves ${money(swap.saving)}${swap.dPro >= 1 ? ' and adds ' + n0(swap.dPro) + ' g of protein' : ' and keeps the protein about the same'}.</p>
         <p class="muted" style="margin-top:8px;font-size:13px">Based on your own prices and today's offers.</p></div>` : ''}
       <div style="display:flex;flex-wrap:wrap;gap:10px">
@@ -740,14 +740,14 @@ function pricesView() {
       ${(() => {
         const sg = mergeSuggestions();
         return sg.length ? `<div class="card" style="padding:24px 24px 16px">
-          <h2 style="font-size:20px">Possible duplicates</h2>
+          <h2 style="font-size:17px">Possible duplicates</h2>
           <p class="muted" style="margin-top:8px;font-size:14px">These look like the same food. Merging counts them as one food with one price.</p>
           <div style="margin-top:12px">${sg.map(x => `<div style="padding:14px 0;border-top:1px solid var(--line2)"><div style="font-size:14px;overflow-wrap:anywhere">${esc(x.drop)}</div><div class="muted" style="font-size:13px;margin:2px 0;overflow-wrap:anywhere">and ${esc(x.keep)}</div>
             <div style="display:flex;gap:16px"><button class="btn link" data-act="merge-now" data-drop="${esc(x.drop)}" data-keep="${esc(x.keep)}">Merge</button><button class="btn link" data-act="not-same" data-drop="${esc(x.drop)}" data-keep="${esc(x.keep)}">Not the same</button></div></div>`).join('')}</div>
         </div>` : '';
       })()}
       <div class="card" style="padding:24px 24px 16px">
-        <h2 style="font-size:20px">Offers and price changes</h2>
+        <h2 style="font-size:17px">Offers and price changes</h2>
         <p class="muted" style="margin-top:8px;font-size:14px">Your standard price covers every date. Add a price for one day, a shopping trip or a period, and it replaces the standard price on those dates.</p>
         <div style="margin-top:12px">${offerList.length ? offerList.map(o => {
           const base = S.prices[o.n] && S.prices[o.n].price !== '' ? S.prices[o.n].price : null;
@@ -761,7 +761,7 @@ function pricesView() {
       </div>
       ${window.MealSync && MealSync.cardHtml() ? `<div style="margin-bottom:24px">${MealSync.cardHtml()}</div>` : ''}
       <div class="card" style="padding:24px">
-        <h2 style="font-size:20px">Keep your prices safe</h2>
+        <h2 style="font-size:17px">Keep your prices safe</h2>
         <p class="muted" style="margin-top:8px;font-size:14px">Without signing in, everything is saved in this browser only. Download a backup to keep a copy or move it to another device.</p>
         <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px"><button class="btn sm" data-act="backup">Download backup</button><button class="btn sm" data-act="restore">Restore backup</button></div>
         <button class="btn link" style="margin-top:8px" data-act="reset">Delete all data from this browser</button>
@@ -1010,7 +1010,7 @@ function weekView() {
   </div>
   <div class="cols" style="margin-top:28px">
     <section class="card main2" style="padding:24px 28px 20px">
-      <h2 style="font-size:20px">Cost by day</h2>
+      <h2 style="font-size:17px">Cost by day</h2>
       <p class="muted" style="margin-top:6px;font-size:14px">${esc(sub)}</p>
       <div class="chart">
         ${budget ? `<div class="hline" style="bottom:${budget / top * H}px;border-color:var(--ink)"></div>` : ''}
@@ -1021,19 +1021,19 @@ function weekView() {
       <div class="legend"><span><i style="background:var(--bar)"></i>${budget ? 'Within budget' : 'Daily cost'}</span>${budget ? '<span><i style="background:var(--ink)"></i>Over budget</span>' : ''}${budget ? `<span><i style="width:22px;height:0;background:none;border-top:2px dashed var(--ink);border-radius:0"></i>Budget ${esc(money(budget))}</span>` : ''}<span><i style="width:22px;height:0;background:none;border-top:2px dashed #7C8A83;border-radius:0"></i>Average ${esc(money(avg))}</span></div>
     </section>
     <section class="card third" style="padding:24px 28px">
-      <h2 style="font-size:20px">Average cost per meal</h2>
+      <h2 style="font-size:17px">Average cost per meal</h2>
       <div style="margin-top:14px">${mealRows.map(([g, o]) => `<div class="row" style="padding:11px 0;font-size:17px"><span>${esc(g)}</span><span class="lead"></span><span>${money(o.sum / o.n)}</span></div>`).join('')}
         <div class="row" style="margin-top:8px;padding-top:14px;border-top:1px solid var(--ink);justify-content:space-between"><b>Average day</b><span class="big" style="font-size:28px">${money(avg)}</span></div></div>
     </section>
   </div>
   <div class="cols" style="margin-top:28px">
     <section class="card half" style="padding:24px 28px">
-      <h2 style="font-size:20px">Where the money went</h2>
+      <h2 style="font-size:17px">Where the money went</h2>
       <p class="muted" style="margin-top:6px;font-size:14px">Your biggest foods by spend.</p>
       <div style="margin-top:12px">${topSpend.map(([n, v]) => `<div class="brow"><div class="n"><div>${esc(n)}</div><div class="sub">${total ? Math.round(v / total * 100) : 0}% of spend</div></div><div class="b bar"><div style="width:${v / maxSpend * 100}%"></div></div><div class="a">${money(r2(v))}</div></div>`).join('') || '<p class="muted">Add prices to see this.</p>'}</div>
     </section>
     <section class="card half" style="padding:24px 28px">
-      <h2 style="font-size:20px">Cheapest protein</h2>
+      <h2 style="font-size:17px">Cheapest protein</h2>
       <p class="muted" style="margin-top:6px;font-size:14px">What 100 g of protein costs from each food, using your standard prices.</p>
       <div style="margin-top:12px">${rank.map((r, i) => `<div class="brow"><div class="n">${esc(r.name)}</div><div class="b bar"><div style="width:${r.v / maxRank * 100}%;background:${i === 0 ? 'var(--brand)' : 'var(--bar)'}"></div></div><div class="a">${money(r.v)}</div></div>`).join('') || '<p class="muted">Add prices to see this.</p>'}</div>
       <p class="muted" style="margin-top:10px;font-size:13px">Shorter is cheaper. Foods without a price are left out.</p>
@@ -1380,7 +1380,7 @@ function mealsView() {
   <datalist id="mlist">${foods.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
   <div class="cols" style="margin-top:24px">
     <form id="mform" class="card pad main2" style="flex:2 1 560px" novalidate>
-      <h2 style="font-size:20px">${d.orig ? `Editing ${esc(d.orig)}` : 'New meal'}</h2>
+      <h2 style="font-size:17px">${d.orig ? `Editing ${esc(d.orig)}` : 'New meal'}</h2>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
         <div style="flex:2 1 200px"><label for="mn">Meal name</label><input class="field" style="width:100%" id="mn" autocomplete="off" placeholder="For example, Chicken rice bowl" value="${esc(d.name)}"></div>
         <div style="flex:1 1 110px"><label for="ms">Servings</label><input class="field" style="width:100%" id="ms" inputmode="decimal" value="${esc(d.servings)}"></div>
@@ -1393,7 +1393,7 @@ function mealsView() {
     </form>
     <div class="side"><div class="card pad" id="mtot" aria-live="polite">${mealTotalsHtml(mealFromDraft(), date)}</div></div>
   </div>
-  <h2 style="font-size:22px;margin-top:40px">Saved meals</h2>
+  <h2 style="font-size:18px;margin-top:32px">Saved meals</h2>
   <div id="mcmp">${mealCompareHtml(date)}</div>
   <div id="mlist2" class="mlist">${mealListHtml(date)}</div>`;
 }
@@ -1575,7 +1575,7 @@ async function shareImage() {
   const W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const c = cv.getContext('2d');
   const D = '"Bricolage Grotesque","IBM Plex Sans",sans-serif', B = '"IBM Plex Sans",system-ui,sans-serif';
-  c.fillStyle = '#12614A'; c.fillRect(0, 0, W, H);
+  c.fillStyle = '#C25A2B'; c.fillRect(0, 0, W, H);
   c.textBaseline = 'alphabetic';
   c.fillStyle = '#fff'; c.font = `800 34px ${D}`; c.textAlign = 'left'; c.fillText('Coach Leonidas', 88, 122);
   c.textAlign = 'right'; c.font = `400 30px ${B}`; c.fillStyle = '#CFE6DB'; c.fillText(dFmt(day, { weekday: 'long', day: 'numeric', month: 'short' }), W - 88, 122);
@@ -1587,7 +1587,7 @@ async function shareImage() {
   const tw = c.measureText(amount).width, tx = 88, ty = 340, th = Math.round(fs * 1.17), tW = tw + 104 + 110;
   c.fillStyle = '#FFD43B'; c.beginPath();
   c.moveTo(tx, ty); c.lineTo(tx + tW - 84, ty); c.lineTo(tx + tW, ty + th / 2); c.lineTo(tx + tW - 84, ty + th); c.lineTo(tx, ty + th); c.closePath(); c.fill();
-  c.fillStyle = '#12614A'; c.beginPath(); c.arc(tx + 52, ty + th / 2, 16, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#C25A2B'; c.beginPath(); c.arc(tx + 52, ty + th / 2, 16, 0, Math.PI * 2); c.fill();
   c.fillStyle = '#1B2430'; c.font = `800 ${fs}px ${D}`; c.fillText(amount, tx + 104, ty + th / 2 + fs * 0.34);
   // meal lines
   const groups = groupEntries(es).map(([g, l]) => [g, r2(l.reduce((a, e) => a + (costOf(e).cost || 0), 0))]).slice(0, 6);
@@ -1755,3 +1755,7 @@ indexRanges(); reindex(); if (S.entries.length) ensurePrices();
 route();
 if (window.MealSync) { MealSync.onchange = () => render(); MealSync.init(); }
 window.__mealcost = { S, parseCronometer, costOf, summarize, macros, catOf, recipeCostOf, IDX: () => IDX };
+
+if ('serviceWorker' in navigator && !(window.MealNative && MealNative.isNative) && location.protocol === 'https:') {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+}

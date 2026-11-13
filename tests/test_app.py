@@ -436,13 +436,13 @@ try:
             check(f'phone: {tab} keeps the tab bar on screen', m[0] == m[1] and m[2] <= m[3] and m[4] and m[5] == 0, m)
         ph.evaluate("document.getElementById('scroller').scrollTop = 400"); ph.wait_for_timeout(200)
         check('phone: tab bar stays put while scrolling', ph.evaluate("Math.round(document.querySelector('.tabs').getBoundingClientRect().bottom) === innerHeight"))
-        check('theme starts on auto/light', ph.evaluate("MealTheme.get()") == 'auto' and ph.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(243, 244, 240)')
+        check('theme starts on auto/light', ph.evaluate("MealTheme.get()") == 'auto' and ph.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(255, 255, 255)')
         ph.click('[data-act=theme]'); ph.click('[data-act=theme]')
-        check('theme cycles to dark', ph.evaluate("document.documentElement.getAttribute('data-theme')") == 'dark' and ph.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(14, 20, 17)')
+        check('theme cycles to dark', ph.evaluate("document.documentElement.getAttribute('data-theme')") == 'dark' and ph.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(0, 0, 0)')
         ph.evaluate("location.hash='meals'"); ph.wait_for_selector('#mform')
         ph.click('#mform [data-m=name]'); ph.keyboard.type('chi'); ph.wait_for_timeout(300)
         ac = ph.evaluate("(() => { const u = document.querySelector('.ac'); const cs = getComputedStyle(u); return [!u.hidden, u.children.length, cs.backgroundColor, cs.display, u.getBoundingClientRect().height > 40]; })()")
-        check('suggestion list is visible and opaque in dark mode', ac[0] and ac[1] > 0 and ac[2] == 'rgb(23, 31, 27)' and ac[3] != 'none' and ac[4], ac)
+        check('suggestion list is visible and opaque in dark mode', ac[0] and ac[1] > 0 and ac[2] == 'rgb(17, 18, 20)' and ac[3] != 'none' and ac[4], ac)
         first = ph.evaluate("document.querySelector('.ac li').textContent")
         ph.evaluate("document.querySelector('.ac li').dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}))")
         check('picking a suggestion fills the field', ph.evaluate("document.querySelector('#mform [data-m=name]').value") == first and ph.evaluate("document.querySelector('.ac').hidden"), first)
@@ -457,6 +457,15 @@ try:
         pl.click('text=Try it with sample data'); pl.wait_for_selector('.pricetag .n')
         check('footer links to a new Cronometer export', pl.locator('footer.site a[href="https://cronometer.com/"]').count() == 1)
         pl.close()
+
+        # installable web app
+        pw = b.new_context(viewport={'width': 412, 'height': 860}, locale='en-US').new_page()
+        pw.goto(BASE); pw.wait_for_selector('#app h1')
+        check('web app manifest is linked', pw.get_attribute('link[rel=manifest]', 'href') == '/manifest.webmanifest')
+        mf = pw.evaluate("fetch('/manifest.webmanifest').then(r => r.json())")
+        check('manifest is installable', mf['display'] == 'standalone' and any(i['sizes'] == '512x512' for i in mf['icons']) and mf['start_url'] == '/')
+        check('home screen icon exists', pw.evaluate("fetch('/apple-touch-icon.png').then(r => r.ok)") is True and pw.evaluate("fetch('/sw.js').then(r => r.ok)") is True)
+        pw.close()
 
         # desktop screenshots
         for tab in ['day', 'prices', 'week']:
