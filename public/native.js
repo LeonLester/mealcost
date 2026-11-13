@@ -37,6 +37,7 @@
   const App = P().App;
   if (App && App.addListener) {
     App.addListener('backButton', ev => {
+      if (document.body.classList.contains('drawer-open')) { document.body.classList.remove('drawer-open'); return; }
       const dlg = document.getElementById('dlg');
       if (dlg && dlg.open) { dlg.close(); return; }
       if (ev && ev.canGoBack) history.back(); else if (App.exitApp) App.exitApp();

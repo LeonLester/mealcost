@@ -450,3 +450,43 @@ h1,h2,h3{font-weight:650;letter-spacing:-.01em}
   #pbody tr,.card{background:var(--card)}
   .shell{background:var(--paper)}
 }
+
+/* ---------- segmented control, value table, add-food dialog ---------- */
+.seg{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:14px}
+.seg button{border:0;background:transparent;color:var(--muted);padding:8px 14px;min-height:40px;border-radius:10px;font-weight:500;font-size:14px}
+.seg button[aria-pressed=true]{background:var(--paper);color:var(--ink);box-shadow:0 0 0 1px var(--line);font-weight:600}
+.vtab{min-width:0;width:100%;border-collapse:collapse}
+.vtab th{font-size:13px;font-weight:500;color:var(--muted);text-align:left;padding:8px 8px 8px 0;border-bottom:1px solid var(--line)}
+.vtab td{padding:12px 8px 12px 0;border-bottom:1px solid var(--line2);vertical-align:baseline}
+.vtab .r,.vtab th.r{text-align:right;padding-right:0}
+.vtab .rk{display:inline-block;min-width:24px;color:var(--muted);font-size:13px}
+.titlerow{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fgrid .field{width:100%}
+#fform{display:flex;flex-direction:column;gap:12px}
+/* burger menu and drawer (phones) */
+.burger,.scrim,.drawer{display:none}
+@media (max-width:640px){
+  .burger{display:flex;grid-row:1;grid-column:1;align-items:center;justify-content:center;width:44px;height:44px;border:0;background:transparent;color:var(--ink);border-radius:22px;margin:8px 0 0 4px}
+  .shell{grid-template-columns:auto 1fr}
+  .brand{grid-column:2;padding-left:4px}
+  .tools{display:none}
+  .scrim{display:block;position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .2s}
+  .drawer{display:flex;flex-direction:column;position:fixed;z-index:41;top:0;bottom:0;left:0;width:min(320px,86vw);background:var(--paper);border-right:1px solid var(--line);padding:8px 8px 24px;transform:translateX(-102%);transition:transform .22s ease;overflow-y:auto;visibility:hidden}
+  .drawer-open .scrim{opacity:1;pointer-events:auto}
+  .drawer-open .drawer{transform:none;visibility:visible}
+  .drawer .dhead{display:flex;align-items:center;justify-content:space-between;padding:8px 8px 8px 16px;font-size:18px}
+  .drawer .dhead .burger{grid-row:auto;grid-column:auto;margin:0}
+  .ditem{display:flex;align-items:center;gap:16px;width:100%;min-height:52px;padding:8px 16px;border:0;background:transparent;color:var(--ink);font-size:16px;text-align:left;border-radius:14px;text-decoration:none}
+  .ditem:active{background:var(--card)}
+  .ditem svg{color:var(--muted);flex:none}
+  .dlinks{margin-top:auto;padding:24px 16px 0;display:flex;flex-direction:column;gap:12px;font-size:14px}
+  .dlinks a{color:var(--muted)}
+  footer.site .legal{display:none}
+  .titlerow .btn{min-height:44px}
+}
+@media (prefers-reduced-motion:reduce){.drawer,.scrim{transition:none}}
+.bc{display:flex;flex-direction:column;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.bcrow{display:flex;gap:8px}
+.bcrow .field{flex:1;min-width:0}
+#fvid{width:100%;max-height:240px;border-radius:14px;background:#000;object-fit:cover}

@@ -24,11 +24,12 @@ const S = {
   merges: store.get('merges', {}),
   nomerge: store.get('nomerge', []),
   sort: store.get('sort', 'freq'), flip: store.get('flip', false),
-  cats: store.get('cats', {}), ranges: store.get('ranges', []), recipes: store.get('recipes', {}), meals: store.get('meals', {}), open: new Set(), grain: store.get('grain', 'week'), trange: store.get('trange', 90),
+  cats: store.get('cats', {}), ranges: store.get('ranges', []), recipes: store.get('recipes', {}), meals: store.get('meals', {}), foods: store.get('foods', {}), started: store.get('started', false), tview: store.get('tview', 'cost'), vmacro: store.get('vmacro', 'pro'), vall: false, open: new Set(), grain: store.get('grain', 'week'), trange: store.get('trange', 90),
   tab: 'day', day: null, cat: '', range: 7, filter: '', chip: 'all', showAll: false, error: ''
 };
 if (!CURRENCIES.includes(S.currency)) S.currency = 'EUR';
 
+const hasData = () => S.entries.length > 0 || S.started || Object.keys(S.foods).length > 0 || Object.keys(S.meals).length > 0;
 const SITE = /^https?:$/.test(location.protocol) ? location.host : 'coachleonidas.com';
 
 /* ============ formatting ============ */
@@ -203,6 +204,10 @@ function reindex() {
     const n = canon(it.name);
     if (!meta.has(n)) meta.set(n, { n: 0, count: 0, mass: 0, vol: 0, g: 0, ml: 0, cnt: 0, kpg: 0, unit: 'item', countFirst: false, members: [], extra: true });
   }
+  for (const [n0, f] of Object.entries(S.foods)) {
+    const n = canon(n0), item = f.per === 'item';
+    if (!meta.has(n)) meta.set(n, { n: 0, count: 0, mass: 0, vol: 0, g: 0, ml: 0, cnt: 0, kpg: !item && f.kcal > 0 ? f.kcal / 100 : 0, unit: 'item', countFirst: item, members: [], extra: true, custom: true });
+  }
   IDX = { byName, byDate, meta, dates: [...byDate.keys()].sort() };
 }
 
@@ -343,7 +348,7 @@ function importView() {
     <div class="hero">
       <div style="flex:1 1 520px">
         <h1 id="h1" tabindex="-1">See what each meal really costs.</h1>
-        <p class="lede" style="font-size:19px;line-height:1.55">Drop in your Cronometer export, add your grocery prices once, and get a cost for every meal, every day and every week.</p>
+        <p class="lede" style="font-size:19px;line-height:1.55">Drop in your Cronometer export, or add your foods by hand, add your grocery prices once, and get a cost for every meal, every day and every week.</p>
         <div class="drop" id="drop">
           ${IC.upload}
           <div style="flex:1 1 220px;min-width:0"><div style="font-weight:600;font-size:18px">Drop your Cronometer export here</div><div class="muted" style="font-size:14px;margin-top:4px">Food &amp; Recipe Entries, as a .csv file</div></div>
@@ -351,6 +356,7 @@ function importView() {
         </div>
         <div style="margin-top:18px;display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px">
           <button class="btn outline" data-act="sample">Try it with sample data</button>
+          <button class="btn outline" data-act="start-manual">Add foods by hand</button>
           <button class="btn link" data-act="restore">Restore saved prices</button>
           <span class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">${IC.lock}Your file is read in this browser. Nothing is uploaded.</span>
         </div>
@@ -394,6 +400,7 @@ const TABIC = {
 const TOOLIC = {
   import: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>',
   'export-csv': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg>',
+  'add-food': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
   theme: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>',
 };
 const themeLabel = () => ({ auto: 'Auto', light: 'Light', dark: 'Dark' })[window.MealTheme ? MealTheme.get() : 'auto'];
@@ -405,10 +412,21 @@ function appView() {
   return `
   <div class="shell">
   <header class="topbar"><div class="wrap">
+    <button class="burger" data-act="drawer" aria-label="Menu" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="brand"><b>Meal cost</b><span>by Coach Leonidas</span></div>
     <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week', 'trends', 'meals'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${TABIC[t]}<span>${cap(t)}</span></a>`).join('')}</nav>
-    <div class="tools">${toolBtn('import', 'Add export', 'pri')}${toolBtn('export-csv', 'Download CSV')}${toolBtn('theme', 'Theme: ' + themeLabel())}${window.MealSync ? MealSync.topHtml() : ''}</div>
+    <div class="tools">${toolBtn('add-food', 'Add a food')}${toolBtn('import', 'Add export', 'pri')}${toolBtn('export-csv', 'Download CSV')}${toolBtn('theme', 'Theme: ' + themeLabel())}${window.MealSync ? MealSync.topHtml() : ''}</div>
   </div></header>
+  <div class="scrim" data-act="drawer-close"></div>
+  <aside class="drawer" id="drawer" aria-label="Menu">
+    <div class="dhead"><b>Meal cost</b><button class="burger" data-act="drawer-close" aria-label="Close menu"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <button class="ditem" data-act="add-food">${TOOLIC['add-food']}<span>Add a food</span></button>
+    <button class="ditem" data-act="import">${TOOLIC.import}<span>Add Cronometer export</span></button>
+    <a class="ditem" href="https://cronometer.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>Get a new Cronometer export</span></a>
+    <button class="ditem" data-act="export-csv">${TOOLIC['export-csv']}<span>Download CSV</span></button>
+    <button class="ditem" data-act="theme">${TOOLIC.theme}<span>Theme: ${themeLabel()}</span></button>
+    <div class="dlinks"><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="https://coachleonidas.com">coachleonidas.com</a></div>
+  </aside>
   <div class="scroll" id="scroller">
   <main class="wrap">${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
   ${siteFooter()}
@@ -448,8 +466,12 @@ function swapFor(es) {
 }
 function calcRaw(e) { const pi = priceInfo(e.name, e.date, false); return pi ? calc(e, pi) : 0; }
 
+function emptyDiary(title) {
+  return `<h1 class="h1" id="h1" tabindex="-1">${title}</h1><div class="card pad" style="margin-top:24px;max-width:560px"><h2 style="font-size:17px">Nothing is logged yet</h2><p class="muted" style="margin-top:8px">Build a meal and add it to your diary, or import a Cronometer export. Either way it shows up here.</p><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:16px"><a class="btn primary" href="#meals">Build a meal</a><button class="btn" data-act="import">Add Cronometer export</button></div></div>`;
+}
 function dayView() {
   const dates = IDX.dates;
+  if (!dates.length) return emptyDiary('Day');
   if (!S.day || !IDX.byDate.has(S.day)) S.day = dates[dates.length - 1];
   const day = S.day, es = IDX.byDate.get(day), sm = summarize(es), idx = dates.indexOf(day);
   const start = Math.max(0, Math.min(idx - 3, dates.length - 7)), win = dates.slice(start, start + 7);
@@ -580,7 +602,7 @@ function priceRow(name, oc) {
   const vol = m.vol > m.mass;
   const sub = subText(name, iss), k = m.members.length;
   return `<tr data-name="${esc(name)}"${iss ? ' class="needs"' : ''}>
-    <th scope="row"><div class="fname">${esc(name)}${o ? ` <span class="offer-tag">${o} ${o === 1 ? 'offer' : 'offers'}</span>` : ''}${catOf(name) !== 'Uncategorized' ? `<span class="catlab">${esc(catOf(name))}</span>` : ''}</div><div class="sub sl">${esc(sub)}</div><details class="more"><summary>Details</summary><div class="moreb"><div class="sub"><input class="catin" list="catlist" data-cat aria-label="Category of ${esc(name)}" placeholder="Add a category" value="${esc(catOf(name) === 'Uncategorized' ? '' : catOf(name))}"></div>${macroLine(name) ? `<div class="sub">${esc(macroLine(name))}</div>` : ''}${m.extra ? '' : `<div class="sub acts">${k ? `Includes ${k} other ${k === 1 ? 'name' : 'names'}. ` : ''}<button class="btn link" data-act="merge" data-name="${esc(name)}" aria-label="Merge ${esc(name)} with another food">${k ? 'Manage merges' : 'Merge'}</button>${rec ? '' : `<button class="btn link" data-act="edit-recipe" data-name="${esc(name)}" aria-label="Make ${esc(name)} a recipe with ingredients">Make a recipe</button>`}</div>`}</div></details></th>
+    <th scope="row"><div class="fname">${esc(name)}${o ? ` <span class="offer-tag">${o} ${o === 1 ? 'offer' : 'offers'}</span>` : ''}${catOf(name) !== 'Uncategorized' ? `<span class="catlab">${esc(catOf(name))}</span>` : ''}</div><div class="sub sl">${esc(sub)}</div><details class="more"><summary>Details</summary><div class="moreb">${m.custom || S.foods[name] ? `<div><button class="btn link" data-act="edit-food" data-name="${esc(name)}">Edit nutrition</button></div>` : ''}<div class="sub"><input class="catin" list="catlist" data-cat aria-label="Category of ${esc(name)}" placeholder="Add a category" value="${esc(catOf(name) === 'Uncategorized' ? '' : catOf(name))}"></div>${macroLine(name) ? `<div class="sub">${esc(macroLine(name))}</div>` : ''}${m.extra ? '' : `<div class="sub acts">${k ? `Includes ${k} other ${k === 1 ? 'name' : 'names'}. ` : ''}<button class="btn link" data-act="merge" data-name="${esc(name)}" aria-label="Merge ${esc(name)} with another food">${k ? 'Manage merges' : 'Merge'}</button>${rec ? '' : `<button class="btn link" data-act="edit-recipe" data-name="${esc(name)}" aria-label="Make ${esc(name)} a recipe with ingredients">Make a recipe</button>`}</div>`}</div></details></th>
     ${rec ? `<td colspan="3"><div class="muted" style="font-size:14px">Recipe with ${rec.items.length} ${rec.items.length === 1 ? 'ingredient' : 'ingredients'}, ${esc(rec.servings)} ${Number(rec.servings) === 1 ? 'serving' : 'servings'}</div><button class="btn link" data-act="edit-recipe" data-name="${esc(name)}">Edit recipe</button></td>` : `
     <td><div class="money-in"><span>${esc(currencySymbol())}</span><input type="text" inputmode="decimal" data-f="price" aria-label="Price of ${esc(name)}" placeholder="0.00" value="${p.price === '' ? '' : esc(p.price)}"></div></td>
     <td><select class="field" data-f="basis" aria-label="Price unit for ${esc(name)}">
@@ -686,6 +708,117 @@ function openMerge(name) {
   });
   dlg.showModal(); $('#mt').focus();
 }
+
+
+/* ---- barcode lookup: Open Food Facts first, USDA FoodData Central as a fallback ---- */
+const r1 = x => Math.round(x * 10) / 10;
+async function lookupBarcode(raw) {
+  const code = String(raw || '').replace(/\D/g, '');
+  if (code.length < 8 || code.length > 14) throw new Error('Enter the digits printed under the barcode (8 to 14 numbers).');
+  try {
+    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments`, { headers: { Accept: 'application/json' } });
+    if (r.ok) {
+      const j = await r.json(), pr = j && j.status === 1 && j.product;
+      if (pr) {
+        const n = pr.nutriments || {}, kj = Number(n['energy_100g']);
+        const kcal = Number.isFinite(Number(n['energy-kcal_100g'])) ? Number(n['energy-kcal_100g']) : Number.isFinite(kj) ? kj / 4.184 : 0;
+        const nm = [String(pr.brands || '').split(',')[0].trim(), String(pr.product_name || '').trim()].filter(Boolean).join(' ');
+        if (nm) return { name: nm.slice(0, 60), kcal: r1(kcal), pro: r1(Number(n['proteins_100g']) || 0), carb: r1(Number(n['carbohydrates_100g']) || 0), fat: r1(Number(n['fat_100g']) || 0), source: 'Open Food Facts' };
+      }
+    }
+  } catch (e) { /* fall through to the second source */ }
+  try {
+    const r = await fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?query=${code}&dataType=Branded&pageSize=5&api_key=DEMO_KEY`);
+    if (r.ok) {
+      const j = await r.json(), f = (j.foods || []).find(x => String(x.gtinUpc || '').replace(/^0+/, '') === code.replace(/^0+/, ''));
+      if (f) {
+        const g = id => { const x = (f.foodNutrients || []).find(y => String(y.nutrientNumber) === id); return x ? Number(x.value) || 0 : 0; };
+        const nm = [String(f.brandName || f.brandOwner || '').trim(), String(f.description || '').trim()].filter(Boolean).join(' ');
+        return { name: nm.slice(0, 60), kcal: r1(g('208')), pro: r1(g('203')), carb: r1(g('205')), fat: r1(g('204')), source: 'USDA FoodData Central' };
+      }
+    }
+  } catch (e) { /* not found */ }
+  return null;
+}
+const scanFormats = ['EAN_13', 'EAN_8', 'UPC_A', 'UPC_E'];
+const nativeScanner = () => window.MealNative && MealNative.isNative && window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.BarcodeScanner;
+const canScan = () => !!nativeScanner() || ('BarcodeDetector' in window && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+let _stream = null;
+function stopScan() { if (_stream) { _stream.getTracks().forEach(t => t.stop()); _stream = null; } const v = $('#fvid'); if (v) { v.srcObject = null; v.hidden = true; } }
+async function scanBarcode() {
+  const NP = nativeScanner();
+  if (NP) {
+    try { const a = await NP.isGoogleBarcodeScannerModuleAvailable(); if (a && a.available === false) { await NP.installGoogleBarcodeScannerModule(); throw new Error('Getting the scanner ready. Try again in a few seconds.'); } } catch (e) { if (/ready/.test(e.message)) throw e; }
+    const r = await NP.scan({ formats: scanFormats });
+    return r && r.barcodes && r.barcodes[0] ? r.barcodes[0].rawValue : '';
+  }
+  const v = $('#fvid'), det = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
+  _stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+  v.srcObject = _stream; v.hidden = false; await v.play();
+  return new Promise((resolve, reject) => {
+    const t0 = Date.now(), tick = async () => {
+      if (!_stream) return reject(new Error('cancelled'));
+      try { const c = await det.detect(v); if (c.length) { stopScan(); return resolve(c[0].rawValue); } } catch (e) { /* keep trying */ }
+      if (Date.now() - t0 > 45000) { stopScan(); return reject(new Error('No barcode found. Type the number instead.')); }
+      setTimeout(tick, 250);
+    };
+    tick();
+  });
+}
+
+/* ---- your own foods ---- */
+function openFood(name) {
+  const dlg = $('#dlg'); dlg.classList.remove('wide');
+  const cf = name ? S.foods[name] : null, p = name ? S.prices[name] : null, sym = currencySymbol();
+  const v = x => x === undefined || x === null || x === '' ? '' : esc(x);
+  const per = cf ? cf.per : '100g';
+  dlg.innerHTML = `<form id="fform" method="dialog" novalidate>
+    <h2 id="dlg-title" style="font-size:20px">${cf ? 'Edit food' : 'Add a food'}</h2>
+    <p class="muted" style="font-size:14px">Enter what the label says and what you pay. Then use it in meals and rankings. No other app needed.</p>
+    ${cf ? '' : `<div class="bc"><label for="fbc">Barcode</label><div class="bcrow"><input class="field" id="fbc" inputmode="numeric" autocomplete="off" placeholder="Type the number under the barcode"><button type="button" class="btn" id="fbl">Look up</button>${canScan() ? '<button type="button" class="btn" id="fscan">Scan</button>' : ''}</div><video id="fvid" playsinline muted hidden></video><div id="fbs" class="sub" role="status"></div></div>`}
+    <div><label for="fn">Name</label><input class="field" style="width:100%" id="fn" maxlength="60" autocomplete="off" placeholder="For example, Greek yogurt"${cf ? ' readonly' : ''} value="${v(name)}"></div>
+    <div><label for="fper">Nutrition is for</label><select class="field" style="width:100%" id="fper"><option value="100g"${per === '100g' ? ' selected' : ''}>100 g (or 100 ml)</option><option value="item"${per === 'item' ? ' selected' : ''}>1 item or serving</option></select></div>
+    <div class="fgrid"><div><label for="fk">Calories</label><input class="field" id="fk" inputmode="decimal" placeholder="kcal" value="${v(cf && cf.kcal)}"></div><div><label for="fp">Protein (g)</label><input class="field" id="fp" inputmode="decimal" placeholder="0" value="${v(cf && cf.pro)}"></div><div><label for="fc">Carbs (g)</label><input class="field" id="fc" inputmode="decimal" placeholder="0" value="${v(cf && cf.carb)}"></div><div><label for="ff">Fat (g)</label><input class="field" id="ff" inputmode="decimal" placeholder="0" value="${v(cf && cf.fat)}"></div></div>
+    <div class="fgrid"><div><label for="fpr">Price (${esc(sym)})</label><input class="field" id="fpr" inputmode="decimal" placeholder="optional" value="${v(p && p.price)}"></div><div><label for="fpb">Price is per</label><select class="field" id="fpb"><option value="kg"${p && p.basis === 'kg' ? ' selected' : ''}>kg or litre</option><option value="100"${!p || p.basis === '100' ? ' selected' : ''}>100 g or 100 ml</option><option value="unit"${p && p.basis === 'unit' ? ' selected' : ''}>item</option></select></div></div>
+    <div id="fgw"${per === 'item' ? '' : ' hidden'}><label for="fg">Grams per item (optional)</label><input class="field" style="width:100%" id="fg" inputmode="decimal" placeholder="Lets a per-kg price work for items" value="${v(p && p.gpu)}"></div>
+    <div id="ferr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">${cf ? 'Save' : 'Add food'}</button><button type="button" class="btn" data-act="close-dlg">Cancel</button>${cf ? `<button type="button" class="btn link" data-act="del-food" data-name="${esc(name)}">Delete</button>` : ''}</div>
+  </form>`;
+  const fill = r => { $('#fn').value = r.name; $('#fper').value = '100g'; $('#fgw').hidden = true; $('#fk').value = r.kcal; $('#fp').value = r.pro; $('#fc').value = r.carb; $('#ff').value = r.fat; };
+  const doLookup = async code => {
+    const st = $('#fbs'); st.textContent = 'Looking it up...';
+    try { const r = await lookupBarcode(code); if (r) { fill(r); st.textContent = `Found in ${r.source}. Check the values, then add your price. Per 100 g.`; $('#fpr').focus(); } else st.textContent = 'Not found in Open Food Facts or USDA FoodData Central. Enter it by hand.'; }
+    catch (e) { st.textContent = e.message; }
+  };
+  if ($('#fbl')) {
+    $('#fbl').addEventListener('click', () => doLookup($('#fbc').value));
+    $('#fbc').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); doLookup($('#fbc').value); } });
+  }
+  if ($('#fscan')) $('#fscan').addEventListener('click', async () => {
+    const st = $('#fbs'); st.textContent = '';
+    try { const c = await scanBarcode(); if (c) { $('#fbc').value = c; doLookup(c); } }
+    catch (e) { stopScan(); if (!/cancel/i.test(String(e && e.message))) st.textContent = String(e && e.message || 'Could not open the camera.').slice(0, 140); }
+  });
+  dlg.addEventListener('close', stopScan, { once: true });
+  $('#fper').addEventListener('change', () => { $('#fgw').hidden = $('#fper').value !== 'item'; if ($('#fper').value === 'item' && !$('#fpb').dataset.t) $('#fpb').value = 'unit'; });
+  $('#fform').addEventListener('submit', ev => {
+    ev.preventDefault();
+    const nm = $('#fn').value.trim().replace(/\s+/g, ' '), err = t => { $('#ferr').textContent = t; };
+    if (!nm) { err('Enter a name.'); $('#fn').focus(); return; }
+    if (!cf && IDX.meta.has(canon(nm)) && !S.foods[nm]) { err('A food with this name already exists. Set its price on the Prices tab.'); return; }
+    if (!cf && S.foods[nm]) { err('You already added this food. Search for it on the Prices tab to edit it.'); return; }
+    const kcal = num($('#fk').value), pro = num($('#fp').value), carb = num($('#fc').value), fat = num($('#ff').value);
+    if ([$('#fk').value, $('#fp').value, $('#fc').value, $('#ff').value].some(x => x.trim() && (!Number.isFinite(parseFloat(x.replace(',', '.'))) || parseFloat(x.replace(',', '.')) < 0))) { err('Nutrition values must be numbers, zero or more.'); return; }
+    if (!(kcal > 0) && !(pro > 0) && !(carb > 0) && !(fat > 0)) { err('Enter at least the calories or one nutrient.'); $('#fk').focus(); return; }
+    const prs = $('#fpr').value.trim(), price = prs === '' ? '' : num(prs);
+    if (prs !== '' && (!/^\d+([.,]\d+)?$/.test(prs) || price < 0)) { err('Price must be a number, zero or more.'); $('#fpr').focus(); return; }
+    const gpu = num($('#fg').value);
+    S.foods[nm] = { per: $('#fper').value, kcal, pro, carb, fat };
+    S.prices[nm] = { price, basis: $('#fpb').value, gpu: $('#fper').value === 'item' && gpu > 0 ? gpu : '' };
+    S.started = true; reindex(); ensurePrices(); saveAll(); dlg.close(); render(); toast(cf ? 'Food saved' : `${nm} added`);
+  });
+  dlg.showModal(); (cf ? $('#fk') : $('#fn')).focus();
+}
 function counts() {
   const all = IDX.meta.size; let un = 0;
   for (const n of IDX.meta.keys()) if (issue(n)) un++;
@@ -699,7 +832,7 @@ function pricesView() {
   for (const r of S.ranges) offerList.push({ k: r.from, r, n: r.name, v: r.price });
   offerList.sort((a, b) => b.k.localeCompare(a.k) || a.n.localeCompare(b.n));
   return `
-  <h1 class="h1" id="h1" tabindex="-1">Your prices</h1>
+  <div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Your prices</h1><button class="btn primary sm" data-act="add-food">Add a food</button></div>
   <p class="lede">Set a price once and it applies to every day you logged that food. Use an offer when a price was different on one day.</p>
   <div class="notice" id="unp" role="status"${c.un ? '' : ' hidden'}>${IC.info}<div id="unp-t">${unpText(c.un)}</div></div>
   <datalist id="catlist">${[...new Set([...DEFAULT_CATS, ...[...IDX.meta.keys()].map(catOf)])].filter(k => k !== 'Uncategorized').sort().map(k => `<option value="${esc(k)}"></option>`).join('')}</datalist>
@@ -886,14 +1019,12 @@ function phAdd(raw) {
   if (S.ph.length >= 6) { toast('Remove a food first. The chart shows up to 6.'); return; }
   S.ph = S.ph.concat(n); store.set('phist', S.ph); render();
 }
-function trendsView() {
+function trendsCost() {
   const dates = IDX.dates, last = dates[dates.length - 1];
   const from = S.trange > 0 ? isoAdd(last, -(S.trange - 1)) : dates[0];
   const days = dates.filter(d => d >= from).map(dayStat).filter(s => s.n > 0 && s.cost > 0);
-  const ph = priceHistoryCard(from, last);
-  const head = `<h1 class="h1" id="h1" tabindex="-1">Trends</h1>
-  <p class="lede">How the price of your protein, carbs, fat, fiber and calories moves over time. Only foods with a price are counted.</p>
-  <div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+  const ph = '';
+  const head = `<div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:center">
     <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Show <select class="field" id="tgrain"><option value="day"${S.grain === 'day' ? ' selected' : ''}>Each day</option><option value="week"${S.grain === 'week' ? ' selected' : ''}>Each week</option></select></label>
     <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Period <select class="field" id="trange">${[[30, 'Last 30 days'], [90, 'Last 90 days'], [180, 'Last 6 months'], [0, 'All days']].map(([v, t]) => `<option value="${v}"${S.trange === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
   </div>`;
@@ -947,6 +1078,41 @@ function trendsView() {
   return `${head}${cov}${ph}<div class="trendgrid" style="margin-top:24px">${cards}${weekCard}${catCard}</div>`;
 }
 
+const VM = { pro: ['Protein', 'p', 'g'], carb: ['Carbs', 'c', 'g'], fat: ['Fat', 'f', 'g'], kcal: ['Calories', 'k', 'kcal'] };
+function valueRows(macro) {
+  const k = VM[macro][1], date = IDX.dates[IDX.dates.length - 1] || mealToday(), out = [];
+  for (const name of IDX.meta.keys()) {
+    if (S.recipes[name]) continue;
+    const pi = priceInfo(name, date); if (!pi || !(pi.price > 0)) continue;
+    let per = null;
+    if (pi.basis === 'unit') { const o = perUnit(name, 'item'); if (o) per = o[k] / pi.price; }
+    else { const o = perUnit(name, 'g'); if (o) per = o[k] / (pi.basis === 'kg' ? pi.price / 1000 : pi.price / 100); }
+    if (!(per > 0)) continue;
+    out.push({ name, v: per, price: `${money(pi.price)} / ${pi.basis === 'kg' ? 'kg' : pi.basis === '100' ? '100 g' : 'item'}` });
+  }
+  return out.sort((a, b) => b.v - a.v || a.name.localeCompare(b.name));
+}
+function valueCard() {
+  const m = S.vmacro in VM ? S.vmacro : 'pro', rows = valueRows(m), shown = S.vall ? rows : rows.slice(0, 10), sym = currencySymbol();
+  const seg = `<div class="seg" role="group" aria-label="Nutrient">${Object.entries(VM).map(([k, v]) => `<button type="button" data-act="vmacro" data-v="${k}" aria-pressed="${k === m}">${v[0]}</button>`).join('')}</div>`;
+  const unit = VM[m][2] === 'g' ? `g of ${VM[m][0].toLowerCase()}` : 'kcal';
+  const body = rows.length ? `<table class="vtab"><thead><tr><th scope="col">Food</th><th scope="col" class="r">Price</th><th scope="col" class="r">${esc(unit === 'kcal' ? 'kcal' : 'g')} per ${esc(sym)}1</th></tr></thead><tbody>${shown.map((r, i) => `<tr><td><span class="rk">${i + 1}</span>${esc(r.name)}</td><td class="r muted">${esc(r.price)}</td><td class="r"><b>${r.v >= 100 ? Math.round(r.v) : r.v.toFixed(1)}</b></td></tr>`).join('')}</tbody></table>
+    ${rows.length > 10 ? `<button class="btn link" data-act="vall">${S.vall ? 'Show the top 10' : `Show all ${rows.length}`}</button>` : ''}
+    <p class="muted" style="font-size:13px;margin-top:8px">Higher is better value. Uses each food's current price and nutrition. Foods without a price or nutrition are left out.</p>`
+    : `<div class="notice" style="margin-top:16px">${IC.info}<div>Nothing to rank yet. Add a food with its nutrition and price, or set prices on the Prices tab.</div></div><p style="margin-top:12px"><button class="btn primary" data-act="add-food">Add a food</button></p>`;
+  return `<div class="card pad" style="margin-top:16px"><h2 style="font-size:17px">${esc(unit === 'kcal' ? 'Calories' : cap(unit))} per ${esc(sym)}1 spent</h2><div style="margin-top:12px">${seg}</div><div style="margin-top:12px">${body}</div></div>`;
+}
+function trendsView() {
+  const dates = IDX.dates, last = dates[dates.length - 1];
+  const view = !dates.length ? 'value' : (['value', 'cost', 'prices'].includes(S.tview) ? S.tview : 'cost');
+  const seg = dates.length ? `<div class="seg" role="group" aria-label="Trends view" style="margin-top:16px">${[['cost', 'Cost over time'], ['value', 'Best value'], ['prices', 'Price history']].map(([k, t]) => `<button type="button" data-act="tview" data-v="${k}" aria-pressed="${k === view}">${t}</button>`).join('')}</div>` : '';
+  const head = `<h1 class="h1" id="h1" tabindex="-1">Trends</h1>
+  <p class="lede">${view === 'value' ? 'Rank your foods by how much protein, carbs, fat or calories each currency unit buys.' : view === 'prices' ? 'How the price of single foods changed, one point for every price change.' : 'How the price of your protein, carbs, fat, fiber and calories moves over time. Only foods with a price are counted.'}</p>${seg}`;
+  if (view === 'value') return head + valueCard();
+  if (view === 'prices') { const from = S.trange > 0 ? isoAdd(last, -(S.trange - 1)) : dates[0]; return head + `<div style="margin-top:16px">${priceHistoryCard(from, last)}</div>`; }
+  return head + trendsCost();
+}
+
 /* ============ view: week ============ */
 function proteinRank(es) {
   // Only foods where protein is a real share of the calories (about 30% or more), so oats and pasta do not top the list.
@@ -959,6 +1125,7 @@ function proteinRank(es) {
 }
 function weekView() {
   const dates = IDX.dates, last = dates[dates.length - 1];
+  if (!dates.length) return emptyDiary('Week');
   const first = S.range ? isoAdd(last, -(S.range - 1)) : dates[0];
   const inWin = dates.filter(d => d >= first);
   const sums = new Map(inWin.map(d => [d, summarize(IDX.byDate.get(d))]));
@@ -1049,9 +1216,10 @@ function weekView() {
 /* ============ render + routing ============ */
 function render() {
   const sc0 = $('#scroller'), keep = sc0 ? sc0.scrollTop : 0;
-  $('#app').innerHTML = S.entries.length ? appView() : importView();
+  document.body.classList.remove('drawer-open');
+  $('#app').innerHTML = hasData() ? appView() : importView();
   { const sc = $('#scroller'); if (sc && keep) sc.scrollTop = keep; }
-  document.title = (S.entries.length ? cap(S.tab) + ' | ' : '') + 'Meal cost calculator | Coach Leonidas';
+  document.title = (hasData() ? cap(S.tab) + ' | ' : '') + 'Meal cost calculator | Coach Leonidas';
 }
 function route() {
   const h = location.hash.replace('#', '');
@@ -1073,7 +1241,7 @@ function toast(msg) {
 /* ============ persistence ============ */
 let _save;
 function saveSoon() { clearTimeout(_save); _save = setTimeout(saveAll, 250); }
-function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('meals', S.meals); store.set('grain', S.grain); store.set('trange', S.trange); }
+function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('meals', S.meals); store.set('foods', S.foods); store.set('started', S.started); store.set('tview', S.tview); store.set('vmacro', S.vmacro); store.set('grain', S.grain); store.set('trange', S.trange); }
 function saveEntries() { store.set('entries', S.entries.map(({ src, ...r }) => ({ ...r, name: src !== undefined ? src : r.name }))); }
 
 /* ============ import ============ */
@@ -1248,7 +1416,7 @@ function saveRecipe() {
 /* ============ meal builder ============ */
 const MB = { draft: null, cmp: [], date: '' };
 const newDraft = () => ({ name: '', servings: '1', orig: '', items: [{ name: '', qty: '', unit: 'g' }] });
-const mealDate = () => MB.date || IDX.dates[IDX.dates.length - 1];
+const mealDate = () => MB.date || IDX.dates[IDX.dates.length - 1] || mealToday();
 const mealToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 let _nc = { idx: null, m: new Map() };
 // Nutrition per 1 g (or ml) or per 1 item, taken from how the food was logged in your export.
@@ -1263,6 +1431,8 @@ function perUnit(name, unit, noCross) {
     q += e.qty; k += e.kcal; p += e.pro; c += e.carb; f += e.fat; b += e.fiber || 0;
   }
   if (q > 0) out = { k: k / q, p: p / q, c: c / q, f: f / q, b: b / q };
+  const cf = S.foods[name];
+  if (!out && cf && (cf.per === 'item') === (u === 'item')) { const d = u === 'item' ? 1 : 100; out = { k: cf.kcal / d, p: cf.pro / d, c: cf.carb / d, f: cf.fat / d, b: 0 }; }
   if (!out && !noCross) {
     const gpu = Number((S.prices[name] || {}).gpu) || 0, r = S.recipes[name];
     if (gpu > 0) {
@@ -1501,7 +1671,7 @@ function exportCsv() {
   toast('CSV downloaded');
 }
 function backup() {
-  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges, ranges: S.ranges, recipes: S.recipes, meals: S.meals, cats: S.cats };
+  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges, ranges: S.ranges, recipes: S.recipes, meals: S.meals, foods: S.foods, cats: S.cats };
   download('meal-cost-prices.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   toast('Backup downloaded');
 }
@@ -1534,12 +1704,17 @@ async function restore(file) {
       const items = m.items.filter(i => i && typeof i.name === 'string' && ['g', 'ml', 'item'].includes(i.unit) && Number(i.qty) > 0).map(i => ({ name: i.name, qty: Number(i.qty), unit: i.unit }));
       if (items.length) S.meals[n] = { servings: Number(m.servings) > 0 ? Number(m.servings) : 1, items };
     }
+    for (const [n, f] of Object.entries(d.foods && typeof d.foods === 'object' ? d.foods : {})) {
+      if (!f || typeof f !== 'object') continue;
+      const nn = x => Number.isFinite(Number(x)) && Number(x) >= 0 ? Number(x) : 0;
+      S.foods[n] = { per: f.per === 'item' ? 'item' : '100g', kcal: nn(f.kcal), pro: nn(f.pro), carb: nn(f.carb), fat: nn(f.fat) };
+    }
     for (const [a, b] of Object.entries(d.cats && typeof d.cats === 'object' ? d.cats : {})) if (typeof b === 'string' && b.trim()) S.cats[a] = b.trim();
     for (const [a, b] of Object.entries(d.merges || {})) if (typeof b === 'string' && a !== b && b) S.merges[a] = b;
     if (CURRENCIES.includes(d.currency)) S.currency = d.currency;
     if (d.budget > 0) S.budget = Number(d.budget);
-    indexRanges(); reindex(); if (S.entries.length) ensurePrices();
-    saveAll(); render(); toast(S.entries.length ? 'Backup restored' : 'Prices restored. Now drop in your Cronometer export.');
+    indexRanges(); reindex(); ensurePrices();
+    saveAll(); render(); toast(S.entries.length || Object.keys(S.foods).length ? 'Backup restored' : 'Prices restored. Now drop in your Cronometer export.');
   } catch (e) { S.error = 'That file is not a Meal cost backup.'; render(); }
 }
 function dayText(d) {
@@ -1617,8 +1792,18 @@ async function shareImage() {
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]'); if (!t) return;
   const a = t.dataset.act, d = t.dataset;
+  if (a !== 'drawer' && t.closest('#drawer')) document.body.classList.remove('drawer-open');
   switch (a) {
     case 'import': $('#file').click(); break;
+    case 'add-food': openFood(); break;
+    case 'edit-food': openFood(d.name); break;
+    case 'del-food': if (confirm(`Remove ${d.name} from your foods?`)) { delete S.foods[d.name]; if (!(IDX.byName.get(d.name) || []).length) delete S.prices[d.name]; reindex(); saveAll(); $('#dlg').close(); render(); toast('Food removed'); } break;
+    case 'start-manual': S.started = true; saveAll(); go('prices'); break;
+    case 'tview': S.tview = d.v; saveAll(); render(); break;
+    case 'vmacro': S.vmacro = d.v; S.vall = false; saveAll(); render(); break;
+    case 'vall': S.vall = !S.vall; render(); break;
+    case 'drawer': document.body.classList.toggle('drawer-open'); t.setAttribute('aria-expanded', document.body.classList.contains('drawer-open')); break;
+    case 'drawer-close': document.body.classList.remove('drawer-open'); break;
     case 'sample': loadSample(); break;
     case 'pick-day': S.day = d.date; render(); break;
     case 'prev-day': { const i = IDX.dates.indexOf(S.day); if (i > 0) { S.day = IDX.dates[i - 1]; render(); } break; }
@@ -1670,7 +1855,7 @@ document.addEventListener('click', e => {
     case 'restore': $('#pfile').click(); break;
     case 'reset':
       if (confirm('Delete all imported entries, prices and offers from this browser? This cannot be undone.')) {
-        store.clear(); S.entries = []; S.prices = {}; S.overrides = {}; S.merges = {}; S.nomerge = []; S.ranges = []; S.recipes = {}; S.meals = {}; MB.draft = null; MB.cmp = []; S.cats = {}; indexRanges(); S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
+        store.clear(); S.entries = []; S.prices = {}; S.overrides = {}; S.merges = {}; S.nomerge = []; S.ranges = []; S.recipes = {}; S.meals = {}; S.foods = {}; S.started = false; MB.draft = null; MB.cmp = []; S.cats = {}; indexRanges(); S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
         history.replaceState(null, '', location.pathname); S.tab = 'day'; render(); toast('All data deleted');
       }
       break;
@@ -1751,7 +1936,7 @@ if (store.get('parser', 1) < 2) {
   if (S.entries.length) saveEntries();
   store.set('parser', 2);
 }
-indexRanges(); reindex(); if (S.entries.length) ensurePrices();
+indexRanges(); reindex(); ensurePrices();
 route();
 if (window.MealSync) { MealSync.onchange = () => render(); MealSync.init(); }
 window.__mealcost = { S, parseCronometer, costOf, summarize, macros, catOf, recipeCostOf, IDX: () => IDX };
