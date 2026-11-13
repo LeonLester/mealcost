@@ -4,7 +4,7 @@
 set -euo pipefail
 ROOT=$(pwd)
 APPID=com.coachleonidas.mealcost
-BASE="https://${REPO%%/*}.github.io/${REPO##*/}"
+OWNER=${REPO%%/*}; BASE="https://$(echo "$OWNER" | tr A-Z a-z).github.io/${REPO##*/}"
 URL="$BASE/fdroid/repo"
 W="$RUNNER_TEMP/fd"; PAGES="$RUNNER_TEMP/pages"
 rm -rf "$W" "$PAGES"; mkdir -p "$W/repo" "$W/metadata"
