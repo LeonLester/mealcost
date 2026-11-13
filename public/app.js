@@ -425,6 +425,14 @@ function appView() {
     <a class="ditem" href="https://cronometer.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>Get a new Cronometer export</span></a>
     <button class="ditem" data-act="export-csv">${TOOLIC['export-csv']}<span>Download CSV</span></button>
     <button class="ditem" data-act="theme">${TOOLIC.theme}<span>Theme: ${themeLabel()}</span></button>
+    <div class="dsec">Account and data</div>
+    ${window.MealSync && MealSync.available ? (MealSync.signed
+      ? `<div class="dwho">Signed in as ${esc(MealSync.email)}</div><button class="ditem" data-sync="now"><span>Sync now</span></button><button class="ditem" data-sync="out"><span>Sign out</span></button>`
+      : MealSync.ready ? `<a class="ditem" href="/auth/google"><span>Sign in with Google</span></a>` : '') : ''}
+    <button class="ditem" data-act="backup"><span>Download backup</span></button>
+    <button class="ditem" data-act="restore"><span>Restore backup</span></button>
+    <button class="ditem danger" data-act="reset"><span>Delete all data from this browser</span></button>
+    ${window.MealSync && MealSync.available && MealSync.signed ? `<button class="ditem danger" data-sync="delete"><span>Delete my account and cloud data</span></button>` : ''}
     <div class="dlinks"><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="https://coachleonidas.com">coachleonidas.com</a></div>
   </aside>
   <div class="scroll" id="scroller">

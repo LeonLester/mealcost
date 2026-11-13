@@ -478,6 +478,7 @@ try:
         check('no page errors in the manual flow', not merrs, merrs)
         pm.click('header .burger'); pm.wait_for_timeout(300)
         check('burger menu opens the drawer', pm.evaluate("document.body.classList.contains('drawer-open') && getComputedStyle(document.querySelector('#drawer')).visibility === 'visible'"))
+        check('drawer offers backup and delete data', pm.locator('#drawer [data-act=backup]').count() == 1 and pm.locator('#drawer [data-act=reset]').count() == 1)
         pm.mouse.click(405, 400); pm.wait_for_timeout(300)
         check('tapping outside closes the drawer', pm.evaluate("!document.body.classList.contains('drawer-open')"))
         mc.close()

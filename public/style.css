@@ -480,6 +480,11 @@ h1,h2,h3{font-weight:650;letter-spacing:-.01em}
   .ditem{display:flex;align-items:center;gap:16px;width:100%;min-height:52px;padding:8px 16px;border:0;background:transparent;color:var(--ink);font-size:16px;text-align:left;border-radius:14px;text-decoration:none}
   .ditem:active{background:var(--card)}
   .ditem svg{color:var(--muted);flex:none}
+  .dsec{padding:20px 16px 4px;font-size:13px;color:var(--muted)}
+  .dwho{padding:4px 16px 8px;font-size:14px;color:var(--muted);overflow-wrap:anywhere}
+  .ditem.danger{color:#C0392B}
+  :root[data-theme=dark] .ditem.danger{color:#FF7A6B}
+  .drawer{overflow-y:auto}
   .dlinks{margin-top:auto;padding:24px 16px 0;display:flex;flex-direction:column;gap:12px;font-size:14px}
   .dlinks a{color:var(--muted)}
   footer.site .legal{display:none}
