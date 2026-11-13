@@ -25,7 +25,7 @@ const S = {
   nomerge: store.get('nomerge', []),
   sort: store.get('sort', 'freq'), flip: store.get('flip', false),
   cats: store.get('cats', {}), ranges: store.get('ranges', []), recipes: store.get('recipes', {}), meals: store.get('meals', {}), foods: store.get('foods', {}), started: store.get('started', false), tview: store.get('tview', 'cost'), vmacro: store.get('vmacro', 'pro'), vall: false, open: new Set(), grain: store.get('grain', 'week'), trange: store.get('trange', 90),
-  tab: 'day', day: null, cat: '', range: 7, filter: '', chip: 'all', showAll: false, error: ''
+  pa: null, cfrom: '', cto: '', tab: 'day', day: null, cat: '', range: 7, filter: '', chip: 'all', showAll: false, error: ''
 };
 if (!CURRENCIES.includes(S.currency)) S.currency = 'EUR';
 
@@ -395,6 +395,8 @@ function siteFooter() {
 }
 
 /* ============ view: shell ============ */
+const TABLBL = { week: 'Summary' };
+const tabLbl = t => TABLBL[t] || cap(t);
 const TABIC = {
   day: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg>',
   prices: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8L3 12z"/><circle cx="7.5" cy="8.5" r="1.2"/></svg>',
@@ -421,7 +423,7 @@ function appView() {
   <header class="topbar"><div class="wrap">
     <button class="burger" data-act="drawer" aria-label="Menu" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="brand"><b>Meal cost</b><span>by Coach Leonidas</span></div>
-    <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week', 'trends', 'meals'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${TABIC[t]}<span>${cap(t)}</span></a>`).join('')}</nav>
+    <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week', 'trends', 'meals'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${TABIC[t]}<span>${tabLbl(t)}</span></a>`).join('')}</nav>
     <div class="tools">${toolBtn('add-food', 'Add a food')}${toolBtn('import', 'Add export', 'pri')}${toolBtn('export-csv', 'Download CSV')}${toolBtn('theme', 'Theme: ' + themeLabel())}<a class="btn sm tb" href="#account" aria-label="Account" title="Account"${S.tab === 'account' ? ' aria-current="page"' : ''}>${TOOLIC.account}<span class="lbl">Account</span></a>${window.MealSync ? MealSync.topHtml() : ''}</div>
   </div></header>
   <div class="scrim" data-act="drawer-close"></div>
@@ -948,6 +950,27 @@ const unpText = k => `<strong>${k} ${k === 1 ? 'food needs' : 'foods need'} a pr
 /* ============ view: trends ============ */
 const tOf = d => Date.parse(d + 'T00:00:00Z') / 864e5;
 const wkStart = d => isoAdd(d, -((dObj(d).getDay() + 6) % 7));
+/* Period model shared by Summary and Trends: last N days (0 = all), one specific week, or custom dates. */
+function winOf(r) {
+  const dates = IDX.dates, last = dates[dates.length - 1] || isoOf(new Date());
+  if (r === 'week') { const f = wkStart(S.pa || last); return { from: f, to: isoAdd(f, 6) }; }
+  if (r === 'custom') {
+    let f = S.cfrom || isoAdd(last, -6), t = S.cto || last;
+    if (f > t) [f, t] = [t, f];
+    return { from: f, to: t };
+  }
+  return { from: r > 0 ? isoAdd(last, -(r - 1)) : (dates[0] || last), to: last };
+}
+function periodHtml(id, r, opts) {
+  const all = opts.concat([['week', 'A specific week'], ['custom', 'Custom dates']]);
+  const sel = `<label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Period <select class="field" id="${id}">${all.map(([v, l]) => `<option value="${v}"${String(r) === String(v) ? ' selected' : ''}>${l}</option>`).join('')}</select></label>`;
+  if (r !== 'week' && r !== 'custom') return sel;
+  const w = winOf(r);
+  const mid = r === 'custom'
+    ? `<input class="field" type="date" id="pfrom" value="${esc(w.from)}" aria-label="From"><span class="muted">to</span><input class="field" type="date" id="pto" value="${esc(w.to)}" aria-label="To">`
+    : `<b>${esc(dMed(w.from))} to ${esc(dMed(w.to))}</b>`;
+  return `${sel}<div class="pnav"><button class="btn sm" data-act="pnav" data-dir="-1">&lsaquo; Previous</button>${mid}<button class="btn sm" data-act="pnav" data-dir="1">Next &rsaquo;</button></div>`;
+}
 const METRICS = [
   { id: 'pro', title: 'Cost per 100 g protein', den: 'pro', scale: 100, min: 10 },
   { id: 'carb', title: 'Cost per 100 g carbs', den: 'carb', scale: 100, min: 20 },
@@ -1062,12 +1085,12 @@ function phAdd(raw) {
 }
 function trendsCost() {
   const dates = IDX.dates, last = dates[dates.length - 1];
-  const from = S.trange > 0 ? isoAdd(last, -(S.trange - 1)) : dates[0];
-  const days = dates.filter(d => d >= from).map(dayStat).filter(s => s.n > 0 && s.cost > 0);
+  const TW = winOf(S.trange), from = TW.from;
+  const days = dates.filter(d => d >= from && d <= TW.to).map(dayStat).filter(s => s.n > 0 && s.cost > 0);
   const ph = '';
   const head = `<div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:center">
     <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Show <select class="field" id="tgrain"><option value="day"${S.grain === 'day' ? ' selected' : ''}>Each day</option><option value="week"${S.grain === 'week' ? ' selected' : ''}>Each week</option></select></label>
-    <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Period <select class="field" id="trange">${[[30, 'Last 30 days'], [90, 'Last 90 days'], [180, 'Last 6 months'], [0, 'All days']].map(([v, t]) => `<option value="${v}"${S.trange === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+    ${periodHtml('trange', S.trange, [[30, 'Last 30 days'], [90, 'Last 90 days'], [180, 'Last 6 months'], [0, 'All days']])}
   </div>`;
   if (!days.length) return `${head}${ph}<div class="notice" style="margin-top:24px">${IC.info}<div>No priced days in this period yet. Add prices on the Prices tab and the charts appear here.</div></div>`;
   const wk = new Map();
@@ -1174,7 +1197,7 @@ function trendsView() {
   <p class="lede">${view === 'value' ? 'Rank your foods by how much protein, carbs, fat or calories each currency unit buys.' : view === 'nutrition' ? 'The calories and macros the app uses for each food. Check these if a Best value rank looks wrong.' : view === 'prices' ? 'How the price of single foods changed, one point for every price change.' : 'How the price of your protein, carbs, fat, fiber and calories moves over time. Only foods with a price are counted.'}</p>${seg}`;
   if (view === 'value') return head + valueCard();
   if (view === 'nutrition') return head + nutritionCard();
-  if (view === 'prices') { const from = S.trange > 0 ? isoAdd(last, -(S.trange - 1)) : dates[0]; return head + `<div style="margin-top:16px">${priceHistoryCard(from, last)}</div>`; }
+  if (view === 'prices') { const TW = winOf(S.trange); return head + `<div style="margin-top:16px">${priceHistoryCard(TW.from, TW.to)}</div>`; }
   return head + trendsCost();
 }
 
@@ -1190,9 +1213,11 @@ function proteinRank(es) {
 }
 function weekView() {
   const dates = IDX.dates, last = dates[dates.length - 1];
-  if (!dates.length) return emptyDiary('Week');
-  const first = S.range ? isoAdd(last, -(S.range - 1)) : dates[0];
-  const inWin = dates.filter(d => d >= first);
+  if (!dates.length) return emptyDiary('Summary');
+  const W = winOf(S.range), first = W.from, end = W.to, spec = S.range === 'week' || S.range === 'custom';
+  const rangeSel = periodHtml('range', S.range, [[7, 'Last 7 days'], [14, 'Last 14 days'], [30, 'Last 30 days'], [0, 'Everything imported']]);
+  const inWin = dates.filter(d => d >= first && d <= end);
+  if (!inWin.length) return `<div class="pagehead"><h1 class="h1" id="h1" tabindex="-1">${esc(dMed(first))} to ${esc(dMed(end))}</h1><div class="pctl">${rangeSel}</div></div><div class="notice" role="status">${IC.info}<div>Nothing is logged in this period. Pick another week or dates.</div></div>`;
   const sums = new Map(inWin.map(d => [d, summarize(IDX.byDate.get(d))]));
   const total = r2([...sums.values()].reduce((a, s) => a + s.cost, 0));
   const nd = inWin.length, avg = nd ? total / nd : 0;
@@ -1201,14 +1226,15 @@ function weekView() {
   const unp = [...sums.values()].reduce((a, s) => a + s.unpriced, 0);
   const budget = S.budget > 0 ? S.budget : null;
 
-  let cstart = S.range ? (first < dates[0] ? dates[0] : first) : dates[Math.max(0, dates.length - 60)];
-  if (!S.range && isoAdd(last, -89) > cstart) cstart = isoAdd(last, -89);
-  const cdays = []; for (let d = cstart; d <= last; d = isoAdd(d, 1)) cdays.push(d);
+  let cstart = spec ? first : S.range ? (first < dates[0] ? dates[0] : first) : dates[Math.max(0, dates.length - 60)];
+  if (!S.range && isoAdd(end, -89) > cstart) cstart = isoAdd(end, -89);
+  if (spec && isoAdd(end, -119) > cstart) cstart = isoAdd(end, -119);
+  const cdays = []; for (let d = cstart; d <= end; d = isoAdd(d, 1)) cdays.push(d);
   const vals = cdays.map(d => sums.has(d) ? sums.get(d).cost : (IDX.byDate.has(d) ? summarize(IDX.byDate.get(d)).cost : 0));
   const top = Math.max(...vals, budget || 0, 1) * 1.12, H = 210;
   const over = budget ? cdays.filter((d, i) => vals[i] > budget) : [];
   const nB = cdays.length, step = Math.ceil(nB / 15);
-  const title = !inWin.length ? '' : inWin[0] === last ? dLong(last) : `${dMed(inWin[0])} to ${dMed(last)}`;
+  const title = spec ? `${dMed(first)} to ${dMed(end)}` : inWin[0] === last ? dLong(last) : `${dMed(inWin[0])} to ${dMed(last)}`;
 
   const meals = new Map();
   for (const d of inWin) {
@@ -1231,7 +1257,7 @@ function weekView() {
   return `
   <div class="pagehead">
     <h1 class="h1" id="h1" tabindex="-1">${esc(title)}</h1>
-    <label class="muted" style="display:flex;align-items:center;gap:10px;font-size:14px">Range <select class="field" id="range">${[[7, 'Last 7 days'], [14, 'Last 14 days'], [30, 'Last 30 days'], [0, 'Everything imported']].map(([v, l]) => `<option value="${v}"${S.range === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+    <div class="pctl">${rangeSel}</div>
   </div>
   ${unp ? `<div class="notice" role="status">${IC.info}<div><strong>${unp} ${unp === 1 ? 'entry has' : 'entries have'} no price.</strong> Totals leave them out. <a href="#prices">Add prices</a></div></div>` : ''}
   <div class="card kpis">
@@ -1284,7 +1310,7 @@ function render() {
   document.body.classList.remove('drawer-open');
   $('#app').innerHTML = hasData() ? appView() : importView();
   { const sc = $('#scroller'); if (sc && keep) sc.scrollTop = keep; }
-  document.title = (hasData() ? cap(S.tab) + ' | ' : '') + 'Meal cost calculator | Coach Leonidas';
+  document.title = (hasData() ? tabLbl(S.tab) + ' | ' : '') + 'Meal cost calculator | Coach Leonidas';
 }
 function route() {
   const h = location.hash.replace('#', '');
@@ -1294,6 +1320,19 @@ function route() {
   S.error = '';
   render();
   if (changed) { window.scrollTo(0, 0); const sc = $('#scroller'); if (sc) sc.scrollTop = 0; const h1 = $('#h1'); if (h1) h1.focus({ preventScroll: true }); }
+}
+function setPeriod(v) {
+  if (v === 'week' || v === 'custom') {
+    if (v === 'custom' && !S.cfrom) { const w = winOf(7); S.cfrom = w.from; S.cto = w.to; }
+    return v;
+  }
+  return Number(v) || 0;
+}
+function periodNav(dir) {
+  const r = S.tab === 'trends' ? S.trange : S.range, w = winOf(r);
+  if (r === 'week') S.pa = isoAdd(w.from, 7 * dir);
+  else if (r === 'custom') { const span = Math.round((dObj(w.to) - dObj(w.from)) / 864e5) + 1; S.cfrom = isoAdd(w.from, span * dir); S.cto = isoAdd(w.to, span * dir); }
+  render();
 }
 function go(tab) { if (location.hash === '#' + tab) { S.tab = tab; render(); } else location.hash = tab; }
 let _toast;
@@ -1317,19 +1356,46 @@ function mergeEntries(list) {
   saveEntries(); saveAll();
   S.day = IDX.dates[IDX.dates.length - 1];
 }
+let PENDING_IMPORT = null;
 function importText(text) {
   try {
     const list = parseCronometer(text);
-    const firstTime = !Object.values(S.prices).some(p => p.price !== '' && p.price != null);
-    mergeEntries(list);
-    S.error = '';
-    toast(`${list.length} entries from ${new Set(list.map(e => e.date)).size} days imported`);
-    const nextTab = firstTime ? 'prices' : 'day';
-    if (location.hash === '#' + nextTab) route(); else location.hash = nextTab;
+    const have = new Set(S.entries.map(e => e.date));
+    const days = [...new Set(list.map(e => e.date))].sort();
+    const overlap = days.filter(d => have.has(d));
+    if (overlap.length) { PENDING_IMPORT = list; S.error = ''; openImportChoice(days.length, overlap); return; }
+    finishImport(list, 'replace');
   } catch (err) {
     S.error = err.message || 'Could not read this file.';
     render();
   }
+}
+function finishImport(list, mode) {
+  const firstTime = !Object.values(S.prices).some(p => p.price !== '' && p.price != null);
+  let use = list;
+  if (mode === 'append') { const have = new Set(S.entries.map(e => e.date)); use = list.filter(e => !have.has(e.date)); }
+  if (!use.length) { toast('Nothing new to add. Every day in this file is already in your diary.'); return; }
+  mergeEntries(use);
+  S.error = '';
+  const n = new Set(use.map(e => e.date)).size;
+  toast(mode === 'append' ? `${use.length} entries from ${n} new ${n === 1 ? 'day' : 'days'} added` : `${use.length} entries from ${n} days imported`);
+  const nextTab = firstTime ? 'prices' : 'day';
+  if (location.hash === '#' + nextTab) route(); else location.hash = nextTab;
+}
+function openImportChoice(nDays, overlap) {
+  const dlg = $('#dlg'); dlg.classList.remove('wide');
+  const nNew = nDays - overlap.length, plural = (n, a, b) => n === 1 ? a : b;
+  const span = overlap.length > 1 ? `${dMed(overlap[0])} to ${dMed(overlap[overlap.length - 1])}` : dMed(overlap[0]);
+  dlg.innerHTML = `<div id="impchoice">
+    <h2 id="dlg-title" style="font-size:20px">This export overlaps your diary</h2>
+    <p class="muted" style="font-size:14px">${overlap.length} of the ${nDays} ${plural(nDays, 'day', 'days')} in this file ${plural(overlap.length, 'is', 'are')} already in your diary (${esc(span)}). ${nNew ? `${nNew} ${plural(nNew, 'day is', 'days are')} new.` : 'No days are new.'}</p>
+    <p class="muted" style="font-size:14px">Overwriting replaces those days, including foods you logged or edited by hand. Adding only the missing days leaves your existing days untouched.</p>
+    <div class="abtns" style="flex-direction:column;align-items:stretch">
+      <button type="button" class="btn primary" data-act="imp-append"${nNew ? '' : ' disabled'}>Add only the ${nNew} missing ${plural(nNew, 'day', 'days')}</button>
+      <button type="button" class="btn" data-act="imp-replace">Overwrite the ${overlap.length} overlapping ${plural(overlap.length, 'day', 'days')}</button>
+      <button type="button" class="btn" data-act="imp-cancel">Cancel</button>
+    </div></div>`;
+  if (!dlg.open) dlg.showModal();
 }
 async function handleFile(file) {
   if (!file) return;
@@ -1668,7 +1734,7 @@ function openDiary(name) {
   const dlg = $('#dlg'); dlg.classList.remove('wide');
   dlg.innerHTML = `<form id="dform" method="dialog">
     <h2 id="dlg-title" style="font-size:20px">Add to diary</h2>
-    <p class="muted" style="font-size:14px">Adds each ingredient of ${esc(name)} to the day you choose, so it counts in Day, Week and Trends. A later Cronometer export that covers that day replaces these lines.</p>
+    <p class="muted" style="font-size:14px">Adds each ingredient of ${esc(name)} to the day you choose, so it counts in Day, Summary and Trends. A later Cronometer export that covers that day replaces these lines.</p>
     <div><label for="dd">Day</label><input class="field" style="width:100%" type="date" id="dd" value="${esc(mealToday())}"></div>
     <div><label for="dg">Meal</label><select class="field" style="width:100%" id="dg">${['Breakfast', 'Lunch', 'Dinner', 'Snacks'].map(g => `<option>${g}</option>`).join('')}</select></div>
     <div><label for="dsv">Servings eaten</label><input class="field" style="width:100%" id="dsv" inputmode="decimal" value="1"></div>
@@ -1746,7 +1812,7 @@ function openBudget() {
   const dlg = $('#dlg'); dlg.classList.remove('wide');
   dlg.innerHTML = `<form id="bform" method="dialog">
     <h2 id="dlg-title" style="font-size:20px">Daily budget</h2>
-    <p class="muted" style="font-size:14px">Set what you want to spend on food each day. It shows on the Day and Week screens. Leave it empty to remove it.</p>
+    <p class="muted" style="font-size:14px">Set what you want to spend on food each day. It shows on the Day and Summary screens. Leave it empty to remove it.</p>
     <div><label for="bv">Budget per day</label><div class="money-in wide"><span>${esc(currencySymbol())}</span><input id="bv" type="text" inputmode="decimal" placeholder="0.00" value="${S.budget ? esc(S.budget) : ''}" autocomplete="off"></div></div>
     <div id="berr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
     <div style="display:flex;gap:10px"><button type="submit" class="btn primary" style="flex:1">Save budget</button><button type="button" class="btn" data-act="close-dlg">Cancel</button></div>
@@ -1844,10 +1910,10 @@ async function copyText(t, ok) {
   }
 }
 function weekText() {
-  const dates = IDX.dates, last = dates[dates.length - 1], first = S.range ? isoAdd(last, -(S.range - 1)) : dates[0];
-  const win = dates.filter(d => d >= first), tot = r2(win.reduce((a, d) => a + summarize(IDX.byDate.get(d)).cost, 0));
+  const dates = IDX.dates, W = winOf(S.range);
+  const win = dates.filter(d => d >= W.from && d <= W.to), tot = r2(win.reduce((a, d) => a + summarize(IDX.byDate.get(d)).cost, 0));
   const avg = win.length ? tot / win.length : 0;
-  return `${dMed(win[0])} to ${dMed(last)}: ${money(tot)} on food\nAverage day ${money(avg)}, about ${money0(avg * 30)} per 30 days\nWork out yours for free: ${SITE}`;
+  return `${dMed(win[0])} to ${dMed(win[win.length - 1])}: ${money(tot)} on food\nAverage day ${money(avg)}, about ${money0(avg * 30)} per 30 days\nWork out yours for free: ${SITE}`;
 }
 
 /* share image */
@@ -1910,6 +1976,9 @@ document.addEventListener('click', e => {
     case 'del-food': if (confirm(`Remove ${d.name} from your foods?`)) { delete S.foods[d.name]; if (!(IDX.byName.get(d.name) || []).length) delete S.prices[d.name]; reindex(); saveAll(); $('#dlg').close(); render(); toast('Food removed'); } break;
     case 'log-food': if (!IDX.meta.size) { toast('Add a food first, then log it'); openFood(); } else openEntry(-1, d.date, d.group); break;
     case 'edit-entry': openEntry(Number(d.i)); break;
+    case 'imp-append': case 'imp-replace': { const l = PENDING_IMPORT; PENDING_IMPORT = null; $('#dlg').close(); if (l) finishImport(l, a === 'imp-append' ? 'append' : 'replace'); break; }
+    case 'imp-cancel': PENDING_IMPORT = null; $('#dlg').close(); toast('Import cancelled'); break;
+    case 'pnav': periodNav(Number(d.dir)); break;
     case 'start-manual': S.started = true; saveAll(); go('day'); break;
     case 'tview': S.tview = d.v; saveAll(); render(); break;
     case 'vmacro': S.vmacro = d.v; S.vall = false; saveAll(); render(); break;
@@ -2029,8 +2098,9 @@ document.addEventListener('change', e => {
   else if (t.id === 'sortsel') { S.sort = SORTS[t.value] ? t.value : 'freq'; S.flip = false; saveAll(); render(); }
   else if (t.id === 'catsel') { S.cat = t.value; S.showAll = false; render(); }
   else if (t.id === 'tgrain') { S.grain = t.value === 'day' ? 'day' : 'week'; saveAll(); render(); }
-  else if (t.id === 'trange') { S.trange = Number(t.value) || 0; saveAll(); render(); }
-  else if (t.id === 'range') { S.range = Number(t.value); render(); }
+  else if (t.id === 'trange') { S.trange = setPeriod(t.value); saveAll(); render(); }
+  else if (t.id === 'pfrom' || t.id === 'pto') { if (/^\d{4}-\d{2}-\d{2}$/.test(t.value)) { const w = winOf('custom'); if (t.id === 'pfrom') S.cfrom = t.value; else S.cto = t.value; if (!S.cfrom) S.cfrom = w.from; if (!S.cto) S.cto = w.to; render(); } }
+  else if (t.id === 'range') { S.range = setPeriod(t.value); render(); }
   else if (t.id === 'daysel') { S.day = t.value; render(); }
   else if (t.id === 'file') { handleFile(t.files[0]); t.value = ''; }
   else if (t.id === 'pfile') { restore(t.files[0]); t.value = ''; }
