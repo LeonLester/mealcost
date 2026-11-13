@@ -412,3 +412,9 @@ body{font-size:15px}
   .tablewrap:has(#pbody){background:transparent;box-shadow:none}
   #pbody tr{border:0;border-radius:20px;box-shadow:var(--card-shadow)}
 }
+
+/* themed suggestion list (replaces the native datalist popup) */
+.ac{position:fixed;inset:auto;margin:0;z-index:1000;list-style:none;padding:4px;overflow-y:auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.28)}
+.ac[hidden]{display:none}
+.ac li{min-height:44px;display:flex;align-items:center;padding:8px 12px;border-radius:10px;font-size:16px;line-height:1.3;cursor:pointer}
+.ac li[aria-selected=true]{background:color-mix(in srgb,var(--brand) 16%,transparent)}
