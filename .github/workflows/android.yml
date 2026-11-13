@@ -11,6 +11,7 @@ on:
       - 'scripts/**'
       - 'assets/**'
       - 'tests/android/**'
+      - 'fdroid/**'
       - '.github/workflows/android.yml'
   workflow_dispatch:
 
@@ -106,6 +107,41 @@ jobs:
           gh release view $TAG >/dev/null 2>&1 || gh release create $TAG --prerelease --title "Android app (latest build)" --notes "Latest build of the Android app. Download mealcost.apk on your phone and open it to install."
           gh release upload $TAG dist/mealcost.apk --clobber
           gh release edit $TAG --notes "Build ${{ github.run_number }} from ${{ github.sha }}. Download mealcost.apk on your phone and open it to install. Every build after the first installs over the previous one and keeps your data."
+
+  fdroid:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: fdroid-pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mealcost-apk
+          path: dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: pip install fdroidserver
+      - name: Restore cached repository key
+        uses: actions/cache@v4
+        with:
+          path: ~/.mealcost-ci/fdroid.keystore
+          key: mealcost-fdroid-keystore-v1
+      - name: Build and publish the F-Droid repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN: ${{ github.run_number }}
+          APK: dist/mealcost.apk
+        run: ./scripts/fdroid.sh
 
   smoke:
     needs: build

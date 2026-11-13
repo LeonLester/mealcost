@@ -393,7 +393,7 @@ function importView() {
   ${siteFooter()}`;
 }
 function siteFooter() {
-  return `<footer class="site wrap"><a class="btn sm" href="https://cronometer.com/" target="_blank" rel="noopener" style="margin-bottom:16px">Get a new Cronometer export</a><br>A free tool from Coach Leonidas for people who track their food and their budget. <a href="https://coachleonidas.com">coachleonidas.com</a> <span class="legal"><a href="/privacy">Privacy policy</a> <a href="/terms">Terms of service</a></span></footer>`;
+  return `<footer class="site wrap"><a class="btn sm" href="https://cronometer.com/" target="_blank" rel="noopener" style="margin-bottom:16px">Get a new Cronometer export</a><br>A free tool from Coach Leonidas for people who track their food and their budget. <a href="https://coachleonidas.com">coachleonidas.com</a> <span class="legal"><a href="/android">Get the app</a> <a href="/privacy">Privacy policy</a> <a href="/terms">Terms of service</a></span></footer>`;
 }
 
 /* ============ view: shell ============ */
@@ -442,7 +442,7 @@ function appView() {
     <button class="ditem" data-act="restore"><span>Restore backup</span></button>
     <button class="ditem danger" data-act="reset"><span>Delete all data from this browser</span></button>
     ${window.MealSync && MealSync.available && MealSync.signed ? `<button class="ditem danger" data-sync="delete"><span>Delete my account and cloud data</span></button>` : ''}
-    <div class="dlinks"><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="https://coachleonidas.com">coachleonidas.com</a></div>
+    <div class="dlinks"><a href="/android">Get the Android app</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="https://coachleonidas.com">coachleonidas.com</a></div>
   </aside>
   <div class="scroll" id="scroller">
   <main class="wrap">${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>

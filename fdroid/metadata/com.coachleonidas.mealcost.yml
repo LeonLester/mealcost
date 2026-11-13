@@ -1,0 +1,22 @@
+Categories:
+  - Sports & Health
+License: MIT
+WebSite: https://mealcost.coachleonidas.com
+SourceCode: https://github.com/LeonLester/mealcost
+IssueTracker: https://github.com/LeonLester/mealcost/issues
+AutoName: Meal cost
+Summary: Food diary that shows what your meals cost
+Description: |-
+  Log what you eat, add your grocery prices once, and see what every meal,
+  day and week costs, and which foods give the most protein per euro.
+
+  * Track foods by hand or import a Cronometer export
+  * Cost per meal, day and week, with offers and price changes
+  * Best value ranking: grams of protein, carbs and fat per currency unit
+  * Build meals and recipes and add them to your diary
+  * Look up foods by barcode (Open Food Facts, USDA FoodData Central)
+  * Light and dark theme, works offline
+  * No account needed. Your data stays on your phone unless you sign in to sync.
+
+  The barcode scan button uses Google's code scanner and needs Google Play
+  services. Typing the barcode number works on every phone.

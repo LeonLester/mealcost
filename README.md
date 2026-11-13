@@ -87,3 +87,11 @@ Bricolage Grotesque and IBM Plex Sans, self-hosted, SIL Open Font License 1.1.
 ## License
 
 MIT
+
+## Install on Android with F-Droid
+
+CI builds a self-hosted F-Droid repository on every push to `main` and publishes it to GitHub Pages.
+Open https://leonlester.github.io/mealcost/fdroid/ on the phone and tap Add to F-Droid, or add
+`https://leonlester.github.io/mealcost/fdroid/repo` in F-Droid under Settings, Repositories.
+The repository key and the APK signing key live in the GitHub Actions cache, kept alive by
+`.github/workflows/keepalive.yml`. Metadata is in `fdroid/metadata`, the build is `scripts/fdroid.sh`.

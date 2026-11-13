@@ -1,0 +1,20 @@
+name: Keep signing keys
+
+# GitHub deletes caches that are not used for 7 days. This touches the signing keys weekly so they last.
+on:
+  schedule:
+    - cron: '17 4 * * 1,4'
+  workflow_dispatch:
+
+jobs:
+  touch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          path: ~/.mealcost-ci/mealcost.keystore
+          key: mealcost-android-keystore-v1
+      - uses: actions/cache/restore@v4
+        with:
+          path: ~/.mealcost-ci/fdroid.keystore
+          key: mealcost-fdroid-keystore-v1
