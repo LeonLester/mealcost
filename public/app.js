@@ -383,12 +383,20 @@ function siteFooter() {
 }
 
 /* ============ view: shell ============ */
+const TABIC = {
+  day: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg>',
+  prices: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8L3 12z"/><circle cx="7.5" cy="8.5" r="1.2"/></svg>',
+  week: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V12M10 20V6M15 20V10M20 20V15"/></svg>',
+  trends: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-9"/><path d="M15 6h6v6"/></svg>',
+  meals: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16a8 8 0 0 1-16 0zM8 8c0-1.5 1-1.5 1-3M13 8c0-1.5 1-1.5 1-3"/></svg>',
+};
+
 function appView() {
   const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? weekView() : S.tab === 'trends' ? trendsView() : S.tab === 'meals' ? mealsView() : dayView();
   return `
   <header class="topbar"><div class="wrap">
     <div class="brand"><b>Coach Leonidas</b><span>Meal cost calculator</span></div>
-    <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week', 'trends', 'meals'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${cap(t)}</a>`).join('')}</nav>
+    <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week', 'trends', 'meals'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${TABIC[t]}<span>${cap(t)}</span></a>`).join('')}</nav>
     <div class="tools"><button class="btn sm" data-act="import">Add export</button><button class="btn sm" data-act="export-csv">Download CSV</button>${window.MealSync ? MealSync.topHtml() : ''}</div>
   </div></header>
   <main class="wrap">${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>

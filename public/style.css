@@ -340,3 +340,25 @@ body{font-size:15px}
 .unctoggle .t{font-size:17px}
 @media (min-width:641px){.btn{min-height:38px;padding:8px 14px}.field{height:38px}.money-in{height:38px}}
 @media (max-width:640px){.field,.btn,.money-in input,input,select{font-size:16px}.pricetag.sm .n{font-size:38px}}
+
+/* mobile: bottom tab bar in the thumb zone, 44px targets, 4/8 spacing */
+.tab svg{display:none}
+@media (max-width:640px){
+  body{padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+  .topbar .wrap{padding-top:16px;gap:8px 16px}
+  .topbar .wrap{padding-bottom:8px}
+  .brand{width:100%}
+  .brand b{font-size:20px}
+  .tools{padding-bottom:8px;width:100%}
+  .tools .btn.sm{min-height:44px;padding:8px 16px}
+  .tools [data-act=import]{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+  .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;order:0;width:auto;gap:0;background:var(--paper,#f3f4f0);border-top:1px solid var(--line);padding:4px 8px calc(4px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 24px rgba(18,97,74,.08)}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:56px;padding:4px 0;border:0;border-radius:12px;font-size:12px;line-height:1.2}
+  .tab svg{display:block}
+  .tab[aria-current=page]{background:rgba(18,97,74,.08);color:var(--brand);font-weight:600;border:0}
+  #toast{bottom:calc(88px + env(safe-area-inset-bottom,0px))}
+  .btn,.field,.money-in input,select{min-height:48px}
+  .btn.sm{min-height:44px}
+  .pad{padding:24px 16px}
+  main.wrap{padding:24px 16px 32px}
+}
