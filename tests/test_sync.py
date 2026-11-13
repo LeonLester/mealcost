@@ -92,9 +92,10 @@ with sync_playwright() as pw:
     a.click('[data-sync="use-cloud"]'); a.wait_for_timeout(2000); a.wait_for_selector('#pbody')
     check('choosing cloud data adopts the newer price', str(a.evaluate("JSON.parse(localStorage.getItem('mcc.prices')).Quark.price")) == '12')
 
-    # sign out keeps local data, delete removes cloud
+    # sign out clears this browser, the cloud copy stays
+    a.on('dialog', lambda d: d.accept())
     a.goto(BASE + '#prices'); a.wait_for_selector('[data-sync="out"] >> visible=true'); a.click('[data-sync="out"] >> visible=true'); a.wait_for_selector('a[href="/auth/google"] >> visible=true')
-    check('sign out keeps this browser data', a.evaluate("window.__mealcost.S.entries.length") == 2)
+    check('sign out clears this browser data', a.evaluate("window.__mealcost.S.entries.length") == 0)
     check('session ends on sign out', a.evaluate("fetch('/api/me').then(r => r.json())")['signed'] is False)
     b.close()
 print(f'{passed} passed, {failed} failed'); sys.exit(1 if failed else 0)
