@@ -360,6 +360,9 @@ function importView() {
           <button class="btn outline" data-act="import">Import Cronometer export</button>
         </div>
         <div class="drop" id="drop" hidden></div>
+        ${window.MealSync && MealSync.available && MealSync.ready ? (MealSync.signed
+          ? `<p class="muted" style="margin-top:18px;font-size:15px">Signed in as ${esc(MealSync.email)}. <span id="syncstat">${esc(MealSync.statusText())}</span></p>`
+          : `<div style="margin-top:20px"><a class="btn" href="/auth/google" data-sync="signin">Sign in with Google</a><p class="muted" style="margin-top:8px;font-size:14px">Optional. Brings your data to every device.</p></div>`) : ''}
         <div style="margin-top:18px;display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px">
           <button class="btn link" data-act="restore">Restore saved prices</button>
           <span class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">${IC.lock}Stays on your device unless you sign in.</span>
