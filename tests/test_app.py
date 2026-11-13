@@ -450,6 +450,14 @@ try:
         check('dark theme persists', ph.evaluate("document.documentElement.getAttribute('data-theme')") == 'dark')
         ph.close()
 
+        # export links
+        pl = b.new_context(viewport={'width': 412, 'height': 860}, locale='en-US').new_page()
+        pl.goto(BASE); pl.wait_for_selector('#cronolink')
+        check('landing links to the Cronometer site', pl.get_attribute('#cronolink', 'href') == 'https://cronometer.com/' and pl.get_attribute('#cronolink', 'target') == '_blank')
+        pl.click('text=Try it with sample data'); pl.wait_for_selector('.pricetag .n')
+        check('footer links to a new Cronometer export', pl.locator('footer.site a[href="https://cronometer.com/"]').count() == 1)
+        pl.close()
+
         # desktop screenshots
         for tab in ['day', 'prices', 'week']:
             page.goto(BASE + '#' + tab); page.wait_for_selector('main h1')

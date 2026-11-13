@@ -31,6 +31,7 @@
     const a = e.target.closest && e.target.closest('a[href]'); if (!a) return;
     const h = a.getAttribute('href');
     if (h === '/privacy' || h === '/terms') { e.preventDefault(); openUrl(HOME + h).catch(() => {}); }
+    else if (/^https?:\/\//.test(h) && a.target === '_blank') { e.preventDefault(); openUrl(h).catch(() => {}); }
   });
   // Back button: close a dialog first, then go back, then leave the app.
   const App = P().App;

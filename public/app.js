@@ -370,7 +370,7 @@ function importView() {
     <section class="steps">
       <h2>Three steps, about five minutes the first time</h2>
       <div style="display:flex;flex-wrap:wrap;gap:32px">
-        <div class="s"><span class="num">1</span><div><div style="font-weight:600;font-size:18px">Export from Cronometer</div><p class="muted" style="margin-top:6px">On the web app, open Account, choose Export Data, then Food &amp; Recipe Entries. Pick your dates and download the CSV.</p></div></div>
+        <div class="s"><span class="num">1</span><div><div style="font-weight:600;font-size:18px">Export from Cronometer</div><p class="muted" style="margin-top:6px">On the web app, open Account, choose Export Data, then Food &amp; Recipe Entries. Pick your dates and download the CSV.</p><p class="muted" style="margin-top:8px">The Cronometer phone app has no export. Open the website in your browser, and if it shows the phone layout, switch to Desktop site.</p><p style="margin-top:12px"><a class="btn sm" id="cronolink" href="https://cronometer.com/" target="_blank" rel="noopener">Open Cronometer to export</a></p></div></div>
         <div class="s"><span class="num">2</span><div><div style="font-weight:600;font-size:18px">Drop the file in</div><p class="muted" style="margin-top:6px">Your entries load straight away. Import a newer export any time: days you already have are updated, not duplicated.</p></div></div>
         <div class="s"><span class="num">3</span><div><div style="font-weight:600;font-size:18px">Add your prices once</div><p class="muted" style="margin-top:6px">Only foods you logged appear. Enter what you paid per kilo, per 100 g or per item. Prices are saved for next time.</p></div></div>
       </div>
@@ -379,7 +379,7 @@ function importView() {
   ${siteFooter()}`;
 }
 function siteFooter() {
-  return `<footer class="site wrap">A free tool from Coach Leonidas for people who track their food and their budget. <a href="https://coachleonidas.com">coachleonidas.com</a> <span class="legal"><a href="/privacy">Privacy policy</a> <a href="/terms">Terms of service</a></span></footer>`;
+  return `<footer class="site wrap"><a class="btn sm" href="https://cronometer.com/" target="_blank" rel="noopener" style="margin-bottom:16px">Get a new Cronometer export</a><br>A free tool from Coach Leonidas for people who track their food and their budget. <a href="https://coachleonidas.com">coachleonidas.com</a> <span class="legal"><a href="/privacy">Privacy policy</a> <a href="/terms">Terms of service</a></span></footer>`;
 }
 
 /* ============ view: shell ============ */
