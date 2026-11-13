@@ -39,8 +39,8 @@ with sync_playwright() as pw:
     check('cloud copy exists after changes', me['signed'] and me['rev'] >= 1, me)
 
     # device B: empty browser, same account, pulls automatically
-    c2, bpg = ctx(); bpg.goto(BASE + '#prices'); bpg.wait_for_selector('main a[href="/auth/google"]')
-    bpg.click('main a[href="/auth/google"]'); bpg.wait_for_url('**/#prices'); bpg.wait_for_selector('#pbody', timeout=15000)
+    c2, bpg = ctx(); bpg.goto(BASE + '#prices'); bpg.wait_for_selector('a[href="/auth/google"] >> visible=true')
+    bpg.click('a[href="/auth/google"] >> visible=true'); bpg.wait_for_url('**/#prices'); bpg.wait_for_selector('#pbody', timeout=15000)
     price = bpg.evaluate("(JSON.parse(localStorage.getItem('mcc.prices')).Quark || {}).price")
     check('second device receives prices and entries', str(price) == '9' and bpg.evaluate("window.__mealcost.S.entries.length") == 2, price)
 
@@ -59,7 +59,7 @@ with sync_playwright() as pw:
     check('choosing cloud data adopts the newer price', str(a.evaluate("JSON.parse(localStorage.getItem('mcc.prices')).Quark.price")) == '12')
 
     # sign out keeps local data, delete removes cloud
-    a.goto(BASE + '#prices'); a.wait_for_selector('main [data-sync="out"]'); a.click('main [data-sync="out"]'); a.wait_for_selector('main a[href="/auth/google"]')
+    a.goto(BASE + '#prices'); a.wait_for_selector('[data-sync="out"] >> visible=true'); a.click('[data-sync="out"] >> visible=true'); a.wait_for_selector('a[href="/auth/google"] >> visible=true')
     check('sign out keeps this browser data', a.evaluate("window.__mealcost.S.entries.length") == 2)
     check('session ends on sign out', a.evaluate("fetch('/api/me').then(r => r.json())")['signed'] is False)
     b.close()
