@@ -347,16 +347,24 @@ function importView() {
     ${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}
     <div class="hero">
       <div style="flex:1 1 520px">
-        <h1 id="h1" tabindex="-1">See what each meal really costs.</h1>
-        <p class="lede" style="font-size:19px;line-height:1.55">Drop in your Cronometer export, or add your foods by hand, add your grocery prices once, and get a cost for every meal, every day and every week.</p>
+        <h1 id="h1" tabindex="-1">A food diary that knows what you paid.</h1>
+        <p class="lede" style="font-size:19px;line-height:1.55">Log what you eat, add your grocery prices once, and see what every meal, day and week costs, and which foods give the most protein per euro. Free, private, no account needed.</p>
+        <ul class="caps">
+          <li><b>Track by hand.</b> Add foods with their nutrition, scan a barcode, log them on any day and edit past days.</li>
+          <li><b>Or import Cronometer.</b> Drop in its export and your whole history loads.</li>
+          <li><b>See the cost.</b> Per meal, day, week and per gram of protein, with offers and price changes.</li>
+          <li><b>Build meals.</b> Combine foods into recipes, compare their cost and add them to your diary.</li>
+        </ul>
+        <div style="margin-top:24px;display:flex;flex-wrap:wrap;gap:12px">
+          <button class="btn primary" data-act="start-manual">Start tracking by hand</button>
+          <button class="btn outline" data-act="sample">Try it with sample data</button>
+        </div>
         <div class="drop" id="drop">
           ${IC.upload}
-          <div style="flex:1 1 220px;min-width:0"><div style="font-weight:600;font-size:18px">Drop your Cronometer export here</div><div class="muted" style="font-size:14px;margin-top:4px">Food &amp; Recipe Entries, as a .csv file</div></div>
-          <button class="btn primary" data-act="import">Choose file</button>
+          <div style="flex:1 1 220px;min-width:0"><div style="font-weight:600;font-size:18px">Already use Cronometer?</div><div class="muted" style="font-size:14px;margin-top:4px">Drop your Food &amp; Recipe Entries .csv here</div></div>
+          <button class="btn" data-act="import">Choose file</button>
         </div>
         <div style="margin-top:18px;display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px">
-          <button class="btn outline" data-act="sample">Try it with sample data</button>
-          <button class="btn outline" data-act="start-manual">Add foods by hand</button>
           <button class="btn link" data-act="restore">Restore saved prices</button>
           <span class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">${IC.lock}Your file is read in this browser. Nothing is uploaded.</span>
         </div>
@@ -374,7 +382,7 @@ function importView() {
       </div>
     </div>
     <section class="steps">
-      <h2>Three steps, about five minutes the first time</h2>
+      <h2>Importing from Cronometer, in three steps</h2>
       <div style="display:flex;flex-wrap:wrap;gap:32px">
         <div class="s"><span class="num">1</span><div><div style="font-weight:600;font-size:18px">Export from Cronometer</div><p class="muted" style="margin-top:6px">On the web app, open Account, choose Export Data, then Food &amp; Recipe Entries. Pick your dates and download the CSV.</p><p class="muted" style="margin-top:8px">The Cronometer phone app has no export. Open the website in your browser, and if it shows the phone layout, switch to Desktop site.</p><p style="margin-top:12px"><a class="btn sm" id="cronolink" href="https://cronometer.com/" target="_blank" rel="noopener">Open Cronometer to export</a></p></div></div>
         <div class="s"><span class="num">2</span><div><div style="font-weight:600;font-size:18px">Drop the file in</div><p class="muted" style="margin-top:6px">Your entries load straight away. Import a newer export any time: days you already have are updated, not duplicated.</p></div></div>
@@ -420,6 +428,7 @@ function appView() {
   <div class="scrim" data-act="drawer-close"></div>
   <aside class="drawer" id="drawer" aria-label="Menu">
     <div class="dhead"><b>Meal cost</b><button class="burger" data-act="drawer-close" aria-label="Close menu"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <button class="ditem" data-act="log-food">${TOOLIC['add-food']}<span>Log a food</span></button>
     <button class="ditem" data-act="add-food">${TOOLIC['add-food']}<span>Add a food</span></button>
     <button class="ditem" data-act="import">${TOOLIC.import}<span>Add Cronometer export</span></button>
     <a class="ditem" href="https://cronometer.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>Get a new Cronometer export</span></a>
@@ -475,7 +484,7 @@ function swapFor(es) {
 function calcRaw(e) { const pi = priceInfo(e.name, e.date, false); return pi ? calc(e, pi) : 0; }
 
 function emptyDiary(title) {
-  return `<h1 class="h1" id="h1" tabindex="-1">${title}</h1><div class="card pad" style="margin-top:24px;max-width:560px"><h2 style="font-size:17px">Nothing is logged yet</h2><p class="muted" style="margin-top:8px">Build a meal and add it to your diary, or import a Cronometer export. Either way it shows up here.</p><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:16px"><a class="btn primary" href="#meals">Build a meal</a><button class="btn" data-act="import">Add Cronometer export</button></div></div>`;
+  return `<h1 class="h1" id="h1" tabindex="-1">${title}</h1><div class="card pad" style="margin-top:24px;max-width:560px"><h2 style="font-size:17px">Nothing is logged yet</h2><p class="muted" style="margin-top:8px">Build a meal and add it to your diary, or import a Cronometer export. Either way it shows up here.</p><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:16px"><button class="btn primary" data-act="log-food">Log a food</button><a class="btn" href="#meals">Build a meal</a><button class="btn" data-act="import">Add Cronometer export</button></div></div>`;
 }
 function dayView() {
   const dates = IDX.dates;
@@ -519,9 +528,9 @@ function dayView() {
         const fr = recipeFrac(rec, e), rc = recipeCostOf(rec, e.date);
         subs = `<div class="subitems">${rc.parts.map(p => `<div class="subitem"><span>${esc(p.it.name)}</span><span class="amt">${fr == null ? '' : qtyFmt(Number(p.it.qty) * fr) + ' ' + esc(p.it.unit)}</span><span class="lead"></span>${p.cost != null && fr != null ? `<span>${money(r2(p.cost * fr))}</span>` : `<button class="setprice" data-act="goto-price" data-name="${esc(p.e.name)}">${p.why === 'needgpu' ? 'Add grams per item' : 'Set price'}</button>`}</div>`).join('')}</div>`;
       }
-      return `<div class="item"><div style="min-width:0"><span style="font-size:17px">${esc(e.name)}</span><span class="amt">${qtyFmt(e.qty)} ${esc(e.unit)}</span>${note}${toggle}</div><span class="lead"></span>${cell}</div>${subs}`;
+      return `<div class="item"><div style="min-width:0"><span style="font-size:17px">${esc(e.name)}</span><span class="amt">${qtyFmt(e.qty)} ${esc(e.unit)}</span>${note}<div style="display:flex;gap:16px"><button class="btn link" data-act="edit-entry" data-i="${S.entries.indexOf(e)}">Edit</button>${rec ? `<button class="btn link" data-act="toggle-recipe" data-key="${esc(key)}" aria-expanded="${open}">${open ? 'Hide' : 'Show'} ingredients</button>` : ''}</div></div><span class="lead"></span>${cell}</div>${subs}`;
     }).join('');
-    return `<section class="meal"><div class="meal-head"><h2>${esc(g)}</h2><span class="kcal">${n0(kcal)} kcal</span><span class="cost">${money(r2(cost))}</span></div><div style="margin-top:8px">${items}</div></section>`;
+    return `<section class="meal"><div class="meal-head"><h2>${esc(g)}</h2><span class="kcal">${n0(kcal)} kcal</span><span class="cost">${money(r2(cost))}</span></div><div style="margin-top:8px">${items}<button class="btn link" data-act="log-food" data-date="${day}" data-group="${esc(g)}">Add to ${esc(g.toLowerCase())}</button></div></section>`;
   }).join('');
 
   const budget = S.budget > 0 ? S.budget : null;
@@ -535,6 +544,7 @@ function dayView() {
       <button class="iconbtn" data-act="prev-day" aria-label="Previous day"${idx <= 0 ? ' disabled' : ''}>${IC.left}</button>
       <button class="iconbtn" data-act="next-day" aria-label="Next day"${idx >= dates.length - 1 ? ' disabled' : ''}>${IC.right}</button>
     </div>
+    <button class="btn sm" data-act="log-food" data-date="${day}">Log a food</button>
     ${dates.length > 7 ? `<label class="sr" for="daysel">Pick a day</label><select class="field" id="daysel">${dates.slice().reverse().map(d => `<option value="${d}"${d === day ? ' selected' : ''}>${esc(dMed(d))}</option>`).join('')}</select>` : ''}
     ${bad.length ? `<a class="status warn" href="#prices" data-act="unpriced-link">${IC.info}${bad.length} ${bad.length === 1 ? 'food needs' : 'foods need'} a price</a>` : `<a class="status" href="#prices">${IC.check}All ${names.length} foods priced</a>`}
   </div>
@@ -1110,13 +1120,37 @@ function valueCard() {
     : `<div class="notice" style="margin-top:16px">${IC.info}<div>Nothing to rank yet. Add a food with its nutrition and price, or set prices on the Prices tab.</div></div><p style="margin-top:12px"><button class="btn primary" data-act="add-food">Add a food</button></p>`;
   return `<div class="card pad" style="margin-top:16px"><h2 style="font-size:17px">${esc(unit === 'kcal' ? 'Calories' : cap(unit))} per ${esc(sym)}1 spent</h2><div style="margin-top:12px">${seg}</div><div style="margin-top:12px">${body}</div></div>`;
 }
+function nutritionRows() {
+  const out = [];
+  for (const name of IDX.meta.keys()) {
+    const m = IDX.meta.get(name), og = perUnit(name, 'g'), oi = og ? null : perUnit(name, 'item'), o = og || oi; if (!o) continue;
+    const f = og ? 100 : 1, k = o.k * f, p = o.p * f, c = o.c * f, fa = o.f * f;
+    const flags = [];
+    if (og && p + c + fa > 105) flags.push('Macros add up to more than 100 g per 100 g');
+    if (og && k > 950) flags.push('Over 950 kcal per 100 g');
+    if (og && p + c + fa > 0 && Math.abs(p * 4 + c * 4 + fa * 9 - k) > Math.max(60, k * 0.35)) flags.push('Calories do not match the macros');
+    out.push({ name, basis: og ? '100 g' : 'item', k, p, c, f: fa, n: m.n, custom: !!S.foods[name], flags });
+  }
+  return out;
+}
+function nutritionCard() {
+  const q = (S.nq || '').toLowerCase(), all = nutritionRows(), rows = all.filter(r => !q || r.name.toLowerCase().includes(q)).sort((a, b) => (b.flags.length - a.flags.length) || a.name.localeCompare(b.name));
+  const bad = all.filter(r => r.flags.length).length, d1 = v => v >= 100 ? String(Math.round(v)) : String(Math.round(v * 10) / 10);
+  const body = all.length ? `<table class="vtab ntab"><thead><tr><th scope="col">Food</th><th scope="col" class="r">kcal</th><th scope="col" class="r">Prot</th><th scope="col" class="r">Carb</th><th scope="col" class="r">Fat</th></tr></thead><tbody>${rows.map(r => `<tr${r.flags.length ? ' class="flag"' : ''}><td>${esc(r.name)}<div class="note muted">per ${r.basis}, from ${r.custom ? 'your entry' : r.n + (r.n === 1 ? ' log' : ' logs')}${r.flags.length ? `. <b>Check:</b> ${esc(r.flags.join('; '))}.` : ''}${r.custom ? ` <button class="btn link" data-act="edit-food" data-name="${esc(r.name)}">Edit</button>` : ''}</div></td><td class="r">${d1(r.k)}</td><td class="r">${d1(r.p)}</td><td class="r">${d1(r.c)}</td><td class="r">${d1(r.f)}</td></tr>`).join('')}</tbody></table>${rows.length ? '' : '<p class="muted" style="margin-top:12px">No food matches.</p>'}`
+    : `<div class="notice" style="margin-top:16px">${IC.info}<div>No nutrition yet. Add a food or import a Cronometer export.</div></div>`;
+  return `<div class="card pad" style="margin-top:16px"><h2 style="font-size:17px">Nutrition per food</h2>
+    <p class="muted" style="font-size:14px;margin-top:6px">Values are averaged from every time you logged the food, in grams. ${bad ? `<b>${bad} ${bad === 1 ? 'food looks' : 'foods look'} off</b> and ${bad === 1 ? 'is' : 'are'} listed first. Foods logged in items or servings, or with a wrong weight, are the usual cause. Fix the entry on the Day tab, or add the food by hand to override.` : 'Nothing looks off.'}</p>
+    <input class="field" style="width:100%;margin-top:12px" id="nq" type="search" placeholder="Search foods" value="${esc(S.nq || '')}" aria-label="Search foods">
+    <div style="margin-top:12px">${body}</div></div>`;
+}
 function trendsView() {
   const dates = IDX.dates, last = dates[dates.length - 1];
-  const view = !dates.length ? 'value' : (['value', 'cost', 'prices'].includes(S.tview) ? S.tview : 'cost');
-  const seg = dates.length ? `<div class="seg" role="group" aria-label="Trends view" style="margin-top:16px">${[['cost', 'Cost over time'], ['value', 'Best value'], ['prices', 'Price history']].map(([k, t]) => `<button type="button" data-act="tview" data-v="${k}" aria-pressed="${k === view}">${t}</button>`).join('')}</div>` : '';
+  const view = !dates.length ? (S.tview === 'nutrition' ? 'nutrition' : 'value') : (['value', 'cost', 'prices', 'nutrition'].includes(S.tview) ? S.tview : 'cost');
+  const seg = `<div class="seg" role="group" aria-label="Trends view" style="margin-top:16px">${[['cost', 'Cost over time'], ['value', 'Best value'], ['nutrition', 'Nutrition'], ['prices', 'Price history']].filter(x => dates.length || x[0] === 'value' || x[0] === 'nutrition').map(([k, t]) => `<button type="button" data-act="tview" data-v="${k}" aria-pressed="${k === view}">${t}</button>`).join('')}</div>`;
   const head = `<h1 class="h1" id="h1" tabindex="-1">Trends</h1>
-  <p class="lede">${view === 'value' ? 'Rank your foods by how much protein, carbs, fat or calories each currency unit buys.' : view === 'prices' ? 'How the price of single foods changed, one point for every price change.' : 'How the price of your protein, carbs, fat, fiber and calories moves over time. Only foods with a price are counted.'}</p>${seg}`;
+  <p class="lede">${view === 'value' ? 'Rank your foods by how much protein, carbs, fat or calories each currency unit buys.' : view === 'nutrition' ? 'The calories and macros the app uses for each food. Check these if a Best value rank looks wrong.' : view === 'prices' ? 'How the price of single foods changed, one point for every price change.' : 'How the price of your protein, carbs, fat, fiber and calories moves over time. Only foods with a price are counted.'}</p>${seg}`;
   if (view === 'value') return head + valueCard();
+  if (view === 'nutrition') return head + nutritionCard();
   if (view === 'prices') { const from = S.trange > 0 ? isoAdd(last, -(S.trange - 1)) : dates[0]; return head + `<div style="margin-top:16px">${priceHistoryCard(from, last)}</div>`; }
   return head + trendsCost();
 }
@@ -1640,6 +1674,51 @@ function addToDiary(name, date, group, eaten) {
   S.day = date; $('#dlg').close(); go('day'); toast(`Added to ${dMed(date)}`);
 }
 
+function openEntry(i, date, group) {
+  const cur = i >= 0 ? S.entries[i] : null;
+  const dlg = $('#dlg'); dlg.classList.remove('wide');
+  const d0 = cur ? cur.date : (date || S.day || mealToday());
+  const g0 = cur ? cur.group : (group || 'Breakfast');
+  const groups = [...new Set(['Breakfast', 'Lunch', 'Dinner', 'Snacks', g0])];
+  const names = [...IDX.meta.keys()].sort((a, b) => a.localeCompare(b));
+  const u0 = cur ? (cur.type === 'count' ? 'item' : cur.type === 'volume' ? 'ml' : 'g') : 'g';
+  dlg.innerHTML = `<form id="eform" method="dialog">
+    <h2 id="dlg-title" style="font-size:20px">${cur ? 'Edit entry' : 'Log a food'}</h2>
+    <div><label for="ed">Day</label><input class="field" style="width:100%" type="date" id="ed" value="${esc(d0)}"></div>
+    <div><label for="eg">Meal</label><select class="field" style="width:100%" id="eg">${groups.map(g => `<option${g === g0 ? ' selected' : ''}>${esc(g)}</option>`).join('')}</select></div>
+    <div><label for="en">Food</label><input class="field" style="width:100%" id="en" list="elist" autocomplete="off" placeholder="Start typing a food name" value="${esc(cur ? cur.name : '')}"><datalist id="elist">${names.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist></div>
+    <div style="display:flex;gap:10px"><div style="flex:1"><label for="eq">Amount</label><input class="field" style="width:100%" id="eq" inputmode="decimal" value="${cur ? esc(String(cur.qty)) : ''}"></div>
+    <div style="flex:1"><label for="eu">Unit</label><select class="field" style="width:100%" id="eu">${[['g', 'grams'], ['ml', 'millilitres'], ['item', 'items']].map(([v, t]) => `<option value="${v}"${v === u0 ? ' selected' : ''}>${t}</option>`).join('')}</select></div></div>
+    <p class="muted" style="font-size:13px">New foods go in with Add a food first, so their nutrition and price are known. A later Cronometer export that covers this day replaces your manual changes.</p>
+    <div id="eerr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">${cur ? 'Save changes' : 'Add to diary'}</button><button type="button" class="btn" data-act="close-dlg">Cancel</button>${cur ? '<button type="button" class="btn" id="edel">Delete</button>' : ''}</div>
+  </form>`;
+  if (!cur) $('#en').addEventListener('change', () => { const m = IDX.meta.get(canon($('#en').value.trim())); if (m) $('#eu').value = m.countFirst ? 'item' : m.vol > m.mass ? 'ml' : 'g'; });
+  if (cur) $('#edel').addEventListener('click', () => {
+    S.entries.splice(i, 1); reindex(); ensurePrices(); saveEntries(); saveAll(); $('#dlg').close(); if (!IDX.byDate.has(S.day)) S.day = null; render(); toast('Entry deleted');
+  });
+  $('#eform').addEventListener('submit', ev => {
+    ev.preventDefault();
+    const date = $('#ed').value, group = $('#eg').value, raw = $('#en').value.trim(), qty = num($('#eq').value), unit = $('#eu').value, err = t => { $('#eerr').textContent = t; };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return err('Choose a day.');
+    if (!raw) return err('Pick a food.');
+    const n = canon(raw);
+    if (!IDX.meta.has(n) && !(cur && cur.name === n)) return err('That food is not in your list yet. Add it with Add a food first.');
+    if (!(qty > 0)) return err('Enter an amount greater than zero.');
+    const o = perUnit(n, unit === 'item' ? 'item' : 'g');
+    const e = { date, group, name: n, src: n, qty: r2(qty), unit, type: unit === 'item' ? 'count' : unit === 'ml' ? 'volume' : 'mass' };
+    if (o) Object.assign(e, { kcal: r2(o.k * qty), pro: r2(o.p * qty), carb: r2(o.c * qty), fat: r2(o.f * qty), fiber: r2(o.b * qty) });
+    else if (cur && cur.name === n && cur.qty > 0 && cur.type === e.type) { const k = qty / cur.qty; Object.assign(e, { kcal: r2(cur.kcal * k), pro: r2(cur.pro * k), carb: r2(cur.carb * k), fat: r2(cur.fat * k), fiber: r2((cur.fiber || 0) * k) }); if (cur.cat) e.cat = cur.cat; }
+    else Object.assign(e, { kcal: 0, pro: 0, carb: 0, fat: 0, fiber: 0 });
+    if (cur) S.entries[i] = e; else S.entries.push(e);
+    S.entries.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    reindex(); ensurePrices(); saveEntries(); saveAll();
+    S.day = date; $('#dlg').close(); if (S.tab !== 'day') go('day'); else render(); toast(cur ? 'Entry saved' : `Added to ${dMed(date)}`);
+  });
+  if (!dlg.open) dlg.showModal();
+  (cur ? $('#eq') : $('#en')).focus();
+}
+
 function openBudget() {
   const dlg = $('#dlg'); dlg.classList.remove('wide');
   dlg.innerHTML = `<form id="bform" method="dialog">
@@ -1806,6 +1885,8 @@ document.addEventListener('click', e => {
     case 'add-food': openFood(); break;
     case 'edit-food': openFood(d.name); break;
     case 'del-food': if (confirm(`Remove ${d.name} from your foods?`)) { delete S.foods[d.name]; if (!(IDX.byName.get(d.name) || []).length) delete S.prices[d.name]; reindex(); saveAll(); $('#dlg').close(); render(); toast('Food removed'); } break;
+    case 'log-food': openEntry(-1, d.date, d.group); break;
+    case 'edit-entry': openEntry(Number(d.i)); break;
     case 'start-manual': S.started = true; saveAll(); go('prices'); break;
     case 'tview': S.tview = d.v; saveAll(); render(); break;
     case 'vmacro': S.vmacro = d.v; S.vall = false; saveAll(); render(); break;
@@ -1894,6 +1975,7 @@ document.addEventListener('input', e => {
   const t = e.target;
   if (t.closest && t.closest('#rform')) { previewRecipe(); return; }
   if (t.closest && t.closest('#mform')) { mealSync(); if (t.id === 'mdate') { MB.date = t.value; mealRefresh(true); } else mealRefresh(false); return; }
+  if (t.id === 'nq') { S.nq = t.value; const card = t.closest('.card'), tmp = document.createElement('div'); tmp.innerHTML = nutritionCard(); card.replaceWith(tmp.firstElementChild); const n = $('#nq'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); return; }
   if (t.id === 'q') { S.filter = t.value; S.showAll = false; refreshPriceBody(); return; }
   const f = t.dataset && t.dataset.f; if (!f) return;
   const tr = t.closest('tr'); if (!tr) return;

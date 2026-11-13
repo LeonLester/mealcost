@@ -33,7 +33,7 @@ try:
 
         # 1. landing
         page.goto(BASE)
-        check('landing headline', page.locator('h1').inner_text().startswith('See what each meal'))
+        check('landing headline', page.locator('h1').inner_text().startswith('A food diary'))
         check('privacy line', 'Nothing is uploaded' in page.content())
 
         # 2. sample data + exact numbers
@@ -470,6 +470,16 @@ try:
         check('value table ranks protein per euro', rows[0][0].endswith('Arla Skyr natural') and rows[0][1] == '61.1' and rows[1][1] == '30.7', rows)
         pm.click('[data-act=vmacro][data-v=fat]'); pm.wait_for_selector('.vtab')
         check('value table switches nutrient', pm.evaluate("document.querySelector('.vtab tbody tr td').textContent.endsWith('Chicken breast')") is True or pm.locator('.vtab tbody tr').count() == 2)
+        pm.evaluate("location.hash='day'"); pm.wait_for_selector('main [data-act=log-food]')
+        pm.locator('main [data-act=log-food]').first.click(); pm.wait_for_selector('#eform')
+        pm.fill('#ed', '2026-11-10'); pm.fill('#en', 'Chicken breast'); pm.fill('#eq', '200'); pm.click('#eform [type=submit]'); pm.wait_for_timeout(300)
+        check('logging a food by hand creates a day', 'Chicken breast' in pm.inner_text('main') and '1.50' in pm.inner_text('main'), pm.inner_text('main')[:300])
+        pm.click('[data-act=edit-entry]'); pm.wait_for_selector('#eform'); pm.fill('#eq', '100'); pm.click('#eform [type=submit]'); pm.wait_for_timeout(300)
+        check('editing an entry updates cost', '0.75' in pm.inner_text('main'), pm.inner_text('main')[:300])
+        pm.click('[data-act=edit-entry]'); pm.wait_for_selector('#eform'); pm.click('#edel'); pm.wait_for_timeout(300)
+        check('deleting an entry clears the day', 'Nothing is logged yet' in pm.inner_text('main'))
+        pm.evaluate("location.hash='trends'"); pm.wait_for_selector('main [data-act=tview][data-v=nutrition]'); pm.click('main [data-act=tview][data-v=nutrition]'); pm.wait_for_selector('.ntab')
+        check('nutrition table lists foods', pm.locator('.ntab tbody tr').count() == 2)
         pm.evaluate("location.hash='meals'"); pm.wait_for_selector('#mform')
         pm.fill('#mn', 'Skyr bowl'); pm.fill('#mform .mrow:first-child [data-m=name]', 'Arla Skyr natural'); pm.fill('#mform .mrow:first-child [data-m=qty]', '200')
         pm.wait_for_timeout(300)

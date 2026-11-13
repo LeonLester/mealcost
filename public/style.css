@@ -164,7 +164,9 @@ td input.gpu{width:96px;text-align:right}
 .hero{display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start;padding-top:32px}
 .hero>div{min-width:0}
 .hero h1{font:800 clamp(40px,6vw,68px)/1.02 var(--display);letter-spacing:-.025em;text-wrap:balance}
-.drop{margin-top:36px;background:var(--card);border:2px dashed var(--field);border-radius:10px;padding:28px;display:flex;flex-wrap:wrap;align-items:center;gap:20px}
+.caps{list-style:none;margin:20px 0 0;padding:0;display:grid;gap:10px;font-size:16px;line-height:1.45;max-width:560px}
+.caps b{font-weight:600}
+.drop{margin-top:28px;background:var(--card);border:2px dashed var(--field);border-radius:10px;padding:28px;display:flex;flex-wrap:wrap;align-items:center;gap:20px}
 .drop.over{border-color:var(--brand);background:var(--dropover)}
 .steps{margin-top:88px;padding-top:40px;border-top:1px solid var(--line)}
 .steps h2{font-size:32px;margin-bottom:32px}
@@ -458,6 +460,11 @@ h1,h2,h3{font-weight:650;letter-spacing:-.01em}
 .vtab{min-width:0;width:100%;border-collapse:collapse}
 .vtab th{font-size:13px;font-weight:500;color:var(--muted);text-align:left;padding:8px 8px 8px 0;border-bottom:1px solid var(--line)}
 .vtab td{padding:12px 8px 12px 0;border-bottom:1px solid var(--line2);vertical-align:baseline}
+.vtab tr.flag td:first-child{box-shadow:inset 3px 0 0 var(--offer-ink);padding-left:10px}
+.ntab{font-size:14px}
+.ntab th.r,.ntab td.r{padding-left:12px;white-space:nowrap}
+.ntab td:first-child{overflow-wrap:anywhere}
+.vtab .note{font-size:12px;margin-top:2px}
 .vtab .r,.vtab th.r{text-align:right;padding-right:0}
 .vtab .rk{display:inline-block;min-width:24px;color:var(--muted);font-size:13px}
 .titlerow{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
