@@ -39,6 +39,40 @@ with sync_playwright() as pw:
     check('cloud copy exists after changes', me['signed'] and me['rev'] >= 1, me)
 
     # device B: empty browser, same account, pulls automatically
+    # Android app flow: one-time code bound to a challenge, then a bearer token
+    import hashlib, base64
+    def b64u(b): return base64.urlsafe_b64encode(b).decode().rstrip('=')
+    ver = b64u(os.urandom(48)); chal = b64u(hashlib.sha256(ver.encode()).digest())
+    who(f'app{RUN}@example.com', 'app-' + RUN)
+    import http.cookiejar
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    html = op.open(BASE + f'auth/google?app=1&c={chal}').read().decode()
+    import re
+    code = (re.search(r'com\.coachleonidas\.mealcost://signin\?code=([A-Za-z0-9_-]+)', html) or [None, ''])[1]
+    check('app sign-in returns a one-time code link', bool(code), html[:200])
+    def post(path, body, headers=None):
+        req = urllib.request.Request(BASE.rstrip('/') + path, data=json.dumps(body).encode(), method='POST', headers={'content-type': 'application/json', 'origin': 'https://localhost', **(headers or {})})
+        try: r = urllib.request.urlopen(req); return r.status, json.loads(r.read()), r.headers
+        except urllib.error.HTTPError as e: return e.code, {}, e.headers
+    st, _, _ = post('/auth/app-token', {'code': code, 'verifier': 'x' * 48})
+    check('wrong verifier is refused', st == 400)
+    st, body, hd = post('/auth/app-token', {'code': code, 'verifier': ver})
+    tok = body.get('token', '')
+    check('code is exchanged for a token', st == 200 and len(tok) > 20 and hd.get('access-control-allow-origin') == 'https://localhost')
+    st, _, _ = post('/auth/app-token', {'code': code, 'verifier': ver})
+    check('code works only once', st == 400)
+    def call(method, path, data=None):
+        req = urllib.request.Request(BASE.rstrip('/') + path, data=data, method=method, headers={'authorization': 'Bearer ' + tok, 'origin': 'https://localhost', 'x-requested-with': 'mealcost'})
+        try: r = urllib.request.urlopen(req); return r.status, r.read()
+        except urllib.error.HTTPError as e: return e.code, b''
+    st, raw = call('GET', '/api/me')
+    check('bearer token signs the app in', st == 200 and json.loads(raw).get('signed') is True)
+    st, _ = call('PUT', '/api/sync?base=0', b'abc')
+    check('app can write sync data', st == 200)
+    req = urllib.request.Request(BASE + 'api/sync', method='OPTIONS', headers={'origin': 'https://localhost', 'access-control-request-method': 'PUT', 'access-control-request-headers': 'authorization'})
+    check('CORS preflight allowed for the app origin', urllib.request.urlopen(req).status == 204)
+    who(ADA, 'sub-' + RUN)
+
     c2, bpg = ctx(); bpg.goto(BASE + '#prices'); bpg.wait_for_selector('a[href="/auth/google"] >> visible=true')
     bpg.click('a[href="/auth/google"] >> visible=true'); bpg.wait_for_url('**/#prices'); bpg.wait_for_selector('#pbody', timeout=15000)
     price = bpg.evaluate("(JSON.parse(localStorage.getItem('mcc.prices')).Quark || {}).price")

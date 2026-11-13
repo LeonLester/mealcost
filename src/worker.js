@@ -4,6 +4,8 @@
 const SESSION_DAYS = 30;
 const MAX_BODY = 1_800_000; // D1 rows are limited to 2 MB
 const enc = new TextEncoder();
+const APP_SCHEME = 'com.coachleonidas.mealcost';
+const APP_ORIGINS = ['https://localhost', 'capacitor://localhost'];
 
 const b64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const rand = (n = 32) => b64url(crypto.getRandomValues(new Uint8Array(n)));
@@ -23,8 +25,21 @@ function setCookie(url, name, value, maxAge) {
   return `${name}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
 }
 
+const bearer = (req) => { const m = /^Bearer\s+([A-Za-z0-9_-]{20,})$/.exec(req.headers.get('authorization') || ''); return m ? m[1] : null; };
+// The Android app runs on its own origin, so it calls the API with a bearer token and needs CORS.
+function corsFor(req) {
+  const o = req.headers.get('origin');
+  return o && APP_ORIGINS.includes(o)
+    ? { 'access-control-allow-origin': o, 'access-control-allow-headers': 'authorization, content-type, x-requested-with', 'access-control-allow-methods': 'GET, PUT, POST, DELETE, OPTIONS', 'access-control-expose-headers': 'x-rev', 'vary': 'origin' }
+    : null;
+}
+function withCors(res, req) {
+  const h = corsFor(req); if (!h) return res;
+  const out = new Response(res.body, res); for (const [k, v] of Object.entries(h)) out.headers.set(k, v); return out;
+}
+
 async function sessionUser(req, env) {
-  const tok = cookies(req).mc_s;
+  const tok = bearer(req) || cookies(req).mc_s;
   if (!tok) return null;
   const row = await env.DB.prepare('SELECT u.id, u.email FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.hash = ? AND s.expires_at > ?')
     .bind(await sha256(tok), Date.now()).first();
@@ -33,6 +48,7 @@ async function sessionUser(req, env) {
 
 // Browsers send Origin on cross-site writes. Require the same host and a custom header.
 function sameSiteWrite(req, url) {
+  if (bearer(req)) return req.headers.get('x-requested-with') === 'mealcost';
   const origin = req.headers.get('origin');
   if (origin) { const h = new URL(origin).host; if (h !== url.host && h !== new URL(req.url).host) return false; }
   return req.headers.get('x-requested-with') === 'mealcost';
@@ -48,6 +64,7 @@ function googleUrls(env) {
 async function startLogin(req, env, url) {
   if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) return new Response('Google sign-in is not configured.', { status: 503 });
   const state = rand(), verifier = rand(48);
+  const appC = url.searchParams.get('app') === '1' && /^[A-Za-z0-9_-]{43}$/.test(url.searchParams.get('c') || '') ? url.searchParams.get('c') : '';
   const challenge = b64url(await crypto.subtle.digest('SHA-256', enc.encode(verifier)));
   const q = new URLSearchParams({
     client_id: env.GOOGLE_CLIENT_ID,
@@ -61,7 +78,7 @@ async function startLogin(req, env, url) {
   });
   return new Response(null, {
     status: 302,
-    headers: { location: `${googleUrls(env).auth}?${q}`, 'set-cookie': setCookie(url, 'mc_o', `${state}.${verifier}`, 600), 'cache-control': 'no-store' },
+    headers: { location: `${googleUrls(env).auth}?${q}`, 'set-cookie': setCookie(url, 'mc_o', `${state}.${verifier}${appC ? '.' + appC : ''}`, 600), 'cache-control': 'no-store' },
   });
 }
 
@@ -76,7 +93,7 @@ async function finishLogin(req, env, url) {
   const fail = (why) => new Response(null, { status: 302, headers: { location: `/?signin=${why}`, 'set-cookie': setCookie(url, 'mc_o', '', 0) } });
   if (url.searchParams.get('error')) return fail('cancelled');
   const saved = (cookies(req).mc_o || '').split('.');
-  const [state, verifier] = saved;
+  const [state, verifier, appC] = saved;
   if (!state || !verifier || state !== url.searchParams.get('state')) return fail('state');
   const code = url.searchParams.get('code');
   if (!code) return fail('code');
@@ -101,6 +118,14 @@ async function finishLogin(req, env, url) {
     await env.DB.prepare('INSERT INTO users (id, google_sub, email, created_at) VALUES (?, ?, ?, ?)').bind(user.id, claims.sub, claims.email, Date.now()).run();
   } else {
     await env.DB.prepare('UPDATE users SET email = ? WHERE id = ?').bind(claims.email, user.id).run();
+  }
+  if (appC) {
+    // Hand the app a one-time code, bound to the challenge it sent. It trades the code for a session over HTTPS.
+    const oneTime = rand(32);
+    await env.DB.prepare('INSERT INTO sessions (hash, user_id, expires_at) VALUES (?, ?, ?)').bind(await sha256(`xc:${oneTime}:${appC}`), user.id, Date.now() + 120000).run();
+    const link = `${APP_SCHEME}://signin?code=${oneTime}`;
+    const page = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Back to Meal cost</title><body style="font:18px system-ui;margin:0;padding:32px 20px;background:#fff;color:#111"><h1 style="font-size:24px">You are signed in</h1><p>Return to the Meal cost app to finish.</p><p><a href="${link}" style="display:inline-block;background:#C25A2B;color:#fff;padding:14px 20px;border-radius:12px;text-decoration:none;font-weight:600">Open Meal cost</a></p><script>location.href=${JSON.stringify(link)}</script>`;
+    return new Response(page, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'set-cookie': setCookie(url, 'mc_o', '', 0) } });
   }
   const token = rand(32);
   await env.DB.prepare('INSERT INTO sessions (hash, user_id, expires_at) VALUES (?, ?, ?)').bind(await sha256(token), user.id, Date.now() + SESSION_DAYS * 864e5).run();
@@ -163,15 +188,30 @@ export default {
     let url = new URL(req.url);
     if (env.PUBLIC_ORIGIN) { const o = new URL(env.PUBLIC_ORIGIN); url.protocol = o.protocol; url.host = o.host; }
     try {
+      if (req.method === 'OPTIONS' && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/'))) {
+        const h = corsFor(req); return new Response(null, { status: h ? 204 : 403, headers: h || {} });
+      }
+      if (url.pathname === '/auth/app-token' && req.method === 'POST') {
+        let b; try { b = await req.json(); } catch { b = {}; }
+        const code = String(b.code || ''), verifier = String(b.verifier || '');
+        if (!/^[A-Za-z0-9_-]{20,}$/.test(code) || verifier.length < 20) return withCors(json({ error: 'bad_request' }, 400), req);
+        const h = await sha256(`xc:${code}:${b64url(await crypto.subtle.digest('SHA-256', enc.encode(verifier)))}`);
+        const row = await env.DB.prepare('SELECT user_id FROM sessions WHERE hash = ? AND expires_at > ?').bind(h, Date.now()).first();
+        if (!row) return withCors(json({ error: 'invalid_code' }, 400), req);
+        await env.DB.prepare('DELETE FROM sessions WHERE hash = ?').bind(h).run();
+        const token = rand(32);
+        await env.DB.prepare('INSERT INTO sessions (hash, user_id, expires_at) VALUES (?, ?, ?)').bind(await sha256(token), row.user_id, Date.now() + SESSION_DAYS * 864e5).run();
+        return withCors(json({ token }), req);
+      }
       if (url.pathname === '/auth/google' && req.method === 'GET') return await startLogin(req, env, url);
       if (url.pathname === '/auth/google/callback' && req.method === 'GET') return await finishLogin(req, env, url);
       if (url.pathname === '/auth/logout' && req.method === 'POST') {
         if (!sameSiteWrite(req, url)) return json({ error: 'forbidden' }, 403);
-        const tok = cookies(req).mc_s;
+        const tok = bearer(req) || cookies(req).mc_s;
         if (tok) await env.DB.prepare('DELETE FROM sessions WHERE hash = ?').bind(await sha256(tok)).run();
-        return json({ ok: true }, 200, { 'set-cookie': setCookie(url, 'mc_s', '', 0) });
+        return withCors(json({ ok: true }, 200, { 'set-cookie': setCookie(url, 'mc_s', '', 0) }), req);
       }
-      if (url.pathname.startsWith('/api/')) return await api(req, env, url);
+      if (url.pathname.startsWith('/api/')) return withCors(await api(req, env, url), req);
     } catch (e) {
       return json({ error: 'server' }, 500);
     }

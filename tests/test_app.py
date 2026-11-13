@@ -34,7 +34,7 @@ try:
         # 1. landing
         page.goto(BASE)
         check('landing headline', page.locator('h1').inner_text().startswith('A food diary'))
-        check('privacy line', 'Nothing is uploaded' in page.content())
+        check('privacy line', 'Stays on your device' in page.content())
 
         # 2. sample data + exact numbers
         page.click('text=Try it with sample data')
@@ -400,10 +400,16 @@ try:
           window.__backCb = null;
           window.Capacitor = { isNativePlatform: () => true, Plugins: {
             Filesystem: { writeFile: rec('fs', 'writeFile') }, Share: { share: rec('share', 'share') }, Browser: { open: rec('browser', 'open') },
-            App: { addListener: (n, cb) => { window.__backCb = cb; }, exitApp: () => window.__calls.push(['app', 'exit']) } } };
+            App: { addListener: (n, cb) => { if (n === 'backButton') window.__backCb = cb; else window.__urlCb = cb; }, getLaunchUrl: async () => ({}), exitApp: () => window.__calls.push(['app', 'exit']) } } };
         """)
         pn = cap.new_page(); pn.goto(BASE); pn.click('text=Try it with sample data'); pn.wait_for_selector('.pricetag .n')
-        check('app: no sign-in UI inside the app', pn.locator('a[href="/auth/google"]').count() == 0 and 'Sign in' not in pn.inner_text('.topbar'))
+        pn.route('https://mealcost.coachleonidas.com/**', lambda r: r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body='{"signed":false}'))
+        pn.reload(); pn.wait_for_selector('#drawer [data-sync=signin]', state='attached', timeout=8000); pn.click('header .burger')
+        check('app: menu offers sign-in', pn.locator('#drawer [data-sync=signin]').count() == 1)
+        pn.click('#drawer [data-sync=signin]'); pn.wait_for_timeout(400)
+        lc = pn.evaluate('window.__calls.at(-1)')
+        check('app: sign-in opens the browser with a challenge', lc[1] == 'open' and lc[2]['url'].startswith('https://mealcost.coachleonidas.com/auth/google?app=1&c=') and len(lc[2]['url'].split('c=')[1]) == 43, str(lc))
+        pn.evaluate("document.body.classList.remove('drawer-open'); window.__calls.length = 0")
         check('app: file pickers accept any type', pn.evaluate("document.getElementById('file').hasAttribute('accept')") is False)
         pn.click('header .burger'); pn.click('#drawer >> text=Download CSV'); pn.wait_for_timeout(300)
         calls = pn.evaluate('window.__calls')
@@ -495,7 +501,7 @@ try:
 
         # export links
         pl = b.new_context(viewport={'width': 412, 'height': 860}, locale='en-US').new_page()
-        pl.goto(BASE); pl.wait_for_selector('#cronolink')
+        pl.goto(BASE); pl.click('text=How to export from Cronometer'); pl.wait_for_selector('#cronolink')
         check('landing links to the Cronometer site', pl.get_attribute('#cronolink', 'href') == 'https://cronometer.com/' and pl.get_attribute('#cronolink', 'target') == '_blank')
         pl.click('text=Try it with sample data'); pl.wait_for_selector('.pricetag .n')
         check('footer links to a new Cronometer export', pl.locator('footer.site a[href="https://cronometer.com/"]').count() == 1)

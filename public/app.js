@@ -348,25 +348,21 @@ function importView() {
     <div class="hero">
       <div style="flex:1 1 520px">
         <h1 id="h1" tabindex="-1">A food diary that knows what you paid.</h1>
-        <p class="lede" style="font-size:19px;line-height:1.55">Log what you eat, add your grocery prices once, and see what every meal, day and week costs, and which foods give the most protein per euro. Free, private, no account needed.</p>
+        <p class="lede" style="font-size:18px;line-height:1.5">Log your meals, add grocery prices once, and see what every day costs.</p>
         <ul class="caps">
-          <li><b>Track by hand.</b> Add foods with their nutrition, scan a barcode, log them on any day and edit past days.</li>
-          <li><b>Or import Cronometer.</b> Drop in its export and your whole history loads.</li>
-          <li><b>See the cost.</b> Per meal, day, week and per gram of protein, with offers and price changes.</li>
-          <li><b>Build meals.</b> Combine foods into recipes, compare their cost and add them to your diary.</li>
+          <li>Log foods by hand, by barcode, or from Cronometer</li>
+          <li>Cost per meal, day and week</li>
+          <li>Rank foods by protein per euro</li>
         </ul>
-        <div style="margin-top:24px;display:flex;flex-wrap:wrap;gap:12px">
-          <button class="btn primary" data-act="start-manual">Start tracking by hand</button>
+        <div style="margin-top:22px;display:flex;flex-wrap:wrap;gap:12px">
+          <button class="btn primary" data-act="start-manual">Start tracking</button>
           <button class="btn outline" data-act="sample">Try it with sample data</button>
+          <button class="btn outline" data-act="import">Import Cronometer export</button>
         </div>
-        <div class="drop" id="drop">
-          ${IC.upload}
-          <div style="flex:1 1 220px;min-width:0"><div style="font-weight:600;font-size:18px">Already use Cronometer?</div><div class="muted" style="font-size:14px;margin-top:4px">Drop your Food &amp; Recipe Entries .csv here</div></div>
-          <button class="btn" data-act="import">Choose file</button>
-        </div>
+        <div class="drop" id="drop" hidden></div>
         <div style="margin-top:18px;display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px">
           <button class="btn link" data-act="restore">Restore saved prices</button>
-          <span class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">${IC.lock}Your file is read in this browser. Nothing is uploaded.</span>
+          <span class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">${IC.lock}Stays on your device unless you sign in.</span>
         </div>
       </div>
       <div style="flex:1 1 420px">
@@ -381,14 +377,13 @@ function importView() {
         </div>
       </div>
     </div>
-    <section class="steps">
-      <h2>Importing from Cronometer, in three steps</h2>
-      <div style="display:flex;flex-wrap:wrap;gap:32px">
+    <details class="steps more"><summary style="font-size:16px">How to export from Cronometer</summary>
+      <div style="display:flex;flex-wrap:wrap;gap:32px;margin-top:20px">
         <div class="s"><span class="num">1</span><div><div style="font-weight:600;font-size:18px">Export from Cronometer</div><p class="muted" style="margin-top:6px">On the web app, open Account, choose Export Data, then Food &amp; Recipe Entries. Pick your dates and download the CSV.</p><p class="muted" style="margin-top:8px">The Cronometer phone app has no export. Open the website in your browser, and if it shows the phone layout, switch to Desktop site.</p><p style="margin-top:12px"><a class="btn sm" id="cronolink" href="https://cronometer.com/" target="_blank" rel="noopener">Open Cronometer to export</a></p></div></div>
         <div class="s"><span class="num">2</span><div><div style="font-weight:600;font-size:18px">Drop the file in</div><p class="muted" style="margin-top:6px">Your entries load straight away. Import a newer export any time: days you already have are updated, not duplicated.</p></div></div>
         <div class="s"><span class="num">3</span><div><div style="font-weight:600;font-size:18px">Add your prices once</div><p class="muted" style="margin-top:6px">Only foods you logged appear. Enter what you paid per kilo, per 100 g or per item. Prices are saved for next time.</p></div></div>
       </div>
-    </section>
+    </details>
   </main>
   ${siteFooter()}`;
 }
@@ -437,7 +432,7 @@ function appView() {
     <div class="dsec">Account and data</div>
     ${window.MealSync && MealSync.available ? (MealSync.signed
       ? `<div class="dwho">Signed in as ${esc(MealSync.email)}</div><button class="ditem" data-sync="now"><span>Sync now</span></button><button class="ditem" data-sync="out"><span>Sign out</span></button>`
-      : MealSync.ready ? `<a class="ditem" href="/auth/google"><span>Sign in with Google</span></a>` : '') : ''}
+      : MealSync.ready ? `<a class="ditem" href="/auth/google" data-sync="signin"><span>Sign in with Google</span></a>` : '') : ''}
     <button class="ditem" data-act="backup"><span>Download backup</span></button>
     <button class="ditem" data-act="restore"><span>Restore backup</span></button>
     <button class="ditem danger" data-act="reset"><span>Delete all data from this browser</span></button>
