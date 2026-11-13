@@ -409,10 +409,20 @@ const TOOLIC = {
   account: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/></svg>',
   import: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>',
   'export-csv': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg>',
-  'add-food': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  'add-food': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.500v9L12 21l-8-4.500v-9zM4 7.500l8 4.500 8-4.500M12 12v9"/></svg>',
+  'log-food': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6zM6 3v18M10 9h5M10 13h3"/></svg>',
+  currency: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.8 9.2A3.4 3.4 0 0 0 12 8c-1.7 0-3 .9-3 2.2 0 3 6 1.6 6 4.6 0 1.3-1.300 2.200-3 2.200a3.400 3.400 0 0 1-2.800-1.200M12 6.500V8m0 8v1.500"/></svg>',
   theme: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>',
 };
 const themeLabel = () => ({ auto: 'Auto', light: 'Light', dark: 'Dark' })[window.MealTheme ? MealTheme.get() : 'auto'];
+const curSelect = cls => `<select class="field ${cls}" data-cur aria-label="Currency">${CURRENCIES.map(x => `<option${x === S.currency ? ' selected' : ''}>${x}</option>`).join('')}</select>`;
+function openTheme() {
+  const dlg = $('#dlg'); dlg.classList.remove('wide'); const cur = MealTheme.get();
+  dlg.innerHTML = `<form method="dialog"><h2 id="dlg-title" style="font-size:20px">Theme</h2>
+    <div class="opts" role="radiogroup" aria-label="Theme">${[['auto', 'Match my device'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => `<button type="button" class="opt" role="radio" aria-checked="${cur === v}" data-act="set-theme" data-v="${v}"><span>${l}</span>${cur === v ? '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.500l4.500 4.500L19 7.500"/></svg>' : ''}</button>`).join('')}</div>
+    <div class="dlg-actions"><button type="button" class="btn" data-act="close-dlg">Close</button></div></form>`;
+  dlg.setAttribute('aria-labelledby', 'dlg-title'); dlg.showModal();
+}
 function toolBtn(act, label, cls = '') {
   return `<button class="btn sm tb ${cls}" data-act="${act}" aria-label="${esc(label)}" title="${esc(label)}">${TOOLIC[act]}<span class="lbl">${esc(label)}</span></button>`;
 }
@@ -424,18 +434,19 @@ function appView() {
     <button class="burger" data-act="drawer" aria-label="Menu" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="brand"><b>Meal cost</b><span>by Coach Leonidas</span></div>
     <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week', 'trends', 'meals'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${TABIC[t]}<span>${tabLbl(t)}</span></a>`).join('')}</nav>
-    <div class="tools">${toolBtn('add-food', 'Add a food')}${toolBtn('import', 'Add export', 'pri')}${toolBtn('export-csv', 'Download CSV')}${toolBtn('theme', 'Theme: ' + themeLabel())}<a class="btn sm tb" href="#account" aria-label="Account" title="Account"${S.tab === 'account' ? ' aria-current="page"' : ''}>${TOOLIC.account}<span class="lbl">Account</span></a>${window.MealSync ? MealSync.topHtml() : ''}</div>
+    <div class="tools">${toolBtn('add-food', 'New food')}${toolBtn('import', 'Add export', 'pri')}${toolBtn('export-csv', 'Download CSV')}${toolBtn('theme', 'Theme: ' + themeLabel())}<label class="curtool">${curSelect('sm')}</label><a class="btn sm tb" href="#account" aria-label="Account" title="Account"${S.tab === 'account' ? ' aria-current="page"' : ''}>${TOOLIC.account}<span class="lbl">Account</span></a>${window.MealSync ? MealSync.topHtml() : ''}</div>
   </div></header>
   <div class="scrim" data-act="drawer-close"></div>
   <aside class="drawer" id="drawer" aria-label="Menu">
     <div class="dhead"><b>Meal cost</b><button class="burger" data-act="drawer-close" aria-label="Close menu"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <a class="ditem" href="#account">${TOOLIC.account}<span>Account and data</span></a>
-    <button class="ditem" data-act="log-food">${TOOLIC['add-food']}<span>Log a food</span></button>
-    <button class="ditem" data-act="add-food">${TOOLIC['add-food']}<span>Add a food</span></button>
+    <button class="ditem" data-act="log-food">${TOOLIC['log-food']}<span>Log a food to your diary</span></button>
+    <button class="ditem" data-act="add-food">${TOOLIC['add-food']}<span>Create a custom food</span></button>
     <button class="ditem" data-act="import">${TOOLIC.import}<span>Add Cronometer export</span></button>
     <a class="ditem" href="https://cronometer.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>Get a new Cronometer export</span></a>
     <button class="ditem" data-act="export-csv">${TOOLIC['export-csv']}<span>Download CSV</span></button>
-    <button class="ditem" data-act="theme">${TOOLIC.theme}<span>Theme: ${themeLabel()}</span></button>
+    <button class="ditem" data-act="theme">${TOOLIC.theme}<span>Theme</span><em>${themeLabel()}</em></button>
+    <label class="ditem">${TOOLIC.currency}<span>Currency</span>${curSelect('dcur')}</label>
     <div class="dlinks"><a href="/android">Get the Android app</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="https://coachleonidas.com">coachleonidas.com</a></div>
   </aside>
   <div class="scroll" id="scroller">
@@ -640,12 +651,16 @@ function offerCounts() {
   for (const d in S.overrides) for (const n in S.overrides[d]) m.set(n, (m.get(n) || 0) + 1);
   return m;
 }
+function psumHtml(name) {
+  const p = S.prices[name], sp = spend(name), has = p && p.price !== '';
+  return `<span class="ps-price">${has ? esc(money(p.price)) + ' per ' + esc(basisText(p.basis, name)) : 'No price set'}</span><span class="ps-spent">${sp.count ? 'Spent ' + esc(money(sp.total)) : 'Not counted'}</span><span class="ps-edit">${has ? 'Edit' : 'Set price'}</span>`;
+}
 function priceRow(name, oc) {
   const p = S.prices[name], m = IDX.meta.get(name), iss = issue(name), sp = spend(name), o = oc.get(name) || 0, rec = S.recipes[name], est = estInfo(name);
   const vol = m.vol > m.mass;
   const sub = subText(name, iss), k = m.members.length;
   return `<tr data-name="${esc(name)}"${iss ? ' class="needs"' : ''}>
-    <th scope="row"><div class="fname">${esc(name)}${o ? ` <span class="offer-tag">${o} ${o === 1 ? 'offer' : 'offers'}</span>` : ''}${catOf(name) !== 'Uncategorized' ? `<span class="catlab">${esc(catOf(name))}</span>` : ''}</div><div class="sub sl">${esc(sub)}</div><details class="more"><summary>Details</summary><div class="moreb">${m.custom || S.foods[name] ? `<div><button class="btn link" data-act="edit-food" data-name="${esc(name)}">Edit nutrition</button></div>` : ''}<div class="sub"><input class="catin" list="catlist" data-cat aria-label="Category of ${esc(name)}" placeholder="Add a category" value="${esc(catOf(name) === 'Uncategorized' ? '' : catOf(name))}"></div>${macroLine(name) ? `<div class="sub">${esc(macroLine(name))}</div>` : ''}${m.extra ? '' : `<div class="sub acts">${k ? `Includes ${k} other ${k === 1 ? 'name' : 'names'}. ` : ''}<button class="btn link" data-act="merge" data-name="${esc(name)}" aria-label="Merge ${esc(name)} with another food">${k ? 'Manage merges' : 'Merge'}</button>${rec ? '' : `<button class="btn link" data-act="edit-recipe" data-name="${esc(name)}" aria-label="Make ${esc(name)} a recipe with ingredients">Make a recipe</button>`}</div>`}</div></details></th>
+    <th scope="row"><div class="fname">${esc(name)}${o ? ` <span class="offer-tag">${o} ${o === 1 ? 'offer' : 'offers'}</span>` : ''}${catOf(name) !== 'Uncategorized' ? `<span class="catlab">${esc(catOf(name))}</span>` : ''}</div><div class="sub sl">${esc(sub)}</div><details class="more"><summary>Details</summary><div class="moreb">${m.custom || S.foods[name] ? `<div><button class="btn link" data-act="edit-food" data-name="${esc(name)}">Edit nutrition</button></div>` : ''}<div class="sub"><input class="catin" list="catlist" data-cat aria-label="Category of ${esc(name)}" placeholder="Add a category" value="${esc(catOf(name) === 'Uncategorized' ? '' : catOf(name))}"></div>${macroLine(name) ? `<div class="sub">${esc(macroLine(name))}</div>` : ''}${m.extra ? '' : `<div class="sub acts">${k ? `Includes ${k} other ${k === 1 ? 'name' : 'names'}. ` : ''}<button class="btn link" data-act="merge" data-name="${esc(name)}" aria-label="Merge ${esc(name)} with another food">${k ? 'Manage merges' : 'Merge'}</button>${rec ? '' : `<button class="btn link" data-act="edit-recipe" data-name="${esc(name)}" aria-label="Make ${esc(name)} a recipe with ingredients">Make a recipe</button>`}</div>`}</div></details>${rec ? '' : `<button type="button" class="psum" data-act="prow" aria-expanded="false">${psumHtml(name)}</button>`}</th>
     ${rec ? `<td colspan="3"><div class="muted" style="font-size:14px">Recipe with ${rec.items.length} ${rec.items.length === 1 ? 'ingredient' : 'ingredients'}, ${esc(rec.servings)} ${Number(rec.servings) === 1 ? 'serving' : 'servings'}</div><button class="btn link" data-act="edit-recipe" data-name="${esc(name)}">Edit recipe</button></td>` : `
     <td><div class="money-in"><span>${esc(currencySymbol())}</span><input type="text" inputmode="decimal" data-f="price" aria-label="Price of ${esc(name)}" placeholder="0.00" value="${p.price === '' ? '' : esc(p.price)}"></div></td>
     <td><select class="field" data-f="basis" aria-label="Price unit for ${esc(name)}">
@@ -875,7 +890,7 @@ function pricesView() {
   for (const r of S.ranges) offerList.push({ k: r.from, r, n: r.name, v: r.price });
   offerList.sort((a, b) => b.k.localeCompare(a.k) || a.n.localeCompare(b.n));
   return `
-  <div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Your prices</h1><button class="btn primary sm" data-act="add-food">Add a food</button></div>
+  <div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Your prices</h1><button class="btn primary sm" data-act="add-food">New food</button></div>
   <p class="lede">Set a price once and it applies to every day you logged that food. Use an offer when a price was different on one day.</p>
   <div class="notice" id="unp" role="status"${c.un ? '' : ' hidden'}>${IC.info}<div id="unp-t">${unpText(c.un)}</div></div>
   <datalist id="catlist">${[...new Set([...DEFAULT_CATS, ...[...IDX.meta.keys()].map(catOf)])].filter(k => k !== 'Uncategorized').sort().map(k => `<option value="${esc(k)}"></option>`).join('')}</datalist>
@@ -900,11 +915,10 @@ function pricesView() {
           <button class="chip" data-act="chip" data-chip="offers" aria-pressed="${S.chip === 'offers'}">With offers <span id="c-of">${c.offers}</span></button>
         </div>
       </div>
-      <details class="more"${window.innerWidth > 640 ? ' open' : ''}><summary>Sort and currency</summary><div class="ptools2">
+      <details class="more"${window.innerWidth > 640 ? ' open' : ''}><summary>Sort and filter</summary><div class="ptools2">
         <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Sort by <select class="field" id="sortsel">${[['Logging', ['freq', 'amount', 'spent', 'name']], ['Nutrients per 100 g', Object.keys(SORTS).filter(k => /^(pro|carb|fat|fiber)100$/.test(k))], ['Nutrients per 100 kcal', Object.keys(SORTS).filter(k => /^(pro|carb|fat|fiber)100k$/.test(k))]].map(([g, ks]) => `<optgroup label="${g}">${ks.map(k => `<option value="${k}"${S.sort === k ? ' selected' : ''}>${SORTS[k][0]}</option>`).join('')}</optgroup>`).join('')}</select></label>
         <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Category <select class="field" id="catsel"><option value="">All</option>${(() => { const m = new Map(); for (const n of IDX.meta.keys()) m.set(catOf(n), (m.get(catOf(n)) || 0) + 1); return [...m].sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => `<option value="${esc(k)}"${S.cat === k ? ' selected' : ''}>${esc(k)} (${v})</option>`).join(''); })()}</select></label>
         <button class="btn sm" data-act="flip" aria-pressed="${S.flip}">${S.sort === 'name' ? (S.flip ? 'Z to A' : 'A to Z') : (S.flip ? 'Lowest first' : 'Highest first')}</button>
-        <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Currency <select class="field" id="cur">${CURRENCIES.map(x => `<option${x === S.currency ? ' selected' : ''}>${x}</option>`).join('')}</select></label>
       </div></details>
       <div class="tablewrap" style="margin-top:16px"><table>
         <thead><tr><th scope="col" aria-sort="${S.sort === 'name' ? (S.flip ? 'descending' : 'ascending') : 'none'}"><button class="thbtn" data-act="sort-col" data-sort="name">Food${S.sort === 'name' ? (S.flip ? ' \u2191' : ' \u2193') : ''}</button></th><th scope="col">Price</th><th scope="col">Per</th><th scope="col">Grams per serving or item</th><th scope="col" class="r" aria-sort="${S.sort === 'spent' ? (S.flip ? 'ascending' : 'descending') : 'none'}"><button class="thbtn" data-act="sort-col" data-sort="spent">Spent${S.sort === 'spent' ? (S.flip ? ' \u2191' : ' \u2193') : ''}</button></th></tr></thead>
@@ -2020,6 +2034,7 @@ document.addEventListener('click', e => {
     case 'flip': S.flip = !S.flip; saveAll(); render(); break;
     case 'sort-col': if (S.sort === d.sort) S.flip = !S.flip; else { S.sort = d.sort; S.flip = false; } saveAll(); render(); break;
     case 'edit-recipe': openRecipe(d.name); break;
+    case 'prow': { const tr = t.closest('tr'); const o = tr.classList.toggle('open'); t.setAttribute('aria-expanded', o); break; }
     case 'toggle-unc': S.uncOpen = !S.uncOpen; render(); break;
     case 'toggle-recipe': if (S.open.has(d.key)) S.open.delete(d.key); else S.open.add(d.key); render(); break;
     case 'rec-add': syncRecipe(); REC.items.push({ name: '', qty: '', unit: 'g' }); drawRecipe(); break;
@@ -2031,7 +2046,8 @@ document.addEventListener('click', e => {
     case 'not-same': S.nomerge.push(pairKey(d.drop, d.keep)); saveAll(); render(); break;
     case 'unmerge': delete S.merges[d.src]; reindex(); ensurePrices(); saveAll(); { const cur = canon(d.src); $('#dlg').close(); render(); toast(`${d.src} is separate again`); void cur; } break;
     case 'export-csv': exportCsv(); break;
-    case 'theme': { const t = MealTheme.cycle(); render(); toast('Theme: ' + cap(t)); break; }
+    case 'theme': openTheme(); break;
+    case 'set-theme': MealTheme.set(d.v); $('#dlg').close(); document.body.classList.remove('drawer-open'); render(); toast('Theme: ' + cap(d.v)); break;
     case 'backup': backup(); break;
     case 'restore': $('#pfile').click(); break;
     case 'reset':
@@ -2060,6 +2076,7 @@ function refreshRow(tr) {
   const name = tr.dataset.name, iss = issue(name), sp = spend(name), m = IDX.meta.get(name);
   tr.classList.toggle('needs', !!iss);
   $('.sl', tr).textContent = subText(name, iss);
+  const ps = $('.psum', tr); if (ps) ps.innerHTML = psumHtml(name);
   $('.sp', tr).innerHTML = sp.count ? esc(money(sp.total)) : '<span class="muted">Not counted</span>';
 }
 
@@ -2094,7 +2111,7 @@ document.addEventListener('change', e => {
     saveAll(); render(); toast(v ? `Category set to ${v}` : 'Category cleared'); return;
   }
   if (t.dataset && t.dataset.f === 'basis') { const tr = t.closest('tr'); S.prices[tr.dataset.name].basis = t.value; saveSoon(); refreshRow(tr); refreshMeta(); }
-  else if (t.id === 'cur') { S.currency = t.value; saveAll(); render(); }
+  else if (t.dataset && t.dataset.cur !== undefined) { S.currency = t.value; saveAll(); render(); }
   else if (t.id === 'sortsel') { S.sort = SORTS[t.value] ? t.value : 'freq'; S.flip = false; saveAll(); render(); }
   else if (t.id === 'catsel') { S.cat = t.value; S.showAll = false; render(); }
   else if (t.id === 'tgrain') { S.grain = t.value === 'day' ? 'day' : 'week'; saveAll(); render(); }
