@@ -73,7 +73,14 @@
   M.useCloud = async () => { try { setStatus('syncing', true); if (await pull()) { window.__mcNoSave = true; location.reload(); } } catch (e) { setStatus('error', true); } };
   M.keepDevice = async () => { M.conflict = null; await push(true); M.onchange(); };
   M.syncNow = async () => { if (M.conflict) return; await push(); M.onchange(); };
-  M.signOut = async () => { try { await api('/auth/logout', { method: 'POST' }); } catch (e) { /* offline: forget the token anyway */ } LS.del('sync.token'); LS.del('sync.base'); LS.del('sync.dirty'); M.signed = false; M.email = ''; M.conflict = null; M.onchange(); };
+  M.signOut = async keepOpen => {
+    if (!confirm('Sign out? Your data stays in your account, and this device will be cleared. Sign in again to get it back.')) return;
+    if (LS.get('sync.dirty') || busy) { clearTimeout(timer); await push(); if (M.status !== 'idle' && !confirm('Your latest changes could not be saved to your account. Sign out anyway and lose them?')) return; }
+    try { await api('/auth/logout', { method: 'POST' }); } catch (e) { /* offline: forget the token anyway */ }
+    try { Object.keys(localStorage).filter(k => k.startsWith('mcc.') && k !== 'mcc.theme').forEach(k => localStorage.removeItem(k)); } catch (e) { /* ignore */ }
+    window.__mcNoSave = true; M.signed = false; M.email = ''; M.conflict = null;
+    if (!keepOpen) location.href = location.pathname;
+  };
   M.deleteCloud = async () => {
     if (!confirm('Delete your account and the data stored in the cloud? Data in this browser stays.')) return;
     await api('/api/account', { method: 'DELETE' });
@@ -152,7 +159,7 @@
     const b = e.target.closest('[data-sync]'); if (!b) return;
     const a = b.dataset.sync;
     if (a === 'signin') { if (NATIVE) { e.preventDefault(); M.signIn().catch(() => {}); } return; }
-    if (a === 'use-cloud') M.useCloud(); else if (a === 'keep-device') M.keepDevice(); else if (a === 'now') M.syncNow(); else if (a === 'out') M.signOut(); else if (a === 'switch') M.signOut().then(() => M.signIn()); else if (a === 'delete') M.deleteCloud();
+    if (a === 'use-cloud') M.useCloud(); else if (a === 'keep-device') M.keepDevice(); else if (a === 'now') M.syncNow(); else if (a === 'out') M.signOut(); else if (a === 'switch') M.signOut(true).then(() => { if (!M.signed) M.signIn(); }); else if (a === 'delete') M.deleteCloud();
   });
   window.MealSync = M;
   M.init = init;
