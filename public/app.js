@@ -361,7 +361,7 @@ function importView() {
         </div>
         <div class="drop" id="drop" hidden></div>
         ${window.MealSync && MealSync.available && MealSync.ready ? (MealSync.signed
-          ? `<p class="muted" style="margin-top:18px;font-size:15px">Signed in as ${esc(MealSync.email)}. <span id="syncstat">${esc(MealSync.statusText())}</span></p>`
+          ? `<div style="margin-top:20px"><p class="muted" style="font-size:15px">Signed in as <b style="color:var(--ink)">${esc(MealSync.email)}</b>. <span id="syncstat">${esc(MealSync.statusText())}</span></p><div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:10px"><button class="btn sm" data-sync="switch">Use another account</button><button class="btn sm" data-sync="out">Sign out</button></div></div>`
           : `<div style="margin-top:20px"><a class="btn" href="/auth/google" data-sync="signin">Sign in with Google</a><p class="muted" style="margin-top:8px;font-size:14px">Optional. Brings your data to every device.</p></div>`) : ''}
         <div style="margin-top:18px;display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px">
           <button class="btn link" data-act="restore">Restore saved prices</button>
