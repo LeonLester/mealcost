@@ -368,7 +368,7 @@ function importView() {
           <button class="btn outline" data-act="sample">Try it with sample data</button>
           <button class="btn outline" data-act="import">Import Cronometer export</button>
         </div>
-        <div class="drop" id="drop" hidden></div>
+        <div style="margin-top:18px;max-width:560px">${dropzone('food')}</div>
         ${window.MealSync && MealSync.available && MealSync.ready ? (MealSync.signed
           ? `<div style="margin-top:20px"><p class="muted" style="font-size:15px">Signed in as <b style="color:var(--ink)">${esc(MealSync.email)}</b>. <span id="syncstat">${esc(MealSync.statusText())}</span></p><div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:10px"><button class="btn sm" data-sync="switch">Use another account</button><button class="btn sm" data-sync="out">Sign out</button></div></div>`
           : `<div style="margin-top:20px"><a class="btn" href="/auth/google" data-sync="signin">Sign in with Google</a><p class="muted" style="margin-top:8px;font-size:14px">Optional. Brings your data to every device.</p></div>`) : ''}
@@ -535,6 +535,7 @@ function accountView() {
       ${row('Download a backup', 'A file with your prices, foods and meals. Keep it somewhere safe.', '<button class="btn" data-act="backup">Download backup</button>')}
       ${row('Restore a backup', 'Load a backup file you saved earlier. It merges into what is here.', '<button class="btn" data-act="restore">Restore backup</button>')}
       ${row('Download your diary', 'Every logged entry as a CSV spreadsheet.', '<button class="btn" data-act="export-csv">Download CSV</button>')}
+      <div style="margin-top:16px">${dropzone('any')}</div>
     </section>
     <section class="card pad"><h2>Delete</h2>
       ${row('Delete data on this device', 'Removes your diary, goals, weight log, prices, foods and meals from this device. Your cloud copy, if you have one, is not touched.', '<button class="btn danger" data-act="reset">Delete data</button>')}
@@ -975,6 +976,7 @@ function pricesView() {
   return `
   <div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Foods and prices</h1><span style="display:flex;gap:8px">${rcOk() ? '<button class="btn sm" data-act="scan-receipt">Scan receipt</button>' : ''}<button class="btn primary sm" data-act="add-food">New food</button></span></div>
   <p class="lede">Set a price once and it applies to every day you logged that food. Use an offer when a price was different on one day.</p>
+  ${rcOk() ? `<div style="margin-top:14px;max-width:640px">${dropzone('receipt')}</div>` : ''}
   <div class="notice" id="unp" role="status"${c.un ? '' : ' hidden'}>${IC.info}<div id="unp-t">${unpText(c.un)}</div></div>
   <datalist id="catlist">${[...new Set([...DEFAULT_CATS, ...[...IDX.meta.keys()].map(catOf)])].filter(k => k !== 'Uncategorized').sort().map(k => `<option value="${esc(k)}"></option>`).join('')}</datalist>
   <div class="cols" style="margin-top:24px">
@@ -1431,6 +1433,7 @@ function render() {
   document.body.classList.remove('drawer-open');
   const shell = hasData() || (S.tab === 'admin' && window.MealSync && MealSync.admin) || S.tab === 'more';
   $('#app').innerHTML = shell ? appView() : importView();
+  if ($('#goalform') && typeof goalsCheck === 'function') goalsCheck();
   { const sc = $('#scroller'); if (sc && keep) sc.scrollTop = keep; }
   document.title = (hasData() ? tabLbl(S.tab) + ' | ' : '') + 'Meal cost calculator | Coach Leonidas';
 }
@@ -1519,11 +1522,7 @@ function openImportChoice(nDays, overlap) {
     </div></div>`;
   if (!dlg.open) dlg.showModal();
 }
-async function handleFile(file) {
-  if (!file) return;
-  if (file.size > 30e6) { S.error = 'This file is larger than 30 MB. Export a shorter date range from Cronometer.'; render(); return; }
-  try { importText(await file.text()); } catch (e) { S.error = 'Could not read this file.'; render(); }
-}
+async function handleFile(file) { return importFile(file); }
 
 /* sample data */
 function loadSample() {
@@ -2307,9 +2306,7 @@ document.addEventListener('change', e => {
   else if (t.id === 'file') { handleFile(t.files[0]); t.value = ''; }
   else if (t.id === 'pfile') { restore(t.files[0]); t.value = ''; }
 });
-window.addEventListener('dragover', e => { e.preventDefault(); const d = $('#drop'); if (d) d.classList.add('over'); });
-window.addEventListener('dragleave', () => { const d = $('#drop'); if (d) d.classList.remove('over'); });
-window.addEventListener('drop', e => { e.preventDefault(); const d = $('#drop'); if (d) d.classList.remove('over'); const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) handleFile(f); });
+/* drag and drop is handled in importer.js */
 document.addEventListener('submit', e => { if (e.target.id === 'mform') { e.preventDefault(); saveMeal(); } else if (e.target.id === 'refform') { e.preventDefault(); const q = $('#refq').value.trim(); if (q.length >= 2) refLookup(q); } });
 window.addEventListener('hashchange', route);
 window.addEventListener('pagehide', () => { if (!window.__mcNoSave) saveAll(); });

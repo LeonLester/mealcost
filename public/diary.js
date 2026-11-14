@@ -189,7 +189,7 @@ function diaryView() {
   </div>
   ${dayStrip(day)}
   <div class="cols dz-cols">
-    <div class="main2">${es.length ? '' : `<p class="muted dz-empty">${S.entries.length ? 'Nothing logged on this day yet.' : 'Nothing is logged yet.'} Add a food, or copy a day from earlier.</p>`}${shown.map(([g, l], i) => mealSection(g, l, day, { first: i === 0, last: i === shown.length - 1 })).join('')}${hidden.length ? `<div class="dz-hiddenrow"><span class="muted">Add to</span>${hidden.map(([g]) => `<button type="button" class="chip" data-act="log-food" data-date="${day}" data-group="${esc(g)}">${esc(g)}</button>`).join('')}</div>` : ''}${S.arrange ? '<p class="muted dz-hint" style="display:block">Use the arrows to change the order. Tap Done in Options when you are finished.</p>' : ''}${es.length ? '<p class="muted dz-hint">Tap a food to edit it. Swipe left to delete. Tap a price to change it for this day only.</p>' : ''}</div>
+    <div class="main2">${es.length ? '' : `<p class="muted dz-empty">${S.entries.length ? 'Nothing logged on this day yet.' : 'Nothing is logged yet.'} Add a food, or copy a day from earlier.</p>${S.entries.length ? '' : dropzone('food')}`}${shown.map(([g, l], i) => mealSection(g, l, day, { first: i === 0, last: i === shown.length - 1 })).join('')}${hidden.length ? `<div class="dz-hiddenrow"><span class="muted">Add to</span>${hidden.map(([g]) => `<button type="button" class="chip" data-act="log-food" data-date="${day}" data-group="${esc(g)}">${esc(g)}</button>`).join('')}</div>` : ''}${S.arrange ? '<p class="muted dz-hint" style="display:block">Use the arrows to change the order. Tap Done in Options when you are finished.</p>' : ''}${es.length ? '<p class="muted dz-hint">Tap a food to edit it. Swipe left to delete. Tap a price to change it for this day only.</p>' : ''}</div>
     <aside class="side dz-side">
       ${summaryCard(tot, costCard(day, es, sm, names, bad))}
       ${nutrientsCard(tot)}
@@ -208,14 +208,9 @@ function goalsView() {
   <div class="gl-cols">
     <form id="goalform" class="card pad" novalidate>
       <h2 style="font-size:17px">Targets</h2>
-      <div class="gl-grid">
-        ${fld('gk', 'Energy', g.kcal, 'kcal')}
-        ${fld('gp', 'Protein', g.pro, 'g')}
-        ${fld('gc', 'Carbs', g.carb, 'g')}
-        ${fld('gf', 'Fat', g.fat, 'g')}
-        ${fld('gb', 'Fiber', g.fiber, 'g')}
-      </div>
-      <p class="muted" id="gcheck" aria-live="polite" style="font-size:14px;margin-top:12px"></p>
+      ${glEnergyHtml(g)}
+      <div class="gl-macros">${glRowHtml('pro', 'gp', 'Protein', g)}${glRowHtml('carb', 'gc', 'Carbs', g)}${glRowHtml('fat', 'gf', 'Fat', g)}${glRowHtml('fiber', 'gb', 'Fiber', g)}</div>
+      <div class="gl-check" id="gcheck" aria-live="polite"></div>
       <details class="gl-more"><summary>Limits and other targets</summary>
         <p class="muted" style="font-size:14px;margin-top:8px">Leave a box empty to use the common reference shown. These show in Diary under All nutrients.</p>
         <div class="gl-grid">${NUT_X.map(n => fld('gx-' + n.k, n.n + (n.kind === 'limit' ? ' (limit)' : ''), g.x && g.x[n.k] ? g.x[n.k] : '', n.u, 'Reference ' + n.def + ' ' + n.u)).join('')}</div>
@@ -244,18 +239,111 @@ function goalsView() {
     </div>
   </div>`;
 }
-function goalsCheck() {
-  const v = id => num(($('#' + id) || {}).value), k = v('gk'), p = v('gp'), c = v('gc'), f = v('gf'), el = $('#gcheck');
-  if (!el) return;
-  const e = p * 4 + c * 4 + f * 9;
-  el.textContent = k > 0 && e > 0 ? `Protein, carbs and fat add up to ${n0(e)} kcal${Math.abs(e - k) / k > 0.08 ? `, ${e > k ? n0(e - k) + ' above' : n0(k - e) + ' below'} your energy target.` : '. That matches your energy target.'}` : '';
+/* ---------- linked targets: energy and macros follow each other ---------- */
+const GL_CAL = { pro: 4, carb: 4, fat: 9 };
+const GL_MODES = {
+  pro: [['g', 'g'], ['pct', '% of energy'], ['kg', 'g per kg'], ['rest', 'the rest']], carb: [['g', 'g'], ['pct', '% of energy'], ['kg', 'g per kg'], ['rest', 'the rest']],
+  fat: [['g', 'g'], ['pct', '% of energy'], ['kg', 'g per kg'], ['rest', 'the rest']], fiber: [['g', 'g'], ['per1000', 'g per 1,000 kcal']],
+};
+function glEnergyHtml(g) {
+  return `<div class="gl-energy"><div class="gl-f"><label for="gk">Energy</label><div class="gl-in"><input class="field" id="gk" inputmode="decimal" value="${esc(g.kcal ?? '')}" autocomplete="off"><span>kcal</span></div></div>
+    <label class="cmp gl-sum"><input type="checkbox" id="gk-sum"${g.kmode === 'sum' ? ' checked' : ''}><span>Add up from my macros</span></label></div>`;
 }
+function glRowHtml(key, id, label, g) {
+  const mode = (g.m && g.m[key]) || 'g', val = mode === 'rest' ? '' : (g.v && key in g.v ? g.v[key] : g[key]);
+  return `<div class="gl-mrow gl-f" data-k="${key}"><label for="${id}">${label}</label><div class="gl-in"><input class="field" id="${id}" inputmode="decimal" value="${esc(val ?? '')}" autocomplete="off"${mode === 'rest' ? ' readonly' : ''}>
+    <select class="field" id="${id}-m" data-prev="${mode}" aria-label="${label} target type">${GL_MODES[key].map(([v, n]) => `<option value="${v}"${v === mode ? ' selected' : ''}>${n}</option>`).join('')}</select></div><small class="muted" id="${id}-h"></small></div>`;
+}
+const GL_IDS = { pro: 'gp', carb: 'gc', fat: 'gf', fiber: 'gb' };
+function glBody() {
+  const cw = $('#cw'), w = cw ? wParse(cw.value) : 0;
+  return w > 0 ? w : (S.goals && S.goals.profile && S.goals.profile.kg) || (S.weights.length ? S.weights[S.weights.length - 1].kg : 0);
+}
+// Read the form and work out grams for every macro, whatever way each one is entered.
+function glCompute() {
+  const val = id => num(($('#' + id) || {}).value), sum = !!($('#gk-sum') || {}).checked, bw = glBody();
+  const mode = k => (($('#' + GL_IDS[k] + '-m') || {}).value) || 'g';
+  const out = { pro: 0, carb: 0, fat: 0, fiber: 0, kcal: val('gk'), bw, sum };
+  const fixed = k => mode(k) === 'g' ? val(GL_IDS[k]) : mode(k) === 'kg' ? val(GL_IDS[k]) * bw : null;
+  for (const k of ['pro', 'carb', 'fat']) { const f = fixed(k); if (f != null) out[k] = f; }
+  if (sum) out.kcal = ['pro', 'carb', 'fat'].reduce((a, k) => a + out[k] * GL_CAL[k], 0);
+  let restUsed = false;
+  for (const k of ['pro', 'carb', 'fat']) if (mode(k) === 'pct') out[k] = out.kcal > 0 ? val(GL_IDS[k]) / 100 * out.kcal / GL_CAL[k] : 0;
+  for (const k of ['pro', 'carb', 'fat']) if (mode(k) === 'rest' && !restUsed) { restUsed = true; const others = ['pro', 'carb', 'fat'].filter(x => x !== k).reduce((a, x) => a + out[x] * GL_CAL[x], 0); out[k] = Math.max(0, (out.kcal - others) / GL_CAL[k]); }
+  out.fiber = mode('fiber') === 'per1000' ? val('gb') * out.kcal / 1000 : val('gb');
+  return out;
+}
+const glR = v => Math.round(v * 10) / 10;
+function goalsCheck() {
+  if (!$('#goalform')) return;
+  const c = glCompute(), el = $('#gcheck'), sum = c.sum;
+  const kEl = $('#gk'); if (kEl) { kEl.readOnly = sum; if (sum) kEl.value = c.kcal > 0 ? String(Math.round(c.kcal)) : ''; }
+  // pct and rest need a fixed energy; they cannot be used while energy is added up from the macros
+  for (const k of ['pro', 'carb', 'fat']) { const m = $('#' + GL_IDS[k] + '-m'); if (m) [...m.options].forEach(o => { o.disabled = (o.value === 'pct' || o.value === 'rest') && sum || (o.value === 'kg' && !(c.bw > 0)); }); }
+  const fm = $('#gb-m'); if (fm) [...fm.options].forEach(o => { o.disabled = o.value === 'per1000' && sum; });
+  for (const k of ['pro', 'carb', 'fat', 'fiber']) {
+    const id = GL_IDS[k], inp = $('#' + id), mode = (($('#' + id + '-m') || {}).value) || 'g', h = $('#' + id + '-h'); if (!inp || !h) continue;
+    inp.readOnly = mode === 'rest'; if (mode === 'rest') inp.value = '';
+    const g = c[k], bits = [];
+    if (mode !== 'g') bits.push(`${n0(g)} g`);
+    if (k !== 'fiber' && mode !== 'pct' && c.kcal > 0) bits.push(`${Math.round(g * GL_CAL[k] / c.kcal * 100)}% of energy`);
+    if (mode !== 'kg' && c.bw > 0 && k !== 'fiber') bits.push(`${glR(g / c.bw)} g per kg`);
+    if (k === 'fiber' && mode !== 'per1000' && c.kcal > 0) bits.push(`${glR(g / c.kcal * 1000)} g per 1,000 kcal`);
+    h.textContent = bits.join(' · ');
+  }
+  if (!el) return;
+  const e = c.pro * 4 + c.carb * 4 + c.fat * 9;
+  if (!(c.kcal > 0) || !(e > 0)) { el.innerHTML = ''; return; }
+  const off = Math.abs(e - c.kcal) / c.kcal > 0.04;
+  const canScale = !c.sum && ['pro', 'carb', 'fat'].some(k => ['g', 'kg'].includes((($('#' + GL_IDS[k] + '-m') || {}).value) || 'g'));
+  el.innerHTML = off
+    ? `<p>Protein, carbs and fat add up to <b>${n0(e)} kcal</b>, ${e > c.kcal ? n0(e - c.kcal) + ' above' : n0(c.kcal - e) + ' below'} your energy target.</p><div class="gl-fix">${!c.sum ? `<button type="button" class="btn sm" data-act="gl-set-kcal">Set energy to ${n0(e)} kcal</button>` : ''}${canScale ? `<button type="button" class="btn sm" data-act="gl-scale">Scale macros to ${n0(c.kcal)} kcal</button>` : ''}</div>`
+    : `<p>Protein, carbs and fat add up to ${n0(e)} kcal. That matches your energy target.</p>`;
+}
+// Changing how a macro is entered keeps its grams the same, so the target does not jump.
+function glModeChange(sel) {
+  const key = Object.keys(GL_IDS).find(k => GL_IDS[k] + '-m' === sel.id); if (!key) return;
+  const prev = sel.dataset.prev, now = sel.value, id = GL_IDS[key];
+  sel.value = prev; const before = glCompute(); sel.value = now; sel.dataset.prev = now;
+  const grams = before[key], inp = $('#' + id);
+  if (now === 'g') inp.value = glR(grams);
+  else if (now === 'pct') inp.value = before.kcal > 0 ? glR(grams * GL_CAL[key] / before.kcal * 100) : '';
+  else if (now === 'kg') inp.value = before.bw > 0 ? Math.round(grams / before.bw * 100) / 100 : '';
+  else if (now === 'per1000') inp.value = before.kcal > 0 ? glR(grams / before.kcal * 1000) : '';
+  else if (now === 'rest') inp.value = '';
+  goalsCheck();
+}
+function glSumToggle() {
+  if ($('#gk-sum').checked) {
+    $('#gk-sum').checked = false; const c = glCompute(); $('#gk-sum').checked = true;
+    for (const k of ['pro', 'carb', 'fat']) { const m = $('#' + GL_IDS[k] + '-m'); if (m && (m.value === 'pct' || m.value === 'rest')) { $('#' + GL_IDS[k]).value = glR(c[k]); m.value = 'g'; m.dataset.prev = 'g'; } }
+    const fm = $('#gb-m'); if (fm && fm.value === 'per1000') { $('#gb').value = glR(c.fiber); fm.value = 'g'; fm.dataset.prev = 'g'; }
+  }
+  goalsCheck();
+}
+// Energy that fits the macros. Percent macros move with energy, so solve for the point where they all add up.
+function glSetKcal() {
+  const c = glCompute(), mode = k => (($('#' + GL_IDS[k] + '-m') || {}).value) || 'g';
+  let fixed = 0, pct = 0;
+  for (const k of ['pro', 'carb', 'fat']) { if (mode(k) === 'pct') pct += num($('#' + GL_IDS[k]).value) / 100; else fixed += c[k] * GL_CAL[k]; }
+  const kcal = pct < 0.99 ? fixed / (1 - pct) : c.pro * 4 + c.carb * 4 + c.fat * 9;
+  $('#gk').value = Math.round(kcal); goalsCheck();
+}
+function glScale() {
+  const c = glCompute(), e = c.pro * 4 + c.carb * 4 + c.fat * 9; if (!(e > 0) || !(c.kcal > 0)) return;
+  const f = c.kcal / e;
+  for (const k of ['pro', 'carb', 'fat']) { const m = $('#' + GL_IDS[k] + '-m'); if (m && (m.value === 'g' || m.value === 'kg')) { const inp = $('#' + GL_IDS[k]); inp.value = m.value === 'kg' ? Math.round(num(inp.value) * f * 100) / 100 : Math.round(num(inp.value) * f); } }
+  goalsCheck();
+}
+function glReset() { for (const k of ['pro', 'carb', 'fat', 'fiber']) { const m = $('#' + GL_IDS[k] + '-m'); if (m) { m.value = 'g'; m.dataset.prev = 'g'; } } const s = $('#gk-sum'); if (s) s.checked = false; }
 function readProfile() {
   const v = id => ($('#' + id) || {}).value;
   return { sex: v('cs'), age: num(v('ca')), cm: num(v('ch')), kg: wParse(v('cw')), act: v('cact'), goal: v('cgoal') };
 }
 function saveGoals() {
-  const v = id => num(($('#' + id) || {}).value), g = { kcal: v('gk'), pro: v('gp'), carb: v('gc'), fat: v('gf'), fiber: v('gb'), x: {}, profile: (S.goals && S.goals.profile) || null };
+  const c = glCompute(), v = id => num(($('#' + id) || {}).value), modes = {}, vals = {};
+  for (const k of ['pro', 'carb', 'fat', 'fiber']) { modes[k] = (($('#' + GL_IDS[k] + '-m') || {}).value) || 'g'; vals[k] = modes[k] === 'rest' ? '' : v(GL_IDS[k]); }
+  const g = { kcal: Math.round(c.kcal), pro: Math.round(c.pro), carb: Math.round(c.carb), fat: Math.round(c.fat), fiber: Math.round(c.fiber), kmode: c.sum ? 'sum' : 'set', m: modes, v: vals, x: {}, profile: (S.goals && S.goals.profile) || null };
   for (const n of NUT_X) { const x = v('gx-' + n.k); if (x > 0) g.x[n.k] = x; }
   const pr = readProfile(); if (pr.age > 0 || pr.cm > 0 || pr.kg > 0) g.profile = pr;
   if (!(g.kcal > 0)) { toast('Enter an energy target first'); return; }
@@ -341,6 +429,8 @@ function openServing(name) {
 function diaryAct(a, d) {
   switch (a) {
     case 'serving-size': openServing(d.name); return true;
+    case 'gl-set-kcal': glSetKcal(); return true;
+    case 'gl-scale': glScale(); return true;
     case 'meal-fold': { const f = mealPref.fold, i = f.indexOf(d.key); if (i < 0) f.push(d.key); else f.splice(i, 1); store.set('mfold', f); render(); return true; }
     case 'meal-hide-empty': S.hideEmpty = !mealPref.hideEmpty; store.set('hideEmpty', S.hideEmpty); render(); return true;
     case 'meal-arrange': S.arrange = !S.arrange; render(); return true;
@@ -359,7 +449,7 @@ function diaryAct(a, d) {
     }
     case 'goals-use': {
       const p = JSON.parse(d.plan); const set = (id, v) => { $('#' + id).value = v; };
-      set('gk', p.kcal); set('gp', p.pro); set('gc', p.carb); set('gf', p.fat); set('gb', p.fiber); goalsCheck(); toast('Filled in. Press Save goals to keep them.'); return true;
+      glReset(); set('gk', p.kcal); set('gp', p.pro); set('gc', p.carb); set('gf', p.fat); set('gb', p.fiber); goalsCheck(); toast('Filled in. Press Save goals to keep them.'); return true;
     }
     case 'wunit': S.wunit = d.v; saveAll(); render(); return true;
     case 'log-weight': openWeight(); return true;
@@ -375,7 +465,8 @@ function diaryAct(a, d) {
   }
   return false;
 }
-document.addEventListener('input', e => { if (e.target.closest && e.target.closest('#goalform')) goalsCheck(); });
+document.addEventListener('input', e => { const t = e.target; if (!t.closest || !t.closest('#goalform, #calc') || t.tagName === 'SELECT' || t.type === 'checkbox') return; goalsCheck(); });
+document.addEventListener('change', e => { const t = e.target; if (!t || !t.closest || !t.closest('#goalform')) return; if (t.id === 'gk-sum') glSumToggle(); else if (/^g[pcfb]-m$/.test(t.id)) glModeChange(t); });
 document.addEventListener('submit', e => { if (e.target.id === 'goalform') { e.preventDefault(); saveGoals(); } });
 document.addEventListener('change', e => { if (e.target.id === 'daypick' && /^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) { S.day = e.target.value; render(); } });
 
@@ -425,7 +516,7 @@ function progressView() {
 
 function weightView() {
   const ws = S.weights, wu = S.wunit;
-  const head = `<div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Weight</h1><button class="btn primary" data-act="log-weight">Log weight</button></div>`;
+  const head = `<div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Weight</h1><button class="btn primary" data-act="log-weight">Log weight</button></div><div style="margin-top:14px;max-width:640px">${dropzone('weight')}</div>`;
   if (!ws.length) return head + `<div class="card pad" style="margin-top:18px;max-width:560px"><h2 style="font-size:17px">No weigh-ins yet</h2><p class="muted" style="margin-top:8px">Log your weight to see the trend next to what you eat. It stays on this device unless you sign in to sync.</p></div>`;
   const first = ws[0], last = ws[ws.length - 1], ch = last.kg - first.kg;
   const W = 640, H = 210, pl = 40, pr = 10, pt = 12, pb = 26, t0 = dObj(first.date).getTime(), t1 = Math.max(dObj(last.date).getTime(), t0 + 864e5 * 6);

@@ -1087,3 +1087,29 @@ dialog.sheet::backdrop{background:rgba(0,0,0,.5)}
 .dz-hiddenrow .chip{min-height:34px;padding:4px 12px;font-size:13px}
 
 .dz-size{display:inline;min-height:0;padding:0 0 0 8px;font-size:12px;font-weight:600;text-decoration:underline}
+
+/* drop areas */
+.dropz{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border:2px dashed var(--field);border-radius:16px;background:color-mix(in srgb,var(--brand) 4%,transparent);cursor:pointer;color:var(--ink)}
+.dropz:hover,.dropz.over{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 11%,transparent)}
+.dropz:focus-within{outline:3px solid var(--ink);outline-offset:2px}
+.dz-ic{display:flex;color:var(--brand);flex:none}
+.dz-t{display:flex;flex-direction:column;min-width:0;flex:1}
+.dz-t b{font-weight:600;font-size:15px}.dz-t small{color:var(--muted);font-size:13px;line-height:1.35}
+.dz-pick{flex:none;font-size:14px;font-weight:600;color:var(--brand);text-decoration:underline}
+.dz-empty+.dropz{margin-bottom:12px}
+#dropveil{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;background:color-mix(in srgb,var(--paper) 82%,transparent);backdrop-filter:blur(3px);pointer-events:none}
+#dropveil.on{display:flex}
+#dropveil>div{display:flex;flex-direction:column;align-items:center;gap:8px;padding:36px 48px;border:3px dashed var(--brand);border-radius:24px;background:var(--paper);color:var(--brand);text-align:center}
+#dropveil b{font-size:22px;color:var(--ink)}#dropveil span{color:var(--muted);font-size:14px}
+@media (max-width:640px){.dropz{padding:12px}.dz-pick{display:none}}
+
+/* linked goals */
+.gl-energy{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 18px;margin-top:12px}
+.gl-energy .gl-f{flex:1 1 200px;max-width:320px}
+.gl-sum{margin:0 0 6px}
+.gl-macros{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-top:16px}
+.gl-in select.field{width:auto;flex:none;max-width:52%;padding:0 8px}
+.gl-in input[readonly]{background:transparent;border-style:dashed;color:var(--muted)}
+.gl-mrow small{display:block;min-height:18px;margin-top:4px;font-size:12px}
+.gl-check{font-size:14px;margin-top:12px}
+.gl-fix{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
