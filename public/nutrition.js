@@ -88,3 +88,16 @@ function energyPlan(p) {
 const KG_LB = 2.2046226;
 function wShow(kg) { return S.wunit === 'lb' ? Math.round(kg * KG_LB * 10) / 10 : Math.round(kg * 10) / 10; }
 function wParse(v) { const n = Number(String(v).replace(',', '.')); return n > 0 ? (S.wunit === 'lb' ? n / KG_LB : n) : 0; }
+
+// Goals can arrive from a backup or a synced account, so only keep known numeric fields.
+function cleanGoals(g) {
+  if (!g || typeof g !== 'object') return null;
+  const n = (v, max) => { const x = Number(v); return Number.isFinite(x) && x >= 0 && x <= max ? x : 0; };
+  const out = { kcal: n(g.kcal, 20000), pro: n(g.pro, 1500), carb: n(g.carb, 3000), fat: n(g.fat, 1500), fiber: n(g.fiber, 500), x: {}, profile: null };
+  if (!(out.kcal > 0)) return null;
+  const gx = g.x && typeof g.x === 'object' ? g.x : {};
+  for (const m of NUT_X) { const v = Object.prototype.hasOwnProperty.call(gx, m.k) ? n(gx[m.k], 1e6) : 0; if (v > 0) out.x[m.k] = v; }
+  const p = g.profile;
+  if (p && typeof p === 'object') out.profile = { sex: p.sex === 'f' ? 'f' : 'm', age: n(p.age, 120), cm: n(p.cm, 260), kg: n(p.kg, 500), act: ACTIVITY.some(a => a[0] === String(p.act)) ? String(p.act) : '1.375', goal: GOAL_KIND.some(a => a[0] === p.goal) ? p.goal : 'maintain' };
+  return out;
+}

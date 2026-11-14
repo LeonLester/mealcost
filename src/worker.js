@@ -25,6 +25,8 @@ function setCookie(url, name, value, maxAge) {
   return `${name}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
 }
 
+// Compare secrets without leaking where they differ.
+const same = (a, b) => { a = String(a || ''); b = String(b || ''); let d = a.length ^ b.length; for (let i = 0; i < Math.max(a.length, b.length); i++) d |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0); return d === 0; };
 const bearer = (req) => { const m = /^Bearer\s+([A-Za-z0-9_-]{20,})$/.exec(req.headers.get('authorization') || ''); return m ? m[1] : null; };
 // The Android app runs on its own origin, so it calls the API with a bearer token and needs CORS.
 function corsFor(req) {
@@ -34,8 +36,10 @@ function corsFor(req) {
     : null;
 }
 function withCors(res, req) {
-  const h = corsFor(req); if (!h) return res;
-  const out = new Response(res.body, res); for (const [k, v] of Object.entries(h)) out.headers.set(k, v); return out;
+  // The allowed origin varies per caller, so shared caches must key on it.
+  const h = corsFor(req); const out = new Response(res.body, res); out.headers.append('vary', 'Origin');
+  if (h) for (const [k, v] of Object.entries(h)) out.headers.set(k, v);
+  return out;
 }
 
 async function sessionUser(req, env) {
@@ -50,7 +54,7 @@ async function sessionUser(req, env) {
 function sameSiteWrite(req, url) {
   if (bearer(req)) return req.headers.get('x-requested-with') === 'mealcost';
   const origin = req.headers.get('origin');
-  if (origin) { const h = new URL(origin).host; if (h !== url.host && h !== new URL(req.url).host) return false; }
+  if (origin) { let h; try { h = new URL(origin).host; } catch { return false; } if (h !== url.host && h !== new URL(req.url).host) return false; }
   return req.headers.get('x-requested-with') === 'mealcost';
 }
 
@@ -94,7 +98,7 @@ async function finishLogin(req, env, url) {
   if (url.searchParams.get('error')) return fail('cancelled');
   const saved = (cookies(req).mc_o || '').split('.');
   const [state, verifier, appC] = saved;
-  if (!state || !verifier || state !== url.searchParams.get('state')) return fail('state');
+  if (!state || !verifier || !same(state, url.searchParams.get('state'))) return fail('state');
   const code = url.searchParams.get('code');
   if (!code) return fail('code');
   const res = await fetch(googleUrls(env).token, {
@@ -222,6 +226,7 @@ async function api(req, env, url) {
   if (path === '/api/sync' && req.method === 'PUT') {
     const base = Number(url.searchParams.get('base'));
     if (!Number.isInteger(base) || base < 0) return json({ error: 'bad_base' }, 400);
+    if (Number(req.headers.get('content-length')) > MAX_BODY) return json({ error: 'too_large' }, 413);
     const body = new Uint8Array(await req.arrayBuffer());
     if (!body.length) return json({ error: 'empty' }, 400);
     if (body.length > MAX_BODY) return json({ error: 'too_large' }, 413);

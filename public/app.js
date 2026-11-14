@@ -15,17 +15,20 @@ const store = {
 };
 
 const CURRENCIES = ['EUR', 'USD', 'GBP', 'CZK', 'CHF', 'PLN', 'SEK', 'NOK', 'DKK', 'CAD', 'AUD'];
+// Maps keyed by food names must not inherit from Object.prototype: a food called constructor or __proto__ would otherwise collide.
+const NP = o => Object.assign(Object.create(null), o && typeof o === 'object' && !Array.isArray(o) ? o : {});
+const NPD = o => { const r = NP(o); for (const k of Object.keys(r)) r[k] = NP(r[k]); return r; };
 const S = {
   entries: store.get('entries', []),
-  prices: store.get('prices', {}),
-  overrides: store.get('overrides', {}),
+  prices: NP(store.get('prices', {})),
+  overrides: NPD(store.get('overrides', {})),
   currency: store.get('currency', 'EUR'),
   budget: store.get('budget', null),
-  merges: store.get('merges', {}),
+  merges: NP(store.get('merges', {})),
   nomerge: store.get('nomerge', []),
   sort: store.get('sort', 'freq'), flip: store.get('flip', false),
-  cats: store.get('cats', {}), ranges: store.get('ranges', []), recipes: store.get('recipes', {}), meals: store.get('meals', {}), foods: store.get('foods', {}), started: store.get('started', false), tview: store.get('tview', 'cost'), vmacro: store.get('vmacro', 'pro'), vall: false, open: new Set(), grain: store.get('grain', 'week'), trange: store.get('trange', 90),
-  goals: store.get('goals', null), weights: store.get('weights', []), wunit: store.get('wunit', 'kg'),
+  cats: NP(store.get('cats', {})), ranges: store.get('ranges', []), recipes: NP(store.get('recipes', {})), meals: NP(store.get('meals', {})), foods: NP(store.get('foods', {})), started: store.get('started', false), tview: store.get('tview', 'cost'), vmacro: store.get('vmacro', 'pro'), vall: false, open: new Set(), grain: store.get('grain', 'week'), trange: store.get('trange', 90),
+  goals: cleanGoals(store.get('goals', null)), weights: store.get('weights', []), wunit: store.get('wunit', 'kg'),
   pa: null, cfrom: '', cto: '', tab: 'day', day: null, cat: '', range: 7, filter: '', chip: 'all', showAll: false, error: ''
 };
 if (!CURRENCIES.includes(S.currency)) S.currency = 'EUR';
@@ -1589,7 +1592,7 @@ function loadSample() {
   const prices = { [egg[0]]: { price: 0.32, basis: 'unit', gpu: '' } };
   for (const k in F) prices[F[k][0]] = { price: F[k][2], basis: 'kg', gpu: '' };
   Object.assign(S.prices, prices);
-  S.overrides[today] = { 'Chicken breast, raw': 6.99 };
+  S.overrides[today] = NP({ 'Chicken breast, raw': 6.99 });
   S.ranges.push({ id: 'sample-r1', name: 'Olive oil, extra virgin', from: isoAdd(today, -9), to: isoAdd(today, -5), price: 8.5 });
   indexRanges();
   S.goals = { kcal: 2500, pro: 170, carb: 280, fat: 75, fiber: 30, x: {}, profile: null };
@@ -1638,7 +1641,7 @@ function openOffer(date, name, id) {
     if (m === 'range' && (!iso.test(t) || t < f)) { $('#oerr').textContent = 'Choose a last day that is the same as or after the first day.'; $('#ot').focus(); return; }
     if (v === '' || !Number.isFinite(Number(v)) || Number(v) < 0) { $('#oerr').textContent = 'Enter a price, for example 4.50.'; $('#op').focus(); return; }
     if (rg) S.ranges = S.ranges.filter(r => r.id !== rg.id);
-    if (m === 'day') (S.overrides[f] = S.overrides[f] || {})[n] = Number(v);
+    if (m === 'day') (S.overrides[f] = S.overrides[f] || NP())[n] = Number(v);
     else S.ranges.push({ id: Math.random().toString(36).slice(2, 9), name: n, from: f, to: m === 'range' ? t : '', price: Number(v) });
     indexRanges(); saveAll(); dlg.close();
     if (IDX.byDate.has(f)) S.day = f;
@@ -2047,7 +2050,7 @@ async function restore(file) {
     }
     for (const [dt, o] of Object.entries(d.overrides || {})) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dt) || !o || typeof o !== 'object') continue;
-      for (const [n, v] of Object.entries(o)) if (Number.isFinite(Number(v)) && Number(v) >= 0) (S.overrides[dt] = S.overrides[dt] || {})[n] = Number(v);
+      for (const [n, v] of Object.entries(o)) if (Number.isFinite(Number(v)) && Number(v) >= 0) (S.overrides[dt] = S.overrides[dt] || NP())[n] = Number(v);
     }
     for (const r of Array.isArray(d.ranges) ? d.ranges : []) {
       if (!r || typeof r.name !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.from) || (r.to && !/^\d{4}-\d{2}-\d{2}$/.test(r.to)) || !Number.isFinite(Number(r.price))) continue;
@@ -2070,7 +2073,7 @@ async function restore(file) {
     }
     for (const [a, b] of Object.entries(d.cats && typeof d.cats === 'object' ? d.cats : {})) if (typeof b === 'string' && b.trim()) S.cats[a] = b.trim();
     for (const [a, b] of Object.entries(d.merges || {})) if (typeof b === 'string' && a !== b && b) S.merges[a] = b;
-    if (d.goals && typeof d.goals === 'object') S.goals = d.goals;
+    { const cg = cleanGoals(d.goals); if (cg) S.goals = cg; }
     if (Array.isArray(d.weights)) { const m = new Map(S.weights.map(w => [w.date, w])); for (const w of d.weights) if (w && /^\d{4}-\d{2}-\d{2}$/.test(w.date) && Number(w.kg) > 0) m.set(w.date, { date: w.date, kg: Number(w.kg) }); S.weights = [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1); }
     if (d.wunit === 'lb' || d.wunit === 'kg') S.wunit = d.wunit;
     if (CURRENCIES.includes(d.currency)) S.currency = d.currency;
@@ -2244,7 +2247,7 @@ document.addEventListener('click', e => {
     case 'restore': $('#pfile').click(); break;
     case 'reset':
       if (confirm('Delete all entries, prices, foods and meals from this device? This cannot be undone.')) {
-        store.clear(); S.entries = []; S.prices = {}; S.overrides = {}; S.merges = {}; S.nomerge = []; S.ranges = []; S.recipes = {}; S.meals = {}; S.foods = {}; S.started = false; MB.draft = null; MB.cmp = []; S.cats = {}; S.goals = null; S.weights = []; S.wunit = 'kg'; S.prange = 7; indexRanges(); S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
+        store.clear(); S.entries = []; S.prices = NP(); S.overrides = NP(); S.merges = NP(); S.nomerge = []; S.ranges = []; S.recipes = NP(); S.meals = NP(); S.foods = NP(); S.started = false; MB.draft = null; MB.cmp = []; S.cats = {}; S.goals = null; S.weights = []; S.wunit = 'kg'; S.prange = 7; indexRanges(); S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
         history.replaceState(null, '', location.pathname); S.tab = 'day'; render(); toast('All data deleted');
       }
       break;
