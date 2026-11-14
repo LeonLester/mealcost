@@ -211,6 +211,14 @@ try:
         pm.click('[data-act="unmerge"]'); pm.wait_for_timeout(200)
         check('undo restores the separate food', pm.evaluate("window.__mealcost.IDX().meta.size") == n_before)
         check('undo restores the total cost', pm.evaluate("window.__mealcost.summarize(window.__mealcost.S.entries).cost") == cost_before)
+        # typical prices lookup (service mocked)
+        pm.route('**/api/ref-prices**', lambda r: r.fulfill(status=200, content_type='application/json', body='{"results":[{"source":"Open Prices","name":"Chicken breast (Acme)","perKg":9.4,"currency":"EUR","n":5,"date":"2026-10-01"},{"source":"BLS US average","name":"Eggs","perUnit":0.3,"currency":"USD","date":"October 2026"}],"notes":[]}'))
+        pm.goto(BASE + '#prices'); pm.wait_for_selector('#refq')
+        pm.fill('#refq', 'chicken'); pm.click('#refform button'); pm.wait_for_selector('#refcard [data-act=ref-use]')
+        check('lookup lists prices with a source', 'Open Prices' in pm.inner_text('#refcard') and '9.40' in pm.inner_text('#refcard'))
+        check('only same-currency per-kg prices can be applied', pm.locator('#refcard [data-act=ref-use]').count() == 1)
+        pm.fill('#refto', 'Cottage cheese'); pm.click('#refcard [data-act=ref-use]'); pm.wait_for_timeout(200)
+        check('applying sets the food price per kg', pm.evaluate("JSON.stringify(window.__mealcost.S.prices['Cottage cheese'])").startswith('{"price":9.4,"basis":"kg"'))
         pm.close()
 
         # restoring a price backup before any data is loaded

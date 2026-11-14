@@ -892,6 +892,32 @@ function counts() {
   const offers = offerCounts().size;
   return { all, un, offers };
 }
+
+function refCard() {
+  const r = S.ref || {}, usd = S.currency === 'USD';
+  const rows = (r.res || []).map((o, i) => {
+    const v = o.perKg != null ? `${o.currency} ${o.perKg.toFixed(2)} per kg` : o.perUnit != null ? `${o.currency} ${o.perUnit.toFixed(2)} per item` : `${o.currency} ${o.perLitre.toFixed(2)} per litre`;
+    const ok = o.perKg != null && o.currency === S.currency;
+    return `<div style="padding:12px 0;border-top:1px solid var(--line2)"><div style="font-size:14px;overflow-wrap:anywhere">${esc(o.name)}</div><div class="muted" style="font-size:13px">${esc(o.source)}${o.n ? `, ${o.n} prices` : ''}${o.date ? `, ${esc(String(o.date).slice(0, 10))}` : ''}</div><div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:4px"><b>${v}</b>${ok ? `<button class="btn link" data-act="ref-use" data-i="${i}">Use as my price</button>` : ''}</div></div>`;
+  }).join('');
+  return `<div class="card" style="padding:24px 24px 16px" id="refcard">
+    <h2 style="font-size:17px">Typical prices</h2>
+    <p class="muted" style="margin-top:8px;font-size:14px">Look up what a food usually costs. Only the search words are sent. ${usd ? 'US averages come from the Bureau of Labor Statistics.' : 'Prices come from Open Prices, shared by shoppers, in your currency.'}</p>
+    <form id="refform" style="display:flex;gap:8px;margin-top:12px"><input class="field" id="refq" style="flex:1;min-width:0" aria-label="Food to look up" placeholder="For example chicken breast" value="${esc(r.q || '')}"><button class="btn primary sm" type="submit">Look up</button></form>
+    ${r.res && r.res.length ? `<label class="muted" style="display:block;font-size:13px;margin-top:12px">Apply to <input class="field" id="refto" list="reflist" style="width:100%;margin-top:4px" placeholder="Pick one of your foods" value="${esc(r.to || '')}"></label><datalist id="reflist">${[...IDX.meta.keys()].sort().map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>` : ''}
+    <div style="margin-top:8px" role="status">${r.busy ? '<p class="muted" style="font-size:14px">Looking up prices</p>' : r.err ? `<p style="font-size:14px">${esc(r.err)}</p>` : r.res ? (rows || '<p class="muted" style="font-size:14px">No prices found. Try a simpler name, or a barcode food.</p>') : ''}${(r.notes || []).map(n => `<p class="muted" style="font-size:13px">${esc(n)}</p>`).join('')}</div>
+  </div>`;
+}
+async function refLookup(q) {
+  S.ref = { q, busy: true, to: (S.ref || {}).to }; render();
+  const base = window.MealNative && MealNative.isNative ? 'https://mealcost.coachleonidas.com' : '';
+  try {
+    const r = await fetch(`${base}/api/ref-prices?q=${encodeURIComponent(q)}&cur=${S.currency}`);
+    if (!r.ok) throw 0; const j = await r.json();
+    S.ref = { q, res: j.results || [], notes: j.notes || [], to: (S.ref || {}).to };
+  } catch { S.ref = { q, err: 'Could not reach the price service. Check your connection and try again.', to: (S.ref || {}).to }; }
+  render(); const i = $('#refq'); if (i) i.focus();
+}
 function pricesView() {
   const c = counts(), { rows, foot } = priceBodyHtml();
   const offerList = [];
@@ -936,6 +962,7 @@ function pricesView() {
       <p class="muted" style="margin-top:8px;max-width:620px;font-size:13px">Grams per item is only needed when a food is logged one way and priced another, for example eggs logged as items but priced per kg.</p>
     </div>
     <aside class="side">
+      ${refCard()}
       ${(() => {
         const sg = mergeSuggestions();
         return sg.length ? `<div class="card" style="padding:24px 24px 16px">
@@ -2031,6 +2058,11 @@ document.addEventListener('click', e => {
     case 'tview': S.tview = d.v; saveAll(); render(); break;
     case 'vmacro': S.vmacro = d.v; S.vall = false; saveAll(); render(); break;
     case 'vall': S.vall = !S.vall; render(); break;
+    case 'ref-use': {
+      const o = S.ref.res[Number(d.i)], to = canon(($('#refto') ? $('#refto').value : '').trim());
+      if (!o || !to || !S.prices[to]) { toast('Pick one of your foods first'); break; }
+      S.ref.to = to; S.prices[to] = { ...S.prices[to], price: o.perKg, basis: 'kg' }; saveAll(); reindex(); render(); toast(`${to}: ${money(o.perKg)} per kg`); break;
+    }
     case 'wi-add': (S.whatif = S.whatif || []).push({ name: '', price: '' }); render(); break;
     case 'wi-del': S.whatif.splice(Number(d.i), 1); render(); break;
     case 'drawer': document.body.classList.toggle('drawer-open'); t.setAttribute('aria-expanded', document.body.classList.contains('drawer-open')); break;
@@ -2124,6 +2156,7 @@ document.addEventListener('input', e => {
   if (t.closest && t.closest('#rform')) { previewRecipe(); return; }
   if (t.closest && t.closest('#mform')) { mealSync(); if (t.id === 'mdate') { MB.date = t.value; mealRefresh(true); } else mealRefresh(false); return; }
   if (t.id === 'nq') { S.nq = t.value; const card = t.closest('.card'), tmp = document.createElement('div'); tmp.innerHTML = nutritionCard(); card.replaceWith(tmp.firstElementChild); const n = $('#nq'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); return; }
+  if (t.id === 'refto') { (S.ref = S.ref || {}).to = t.value; return; }
   if (t.id === 'q') { S.filter = t.value; S.showAll = false; refreshPriceBody(); return; }
   const f = t.dataset && t.dataset.f; if (!f) return;
   const tr = t.closest('tr'); if (!tr) return;
@@ -2165,7 +2198,7 @@ document.addEventListener('change', e => {
 window.addEventListener('dragover', e => { e.preventDefault(); const d = $('#drop'); if (d) d.classList.add('over'); });
 window.addEventListener('dragleave', () => { const d = $('#drop'); if (d) d.classList.remove('over'); });
 window.addEventListener('drop', e => { e.preventDefault(); const d = $('#drop'); if (d) d.classList.remove('over'); const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) handleFile(f); });
-document.addEventListener('submit', e => { if (e.target.id === 'mform') { e.preventDefault(); saveMeal(); } });
+document.addEventListener('submit', e => { if (e.target.id === 'mform') { e.preventDefault(); saveMeal(); } else if (e.target.id === 'refform') { e.preventDefault(); const q = $('#refq').value.trim(); if (q.length >= 2) refLookup(q); } });
 window.addEventListener('hashchange', route);
 window.addEventListener('pagehide', () => { if (!window.__mcNoSave) saveAll(); });
 

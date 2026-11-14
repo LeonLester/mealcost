@@ -136,6 +136,72 @@ async function finishLogin(req, env, url) {
   return new Response(null, { status: 302, headers });
 }
 
+
+// Reference prices: US averages from BLS, and crowd-sourced shelf prices from Open Prices. No user data is sent or stored.
+const BLS = [
+  ['APU0000708111', 'Eggs, grade A large', 'egg|eggs', 'dozen'], ['APU0000709112', 'Whole milk', 'milk', 'gallon'],
+  ['APU0000703112', 'Ground beef', 'ground beef|beef mince|minced beef|beef', 'lb'], ['APU0000FF1101', 'Chicken breast, boneless', 'chicken|chicken breast', 'lb'],
+  ['APU0000706111', 'Whole chicken', 'whole chicken|chicken', 'lb'], ['APU0000704111', 'Bacon, sliced', 'bacon', 'lb'],
+  ['APU0000702111', 'White bread', 'bread', 'lb'], ['APU0000701111', 'White flour', 'flour', 'lb'], ['APU0000701312', 'White rice', 'rice', 'lb'],
+  ['APU0000711211', 'Bananas', 'banana|bananas', 'lb'], ['APU0000711111', 'Apples, Red Delicious', 'apple|apples', 'lb'],
+  ['APU0000711311', 'Oranges, navel', 'orange|oranges', 'lb'], ['APU0000712311', 'Tomatoes, field grown', 'tomato|tomatoes', 'lb'],
+  ['APU0000712112', 'Potatoes, white', 'potato|potatoes', 'lb'], ['APU0000710212', 'Cheddar cheese', 'cheese|cheddar', 'lb'],
+  ['APU0000715211', 'Sugar, white', 'sugar', 'lb'], ['APU0000717311', 'Coffee, ground', 'coffee', 'lb'],
+];
+const UNIT = { lb: ['kg', 2.20462], gallon: ['litre', 1 / 3.78541], dozen: ['item', 1 / 12] };
+async function blsAll(env) {
+  const cache = caches.default, key = new Request('https://cache.mealcost.invalid/bls-v1');
+  let hit = await cache.match(key); if (hit) return hit.json();
+  const y = new Date().getUTCFullYear();
+  const body = { seriesid: BLS.map(b => b[0]), startyear: String(y - 1), endyear: String(y) }; if (env.BLS_KEY) body.registrationkey = env.BLS_KEY;
+  const r = await fetch('https://api.bls.gov/publicAPI/v2/timeseries/data/', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) });
+  const j = await r.json(); const out = {};
+  for (const s of j && j.Results && j.Results.series || []) {
+    const d = (s.data || []).filter(v => /^M\d\d$/.test(v.period) && Number.isFinite(parseFloat(v.value)))[0]; // newest first
+    if (d) out[s.seriesID] = { usd: parseFloat(d.value), period: `${d.periodName} ${d.year}` };
+  }
+  if (Object.keys(out).length) await cache.put(key, new Response(JSON.stringify(out), { headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=86400' } }));
+  return out;
+}
+const median = a => { const s = [...a].sort((p, q) => p - q), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+async function openPrices(q, cur) {
+  const sr = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=8&fields=code,product_name,brands`, { signal: AbortSignal.timeout(7000) });
+  const prods = ((await sr.json()).products || []).filter(p => p.code && p.product_name).slice(0, 8);
+  const res = await Promise.all(prods.map(async p => {
+    try {
+      const r = await fetch(`https://prices.openfoodfacts.org/api/v1/prices?product_code=${encodeURIComponent(p.code)}&currency=${encodeURIComponent(cur)}&order_by=-date&size=20`, { signal: AbortSignal.timeout(7000) });
+      const items = (await r.json()).items || []; const per = [];
+      for (const it of items) {
+        const price = Number(it.price); if (!(price > 0)) continue;
+        const pq = it.product && Number(it.product.product_quantity);
+        if (it.price_per === 'KILOGRAM') per.push(price);
+        else if (pq > 0) per.push(price / pq * 1000);
+      }
+      if (!per.length) return null;
+      return { source: 'Open Prices', name: p.product_name + (p.brands ? ` (${p.brands.split(',')[0]})` : ''), perKg: Math.round(median(per) * 100) / 100, currency: cur, n: per.length, date: items[0] && items[0].date };
+    } catch { return null; }
+  }));
+  return res.filter(Boolean);
+}
+async function refPrices(env, url) {
+  const q = (url.searchParams.get('q') || '').trim().toLowerCase().slice(0, 60);
+  const cur = /^[A-Z]{3}$/.test(url.searchParams.get('cur') || '') ? url.searchParams.get('cur') : 'EUR';
+  if (q.length < 2) return json({ error: 'bad_request' }, 400);
+  const out = [], notes = [];
+  if (cur === 'USD') {
+    try {
+      const all = await blsAll(env);
+      for (const [id, label, kw, unit] of BLS) {
+        if (!all[id] || !kw.split('|').some(k => q.includes(k) || k.includes(q))) continue;
+        const [u, f] = UNIT[unit], v = all[id].usd * f;
+        out.push({ source: 'BLS US average', name: label, perKg: u === 'kg' ? Math.round(v * 100) / 100 : null, perUnit: u === 'item' ? Math.round(v * 100) / 100 : null, perLitre: u === 'litre' ? Math.round(v * 100) / 100 : null, currency: 'USD', date: all[id].period });
+      }
+    } catch { notes.push('BLS is not reachable right now.'); }
+  }
+  try { out.push(...await openPrices(q, cur)); } catch { notes.push('Open Prices is not reachable right now.'); }
+  return json({ results: out, notes }, 200, { 'cache-control': 'public, max-age=3600' });
+}
+
 async function api(req, env, url) {
   const user = await sessionUser(req, env);
   const path = url.pathname;
@@ -211,6 +277,7 @@ export default {
         if (tok) await env.DB.prepare('DELETE FROM sessions WHERE hash = ?').bind(await sha256(tok)).run();
         return withCors(json({ ok: true }, 200, { 'set-cookie': setCookie(url, 'mc_s', '', 0) }), req);
       }
+      if (url.pathname === '/api/ref-prices' && req.method === 'GET') return withCors(await refPrices(env, url), req);
       if (url.pathname.startsWith('/api/')) return withCors(await api(req, env, url), req);
     } catch (e) {
       return json({ error: 'server' }, 500);
