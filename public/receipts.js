@@ -117,12 +117,13 @@ function adminView() {
   const rows = (RC.users || []).map(u => {
     const on = u.receipts || u.admin;
     return `<tr><th scope="row" style="font-weight:500;overflow-wrap:anywhere">${esc(u.email)}${u.admin ? ' <span class="tag">admin</span>' : ''}<div class="sub">Joined ${esc(dMed(new Date(u.created).toISOString().slice(0, 10)))}</div></th>
-    <td class="r"><label class="cmp" style="margin:0"><input type="checkbox" data-rc-grant="${esc(u.id)}"${on ? ' checked' : ''}${u.admin ? ' disabled' : ''} aria-label="Receipt parsing for ${esc(u.email)}"><span>${on ? 'Receipts' : 'Free'}</span></label></td></tr>`;
+    <td class="r"><label class="cmp" style="margin:0"><input type="checkbox" data-rc-grant="${esc(u.id)}"${on ? ' checked' : ''}${u.admin ? ' disabled' : ''} aria-label="Receipt parsing for ${esc(u.email)}"><span>${on ? 'Receipts' : 'Free'}</span></label></td>
+    <td class="r"><label class="cmp" style="margin:0"><input type="checkbox" data-co-grant="${esc(u.id)}"${u.coach || u.admin ? ' checked' : ''}${u.admin ? ' disabled' : ''} aria-label="Coach tools for ${esc(u.email)}"><span>Coach</span></label></td></tr>`;
   }).join('');
   return `<div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Access</h1></div>
-  <p class="lede">Choose who can use receipt parsing. Everyone else stays on the free plan. People appear here after they sign in once.</p>
+  <p class="lede">Choose who can use receipt and label scanning, and who can use the coach tools. Everyone else stays on the free plan. People appear here after they sign in once.</p>
   ${RC.err ? `<div class="notice error" role="alert">${IC.info}<div>${esc(RC.err)}</div></div>` : ''}
-  <div class="tablewrap" style="margin-top:20px;max-width:720px"><table style="min-width:0"><thead><tr><th scope="col">User</th><th scope="col" class="r">Plan</th></tr></thead><tbody>${rows || `<tr><td colspan="2" class="muted">${RC.users ? 'No users yet.' : 'Loading'}</td></tr>`}</tbody></table></div>`;
+  <div class="tablewrap" style="margin-top:20px;max-width:720px"><table style="min-width:0"><thead><tr><th scope="col">User</th><th scope="col" class="r">Plan</th><th scope="col" class="r">Coach tools</th></tr></thead><tbody>${rows || `<tr><td colspan="3" class="muted">${RC.users ? 'No users yet.' : 'Loading'}</td></tr>`}</tbody></table></div>`;
 }
 document.addEventListener('change', async e => {
   const id = e.target && e.target.dataset && e.target.dataset.rcGrant; if (!id) return;

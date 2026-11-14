@@ -2,10 +2,11 @@
 'use strict';
 
 const PLUS_IC = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
-const MORE_TABS = ['more', 'goals', 'meals', 'account', 'admin', 'pantry'];
+const MORE_TABS = ['more', 'goals', 'meals', 'account', 'admin', 'pantry', 'coach'];
 const navOf2 = t => ['progress', 'weight', 'week', 'trends'].includes(t) ? 'progress' : MORE_TABS.includes(t) ? 'more' : t;
 
 function navHtml() {
+  if (window.__mcView && typeof coNavHtml === 'function') return coNavHtml();
   const I = d => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const cur = t => t === 'more' ? S.tab === 'more' : navOf2(S.tab) === t;
   const link = (t, l, ic) => `<a class="tab" href="#${t}" aria-label="${l}" title="${l}"${cur(t) ? ' aria-current="page"' : ''}${t === 'more' && S.tab !== 'more' && MORE_TABS.includes(S.tab) ? ' data-sub="1"' : ''}>${ic}<span>${l}</span></a>`;
@@ -14,6 +15,7 @@ function navHtml() {
     link('day', 'Diary', TABIC.day), link('progress', 'Progress', TABIC.progress),
     `<button type="button" class="tab plus" data-act="plus" aria-label="Add to diary" aria-haspopup="dialog"><span class="plusdot">${PLUS_IC}</span><span class="plusl">Add</span></button>`,
     link('prices', 'Foods', TABIC.prices),
+    typeof coOk === 'function' && coOk() ? desk('coach', 'Clients', I('<circle cx="9" cy="8" r="3.500"/><path d="M3 20c0-3.500 2.700-6 6-6s6 2.500 6 6M16 5a3.500 3.500 0 0 1 0 7M17 14c2.500.4 4 2.500 4 6"/>')) : '',
     desk('meals', 'Meals', TABIC.meals),
     desk('pantry', 'Pantry', I('<path d="M5 8h14v12H5zM4 4h16v4H4zM9 12h6"/>')),
     desk('goals', 'Targets', I('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>')),
@@ -33,6 +35,7 @@ function openPlus() {
     small('c5', 'log-weight', 'Log weight', I('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 10a4 4 0 0 1 6 0"/><path d="M12 12l2-2"/>')),
     small('c6', 'add-food', 'New food', I('<path d="M12 3l8 4.500v9L12 21l-8-4.500v-9zM4 7.500l8 4.500 8-4.500M12 12v9"/>')),
     small('c7', 'copy-prev', 'Copy a day', I('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'), 'data-group=""'),
+    window.MealSync && MealSync.scan ? small('c3', 'scan-label', 'Scan label', I('<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>')) : '',
     rcOk() ? small('c8', 'scan-receipt', 'Scan receipt', I('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/>')) : ''
   ].join('');
   dlg.className = 'sheet';
@@ -70,6 +73,7 @@ function moreView() {
   <div id="morebody">
   ${sec('Your plan', [
     moreRow('#goals', '', I('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>'), 'Targets', 'Calories and macros, with a calculator'),
+    window.MealSync && MealSync.coach ? moreRow('#coach', '', I('<circle cx="9" cy="8" r="3.500"/><path d="M3 20c0-3.500 2.700-6 6-6s6 2.500 6 6M16 5a3.500 3.500 0 0 1 0 7M17 14c2.500.4 4 2.500 4 6"/>'), 'Clients', 'See your clients, targets, notes and reports') : '',
     moreRow('#meals', '', TABIC.meals, 'Meals', 'Go-to meals and the meal builder'),
     moreRow('#pantry', '', I('<path d="M5 8h14v12H5zM4 4h16v4H4zM9 12h6"/>'), 'Pantry', 'What is in the house, and meal ideas'),
     moreRow('#prices', '', TABIC.prices, 'Foods and prices', 'What each food costs, offers and merges')
@@ -84,6 +88,7 @@ function moreView() {
   ])}
   ${sec('Import and export', [
     moreRow('', 'import', TOOLIC.import, 'Add Cronometer export', 'Bring in days from a CSV file'),
+    moreRow('', 'export-all', TOOLIC['export-csv'], 'Export all my data', 'Zip with JSON and spreadsheets'),
     moreRow('', 'export-csv', TOOLIC['export-csv'], 'Download CSV', 'Your diary with costs')
   ])}
   ${sec('App', [

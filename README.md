@@ -25,6 +25,9 @@ Live at https://mealcost.coachleonidas.com
 - Trends: cost per 100 g protein, carbs, fat, per 10 g fiber and per 1,000 kcal by day or week, plus spend by category.
 - Meal builder tab: combine foods and recipes, see cost (always from current prices) and nutrition, save, edit, duplicate, compare two meals, add to the diary.
 - Backup and restore as JSON (prices, offers, merges, periods, recipes, meals, categories), CSV export, copy as text, 1080x1350 share image.
+- Export all my data (Account and data): one zip with `data.json` (restorable) and one CSV per table (diary, prices, price periods, offers, foods, recipes, meals, weights, goals).
+- Scan label (Add a food, + sheet): photograph the front of a pack and its nutrition table. The model reads name, per 100 g or per portion values and barcode, the worker converts to per 100 g and warns when energy and macros disagree. Same access as receipts (receipts flag, coach tools or admin).
+- Coach tools (users with the Coach flag, set by an admin under Access): a Clients desk with a read-only diary, macros, cost and trends per client, targets, private notes, and a weekly report (copy, CSV, print). A client is linked either by an invite link the client approves while signed in (scopes diary, prices, weights; revocable at any time; reads are logged and shown to the client), or kept as a profile where the coach imports the client's Cronometer exports.
 
 ## Run locally
 
@@ -73,15 +76,18 @@ Add these repository secrets (Settings, Secrets and variables, Actions), and cre
 ## Test sync locally
 
     python3 tests/mock_google.py 9100 &
+    python3 tests/mock_llama.py 9200 &
     npx wrangler d1 migrations apply mealcost --local
     npx wrangler dev --port 8788 --var GOOGLE_CLIENT_ID:test-client GOOGLE_CLIENT_SECRET:s \
-      GOOGLE_AUTH_URL:http://127.0.0.1:9100/auth GOOGLE_TOKEN_URL:http://127.0.0.1:9100/token PUBLIC_ORIGIN:http://localhost:8788
+      GOOGLE_AUTH_URL:http://127.0.0.1:9100/auth GOOGLE_TOKEN_URL:http://127.0.0.1:9100/token PUBLIC_ORIGIN:http://localhost:8788 \
+      ADMIN_EMAILS:admin@example.com LLAMA_URL:http://127.0.0.1:9200 LLAMA_KEY:test-key
     python3 tests/test_sync.py
 
 ## Tests
 
     pip install playwright && playwright install chromium
     python3 tests/test_app.py
+    node tests/test_label.mjs
 
 The tests serve `public/` with the headers from `public/_headers` and check parsing, costing, offers, routing and the share image.
 

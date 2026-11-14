@@ -184,7 +184,7 @@
       const me = await res.json();
       M.ready = true;
       if (!me.signed) { M.onchange(); return; }
-      M.signed = true; M.email = me.email; M.rev = me.rev; M.admin = !!me.admin; M.receipts = !!me.receipts;
+      M.signed = true; M.email = me.email; M.rev = me.rev; M.admin = !!me.admin; M.receipts = !!me.receipts; M.coach = !!me.coach; M.scan = !!me.scan;
       const b = base();
       if (me.rev === 0) { if (hasLocal()) await push(); }
       else if (b === me.rev) { if (LS.get('sync.dirty')) await push(); }

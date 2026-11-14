@@ -832,6 +832,15 @@ try:
         pl.evaluate("document.querySelector('#scroller').scrollTop = 800"); pl.wait_for_timeout(150)
         top_el = pl.evaluate("(() => { const r = document.querySelector('.plusdot').getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + 8); return !!(e && e.closest('.plus')); })()")
         check('the + button stays above the page while it scrolls', top_el)
+        ex = pl.evaluate("""async () => {
+          const files = exportFiles(), blob = zipStore(files), f = new File([blob], 'x.zip');
+          const j = JSON.parse(await zipRead(f, 'data.json')), csv = await zipRead(f, 'diary.csv'), names = files.map(x => x.name);
+          return { n: j.entries.length, have: window.__mealcost.S.entries.length, v: j.version, csvLines: csv.trim().split(/\\r?\\n/).length, names, crc: crc32(new TextEncoder().encode('123456789')) };
+        }""")
+        check('export zip round trips every diary entry', ex['n'] == ex['have'] and ex['v'] == 2 and ex['csvLines'] == ex['have'] + 1, ex)
+        check('export has one file per table and a readme', all(n in ex['names'] for n in ['data.json', 'diary.csv', 'prices.csv', 'foods.csv', 'recipes.csv', 'meals.csv', 'weights.csv', 'goals.csv', 'README.txt']))
+        check('zip checksum is the standard CRC-32', ex['crc'] == 0xCBF43926)
+        check('spreadsheet cells cannot run formulas', pl.evaluate("csvQ('=1+1')") == "\"'=1+1\"")
         check('no console errors or CSP violations', not errors and not errs2, errors + errs2)
         b.close()
 finally:

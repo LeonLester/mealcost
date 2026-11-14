@@ -122,6 +122,56 @@ with sync_playwright() as pw:
     check('revoking returns the user to free', rec(a)[0] == 403)
     check('free user cannot change access', a.evaluate("fetch('/api/admin/users/" + ada['id'] + "', {method: 'PUT', headers: {'content-type': 'application/json', 'x-requested-with': 'mealcost'}, body: '{\"receipts\": true}'}).then(r => r.status)") == 403)
 
+    # label scanning: same gate as receipts, coaches included
+    def api(pg, method, path, body=None):
+        return pg.evaluate("([m, p, b]) => fetch(p, {method: m, headers: {'content-type': 'application/json', 'x-requested-with': 'mealcost'}, body: b == null ? undefined : JSON.stringify(b)}).then(async r => [r.status, await r.json().catch(() => ({}))])", [method, path, body])
+    check('free user cannot scan labels', api(a, 'POST', '/api/label', {'table': IMG})[0] == 403)
+    st, lab = api(adm, 'POST', '/api/label', {'table': IMG, 'front': IMG})
+    check('admin label scan returns a food', st == 200 and lab['food']['per'] == '100g' and lab['food']['kcal'] == 63 and lab['name'] == 'Milko Skyr Natural' and lab['barcode'] == '8590000000017', lab)
+    check('label scan rejects non images', api(adm, 'POST', '/api/label', {'table': 'x'})[0] == 400)
+
+    # coach tools
+    check('free user is not a coach', a.evaluate("fetch('/api/me').then(r => r.json())")['coach'] is False)
+    check('free user cannot list clients', api(a, 'GET', '/api/coach/clients')[0] == 403)
+    adm.goto(BASE + '#admin'); adm.wait_for_selector('[data-co-grant]')
+    BOB = f'bob{RUN}@example.com'
+    c5, bob = ctx(); who(BOB, 'bob-' + RUN); bob.goto(BASE); bob.click('a[href="/auth/google"]'); bob.wait_for_url('**/#prices')
+    bid = next(u for u in api(adm, 'GET', '/api/admin/users')[1]['users'] if u['email'] == BOB)['id']
+    check('admin grants coach tools', api(adm, 'PUT', '/api/admin/users/' + bid, {'coach': True})[0] == 200 and bob.evaluate("fetch('/api/me').then(r => r.json())")['coach'] is True)
+    st, cl = api(bob, 'POST', '/api/coach/clients', {'name': 'Ada', 'email': ADA})
+    cid = cl.get('id'); check('coach adds a client profile', st == 200 and cid, cl)
+    check('another coach cannot see the client', api(adm, 'GET', '/api/coach/clients/' + str(cid) + '/data')[0] == 404)
+    check('client cannot read the coach list', api(a, 'GET', '/api/coach/clients')[0] == 403)
+    st, nt = api(bob, 'POST', f'/api/coach/clients/{cid}/notes', {'body': 'Prefers high protein breakfast'})
+    check('coach writes a note', st == 200 and api(bob, 'GET', f'/api/coach/clients/{cid}/notes')[1]['notes'][0]['body'].startswith('Prefers'))
+    check('targets are saved', api(bob, 'PUT', '/api/coach/clients/' + cid, {'name': 'Ada', 'targets': {'kcal': 2000, 'pro': 140}})[0] == 200)
+    check('bad targets are refused', api(bob, 'PUT', '/api/coach/clients/' + cid, {'name': 'Ada', 'targets': {'kcal': 'abc'}})[0] == 400)
+    # invite: diary and weights only, no prices
+    c6, anon = ctx(); anon.goto(BASE)
+    st, inv = api(bob, 'POST', f'/api/coach/clients/{cid}/invite', {'scopes': {'diary': True, 'prices': False, 'weights': True}})
+    tok = inv.get('token'); check('coach makes an invite link', st == 200 and tok and len(tok) >= 20, inv)
+    check('invite needs a session', anon.evaluate("t => fetch('/api/coach/invite/' + t).then(r => r.status)", tok) == 401)
+    st, info = api(a, 'GET', '/api/coach/invite/' + tok)
+    check('client sees who is asking and what', st == 200 and info['coach'] == BOB and info['scopes']['prices'] is False, info)
+    check('accepting needs explicit consent', api(a, 'POST', '/api/coach/invite/' + tok, {})[0] == 400)
+    check('coach cannot accept own invite', api(bob, 'POST', '/api/coach/invite/' + tok, {'consent': True})[0] == 400)
+    check('client accepts', api(a, 'POST', '/api/coach/invite/' + tok, {'consent': True})[0] == 200)
+    check('invite is single use', api(a, 'GET', '/api/coach/invite/' + tok)[0] == 404)
+    st, d = api(bob, 'GET', f'/api/coach/clients/{cid}/data')
+    check('coach reads the live diary', st == 200 and d['mode'] == 'live' and 'entries' in d['data'], list(d.get('data', {})))
+    check('prices are withheld by scope', 'prices' not in d['data'] and 'ranges' not in d['data'] and 'budget' not in d['data'], list(d['data']))
+    check('coach cannot write a linked profile', api(bob, 'PUT', f'/api/coach/clients/{cid}/data', None)[0] in (400, 409))
+    st, sh = api(a, 'GET', '/api/sharing')
+    check('client sees the link and the read', st == 200 and len(sh['links']) == 1 and sh['links'][0]['coach'] == BOB and any(x['action'] == 'read' for x in sh['links'][0]['access']), sh)
+    check('coach notes stay private', 'Prefers' not in json.dumps(sh))
+    check('a stranger cannot revoke', api(adm, 'DELETE', '/api/sharing/' + cid)[0] == 404)
+    check('client revokes', api(a, 'DELETE', '/api/sharing/' + cid)[0] == 200)
+    st, d = api(bob, 'GET', f'/api/coach/clients/{cid}/data')
+    check('revoked link returns no client data', st == 200 and d['mode'] == 'profile' and not d['data'], d)
+    check('client sees no links after revoke', api(a, 'GET', '/api/sharing')[1]['links'] == [])
+    check('coach removes the client', api(bob, 'DELETE', '/api/coach/clients/' + cid)[0] == 200 and api(bob, 'GET', '/api/coach/clients')[1]['clients'] == [])
+    check('removing a coach flag closes the tools', api(adm, 'PUT', '/api/admin/users/' + bid, {'coach': False})[0] == 200 and api(bob, 'GET', '/api/coach/clients')[0] == 403)
+
     # sign out clears this browser, the cloud copy stays
     a.on('dialog', lambda d: d.accept())
     a.goto(BASE + '#prices'); a.wait_for_selector('[data-sync="out"] >> visible=true'); a.click('[data-sync="out"] >> visible=true'); a.wait_for_selector('a[href="/auth/google"] >> visible=true')

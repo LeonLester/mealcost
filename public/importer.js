@@ -8,9 +8,9 @@ function dropzone(kind = 'any') {
   const T = {
     food: ['Drop your Cronometer export here', 'or choose a file. Servings.csv from Cronometer works best.', '.csv,text/csv'],
     weight: ['Drop your weigh-ins here', 'Cronometer’s biometrics.csv, or choose a file.', '.csv,text/csv'],
-    backup: ['Drop a backup here', 'A backup file you saved earlier, or choose one.', '.json,application/json'],
+    backup: ['Drop a backup here', 'A backup or export you saved earlier, or choose one.', '.json,.zip,application/json,application/zip'],
     receipt: ['Drop a receipt photo here', 'or choose a picture of the receipt.', 'image/*'],
-    any: ['Drop a file here', 'A Cronometer export, biometrics, a backup or a receipt photo.', '.csv,.json,text/csv,application/json,image/*'],
+    any: ['Drop a file here', 'A Cronometer export, biometrics, a Meal cost export or a receipt photo.', '.csv,.json,.zip,text/csv,application/json,application/zip,image/*'],
   }[kind] || [];
   return `<label class="dropz" data-dz="${kind}"><input type="file" class="dz-in" accept="${T[2]}" hidden><span class="dz-ic">${UP_IC}</span><span class="dz-t"><b>${T[0]}</b><small>${T[1]}</small></span><span class="dz-pick">Choose file</span></label>`;
 }
@@ -52,6 +52,11 @@ async function importFile(file) {
     toast('Receipt scanning is not enabled for your account.'); return;
   }
   if (file.size > 30e6) { toast('That file is larger than 30 MB.'); return; }
+  if (/\.zip$/i.test(file.name) || file.type === 'application/zip') {
+    let js = null; try { js = await zipRead(file, 'data.json'); } catch (e) { js = null; }
+    if (!js) { toast('That zip has no data.json from a Meal cost export.'); return; }
+    restore(new File([js], 'data.json', { type: 'application/json' })); return;
+  }
   let text; try { text = await file.text(); } catch (e) { toast('Could not read that file.'); return; }
   const kind = sniffFile(text, file);
   if (kind === 'backup') { restore(file); return; }

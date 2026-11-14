@@ -10,7 +10,7 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem('mcc.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem('mcc.' + k, JSON.stringify(v)); if (window.MealSync) MealSync.dirty(k); return true; } catch (e) { toast('Could not save in this browser. Storage may be full or blocked.'); return false; } },
+  set(k, v) { if (window.__mcView) return true; try { localStorage.setItem('mcc.' + k, JSON.stringify(v)); if (window.MealSync) MealSync.dirty(k); return true; } catch (e) { toast('Could not save in this browser. Storage may be full or blocked.'); return false; } },
   clear() { try { Object.keys(localStorage).filter(k => k.startsWith('mcc.')).forEach(k => localStorage.removeItem(k)); } catch (e) { /* ignore */ } }
 };
 
@@ -405,7 +405,7 @@ function siteFooter() {
 
 /* ============ view: shell ============ */
 const LOGO = '<img class="logo" src="/logo-mark.png" width="30" height="30" alt="">';
-const TABLBL = { day: 'Diary', prices: 'Foods', progress: 'Progress', week: 'Spending', weight: 'Weight', goals: 'Daily goals' };
+const TABLBL = { coach: 'Clients', day: 'Diary', prices: 'Foods', progress: 'Progress', week: 'Spending', weight: 'Weight', goals: 'Daily goals' };
 const NAV = [['day', 'Diary'], ['progress', 'Progress'], ['prices', 'Foods'], ['meals', 'Meals']];
 const navOf = t => ['progress', 'weight', 'week', 'trends'].includes(t) ? 'progress' : t === 'goals' ? 'day' : t;
 const tabLbl = t => TABLBL[t] || cap(t);
@@ -498,7 +498,7 @@ function updateBanner() {
 }
 const sbCollapsed = () => { try { return localStorage.getItem('mcc.sbcol') === '1'; } catch (e) { return false; } };
 function appView() {
-  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? progNav('week') + weekView() : S.tab === 'trends' ? progNav('trends') + trendsView() : S.tab === 'progress' ? progNav('progress') + progressView() : S.tab === 'weight' ? progNav('weight') + weightView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : S.tab === 'goals' ? goalsView() : S.tab === 'admin' ? adminView() : S.tab === 'more' ? moreView() : S.tab === 'pantry' ? pantryView() : diaryView();
+  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? progNav('week') + weekView() : S.tab === 'trends' ? progNav('trends') + trendsView() : S.tab === 'progress' ? progNav('progress') + progressView() : S.tab === 'weight' ? progNav('weight') + weightView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : S.tab === 'goals' ? goalsView() : S.tab === 'admin' ? adminView() : S.tab === 'more' ? moreView() : S.tab === 'pantry' ? pantryView() : S.tab === 'coach' ? coachView() : diaryView();
   return `
   <div class="shell${sbCollapsed() ? ' sb-collapsed' : ''}">
   <header class="topbar"><div class="wrap">
@@ -507,7 +507,7 @@ function appView() {
     <div class="tright">${window.MealSync ? MealSync.topHtml() : ''}</div>
   </div></header>
   <div class="scroll" id="scroller">
-  <main class="wrap">${updateBanner()}${appBanner()}${tourCard()}${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
+  <main class="wrap">${coBanner()}${updateBanner()}${appBanner()}${tourCard()}${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
   ${siteFooter()}
   </div>
   </div>`;
@@ -530,9 +530,11 @@ function accountView() {
   <div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Account and data</h1></div>
   <div class="acct">
     <section class="card pad"><h2>Sign in and sync</h2>${signCard}</section>
+    ${sharingCard()}
     <section class="card pad"><h2>Your data on this device</h2>
       <p class="muted" style="margin-top:8px">${nE} diary entries, ${nF} foods, ${nM} saved meals.</p>
-      ${row('Download a backup', 'A file with your prices, foods and meals. Keep it somewhere safe.', '<button class="btn" data-act="backup">Download backup</button>')}
+      ${row('Export all my data', 'Everything in one zip: diary, prices, foods, recipes, meals, weights and goals, as JSON and as spreadsheets. You can restore it later.', '<button class="btn primary" data-act="export-all">Export all data</button>')}
+      ${row('Download a backup', 'A smaller file with your prices, foods and meals, without the diary.', '<button class="btn" data-act="backup">Download backup</button>')}
       ${row('Restore a backup', 'Load a backup file you saved earlier. It merges into what is here.', '<button class="btn" data-act="restore">Restore backup</button>')}
       ${row('Download your diary', 'Every logged entry as a CSV spreadsheet.', '<button class="btn" data-act="export-csv">Download CSV</button>')}
       <div style="margin-top:16px">${dropzone('any')}</div>
@@ -891,15 +893,17 @@ function openFood(name) {
   const per = cf ? cf.per : '100g';
   dlg.innerHTML = `<form id="fform" method="dialog" novalidate>
     <h2 id="dlg-title" style="font-size:20px">${cf ? 'Edit food' : 'Add a food'}</h2>
-    ${cf ? '' : `<div class="bc"><div class="bcrow"><input class="field" id="fbc" inputmode="numeric" autocomplete="off" aria-label="Barcode number" placeholder="Barcode number (optional)"><button type="button" class="btn" id="fbl">Look up</button>${canScan() ? '<button type="button" class="btn" id="fscan">Scan</button>' : ''}</div><video id="fvid" playsinline muted hidden></video><div id="fbs" class="sub" role="status"></div></div>`}
+    ${cf ? '' : `<div class="bc"><div class="bcrow"><input class="field" id="fbc" inputmode="numeric" autocomplete="off" aria-label="Barcode number" placeholder="Barcode number (optional)"><button type="button" class="btn" id="fbl">Look up</button>${canScan() ? '<button type="button" class="btn" id="fscan">Scan</button>' : ''}${typeof lbOk === 'function' && lbOk() ? '<button type="button" class="btn" id="fscanlabel">Scan label</button>' : ''}</div><video id="fvid" playsinline muted hidden></video><div id="fbs" class="sub" role="status"></div></div>`}
     <div><label for="fn">Name</label><input class="field" style="width:100%" id="fn" maxlength="60" autocomplete="off" placeholder="For example, Greek yogurt"${cf ? ' readonly' : ''} value="${v(name)}"></div>
     <div class="fgrid"><div><label for="fper">Nutrition is for</label><select class="field" id="fper"><option value="100g"${per === '100g' ? ' selected' : ''}>100 g or 100 ml</option><option value="item"${per === 'item' ? ' selected' : ''}>1 item</option></select></div><div><label for="fk">Calories</label><input class="field" id="fk" inputmode="decimal" placeholder="kcal" value="${v(cf && cf.kcal)}"></div></div>
     <div class="fgrid three"><div><label for="fp">Protein g</label><input class="field" id="fp" inputmode="decimal" placeholder="0" value="${v(cf && cf.pro)}"></div><div><label for="fc">Carbs g</label><input class="field" id="fc" inputmode="decimal" placeholder="0" value="${v(cf && cf.carb)}"></div><div><label for="ff">Fat g</label><input class="field" id="ff" inputmode="decimal" placeholder="0" value="${v(cf && cf.fat)}"></div></div>
+    <div class="fgrid"><div><label for="ffi">Fiber g</label><input class="field" id="ffi" inputmode="decimal" placeholder="optional" value="${v(cf && cf.fiber)}"></div><div></div></div>
     <div class="fgrid"><div><label for="fpr">Price (${esc(sym)})</label><input class="field" id="fpr" inputmode="decimal" placeholder="optional" value="${v(p && p.price)}"></div><div><label for="fpb">Price per</label><select class="field" id="fpb"><option value="kg"${p && p.basis === 'kg' ? ' selected' : ''}>kg or litre</option><option value="100"${!p || p.basis === '100' ? ' selected' : ''}>100 g or 100 ml</option><option value="unit"${p && p.basis === 'unit' ? ' selected' : ''}>item</option></select></div></div>
     <div id="fgw"${per === 'item' ? '' : ' hidden'}><label for="fg">Grams per item</label><input class="field" style="width:100%" id="fg" inputmode="decimal" placeholder="optional, lets a per-kg price work" value="${v(p && p.gpu)}"></div>
     <div id="ferr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">${cf ? 'Save' : 'Add food'}</button><button type="button" class="btn" data-act="close-dlg">Cancel</button>${cf ? `<button type="button" class="btn link" data-act="del-food" data-name="${esc(name)}">Delete</button>` : ''}</div>
   </form>`;
+  dlg.dataset.x = cf && cf.x ? JSON.stringify(cf.x) : '';
   const fill = r => { $('#fn').value = r.name; $('#fper').value = '100g'; $('#fgw').hidden = true; $('#fk').value = r.kcal; $('#fp').value = r.pro; $('#fc').value = r.carb; $('#ff').value = r.fat; };
   const doLookup = async code => {
     const st = $('#fbs'); st.textContent = 'Looking it up...';
@@ -930,10 +934,11 @@ function openFood(name) {
     if (prs !== '' && (!/^\d+([.,]\d+)?$/.test(prs) || price < 0)) { err('Price must be a number, zero or more.'); $('#fpr').focus(); return; }
     const gpu = num($('#fg').value);
     S.foods[nm] = { per: $('#fper').value, kcal, pro, carb, fat };
+    { const fib = num($('#ffi').value); if (fib > 0) S.foods[nm].fiber = fib; let xs = null; try { xs = dlg.dataset.x ? JSON.parse(dlg.dataset.x) : null; } catch (e2) { xs = null; } if (xs) { const xo = {}; for (const m of NUT_X) if (Object.prototype.hasOwnProperty.call(xs, m.k) && Number(xs[m.k]) > 0) xo[m.k] = Number(xs[m.k]); if (Object.keys(xo).length) S.foods[nm].x = xo; } }
     S.prices[nm] = { price, basis: $('#fpb').value, gpu: $('#fper').value === 'item' && gpu > 0 ? gpu : '' };
     S.started = true; reindex(); ensurePrices(); saveAll(); dlg.close(); render(); toast(cf ? 'Food saved' : `${nm} added`);
   });
-  dlg.showModal(); (cf ? $('#fk') : $('#fn')).focus();
+  if (!dlg.open) dlg.showModal(); (cf ? $('#fk') : $('#fn')).focus();
 }
 function counts() {
   const all = IDX.meta.size; let un = 0;
@@ -1431,15 +1436,18 @@ function weekView() {
 function render() {
   const sc0 = $('#scroller'), keep = sc0 ? sc0.scrollTop : 0;
   document.body.classList.remove('drawer-open');
-  const shell = hasData() || (S.tab === 'admin' && window.MealSync && MealSync.admin) || S.tab === 'more';
+  const shell = hasData() || (S.tab === 'admin' && window.MealSync && MealSync.admin) || S.tab === 'more' || (S.tab === 'coach' && coOk());
   $('#app').innerHTML = shell ? appView() : importView();
   if ($('#goalform') && typeof goalsCheck === 'function') goalsCheck();
   { const sc = $('#scroller'); if (sc && keep) sc.scrollTop = keep; }
   document.title = (hasData() ? tabLbl(S.tab) + ' | ' : '') + 'Meal cost calculator | Coach Leonidas';
 }
 function route() {
-  const h = location.hash.replace('#', '');
-  const t = ['day', 'prices', 'week', 'trends', 'meals', 'account', 'goals', 'progress', 'weight', 'admin', 'more', 'pantry'].includes(h) ? h : 'day';
+  const h = location.hash.replace('#', ''), hc = /^coach(?:\/([0-9a-f-]{36}))?$/.exec(h);
+  let t = hc ? 'coach' : ['day', 'prices', 'week', 'trends', 'meals', 'account', 'goals', 'progress', 'weight', 'admin', 'more', 'pantry'].includes(h) ? h : 'day';
+  if (window.__mcView && !['day', 'progress', 'week', 'trends', 'weight'].includes(t)) t = 'day';
+  if (!window.__mcView && t === 'coach' && S.coachId !== (hc[1] || '')) { CO.tab = 'overview'; CO.err = ''; }
+  S.coachId = hc ? (hc[1] || '') : '';
   const changed = t !== S.tab;
   S.tab = t;
   S.error = '';
@@ -1707,7 +1715,7 @@ function perUnit(name, unit, noCross) {
   }
   if (q > 0) { out = { k: k / q, p: p / q, c: c / q, f: f / q, b: b / q }; if (xq > 0) { out.x = {}; for (const n in xt) out.x[n] = xt[n] / xq; } }
   const cf = S.foods[name];
-  if (!out && cf && (cf.per === 'item') === (u === 'item')) { const d = u === 'item' ? 1 : 100; out = { k: cf.kcal / d, p: cf.pro / d, c: cf.carb / d, f: cf.fat / d, b: 0 }; }
+  if (!out && cf && (cf.per === 'item') === (u === 'item')) { const d = u === 'item' ? 1 : 100; out = { k: cf.kcal / d, p: cf.pro / d, c: cf.carb / d, f: cf.fat / d, b: (Number(cf.fiber) || 0) / d }; if (cf.x && typeof cf.x === 'object') { const xo = {}; for (const n in cf.x) if (Number(cf.x[n]) > 0) xo[n] = cf.x[n] / d; if (Object.keys(xo).length) out.x = xo; } }
   if (!out && !noCross) {
     const gpu = Number((S.prices[name] || {}).gpu) || 0, r = S.recipes[name];
     if (gpu > 0) {
@@ -2053,6 +2061,8 @@ async function restore(file) {
       if (!f || typeof f !== 'object') continue;
       const nn = x => Number.isFinite(Number(x)) && Number(x) >= 0 ? Number(x) : 0;
       S.foods[n] = { per: f.per === 'item' ? 'item' : '100g', kcal: nn(f.kcal), pro: nn(f.pro), carb: nn(f.carb), fat: nn(f.fat) };
+      if (nn(f.fiber) > 0) S.foods[n].fiber = nn(f.fiber);
+      if (f.x && typeof f.x === 'object') { const xo = {}; for (const m of NUT_X) if (Object.prototype.hasOwnProperty.call(f.x, m.k) && nn(f.x[m.k]) > 0) xo[m.k] = nn(f.x[m.k]); if (Object.keys(xo).length) S.foods[n].x = xo; }
     }
     for (const [a, b] of Object.entries(d.cats && typeof d.cats === 'object' ? d.cats : {})) if (typeof b === 'string' && b.trim()) S.cats[a] = b.trim();
     for (const [a, b] of Object.entries(d.merges || {})) if (typeof b === 'string' && a !== b && b) S.merges[a] = b;
@@ -2061,7 +2071,14 @@ async function restore(file) {
     if (d.wunit === 'lb' || d.wunit === 'kg') S.wunit = d.wunit;
     if (CURRENCIES.includes(d.currency)) S.currency = d.currency;
     if (d.budget > 0) S.budget = Number(d.budget);
-    indexRanges(); reindex(); ensurePrices();
+    if (Array.isArray(d.entries) && d.entries.length) {
+      const list = coBuild({ entries: JSON.stringify(d.entries) }).entries, dates = new Set(list.map(e => e.date));
+      S.entries = S.entries.filter(e => !dates.has(e.date)).concat(list).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+      S.started = true;
+    }
+    for (const [n, v] of Object.entries(d.pantry && typeof d.pantry === 'object' ? d.pantry : {})) if (v && Number(v.qty) >= 0 && ['g', 'ml', 'item'].includes(v.unit)) S.pantry[n] = { qty: Number(v.qty), unit: v.unit };
+    for (const k of Array.isArray(d.nomerge) ? d.nomerge.slice(0, 5000) : []) if (typeof k === 'string' && !S.nomerge.includes(k)) S.nomerge.push(k);
+    indexRanges(); reindex(); ensurePrices(); saveEntries();
     saveAll(); render(); toast(S.entries.length || Object.keys(S.foods).length ? 'Backup restored' : 'Prices restored. Now drop in your Cronometer export.');
   } catch (e) { S.error = 'That file is not a Meal cost backup.'; render(); }
 }
@@ -2304,7 +2321,7 @@ document.addEventListener('change', e => {
   else if (t.id === 'range') { S.range = setPeriod(t.value); render(); }
   else if (t.id === 'daysel') { S.day = t.value; render(); }
   else if (t.id === 'file') { handleFile(t.files[0]); t.value = ''; }
-  else if (t.id === 'pfile') { restore(t.files[0]); t.value = ''; }
+  else if (t.id === 'pfile') { const f0 = t.files[0]; t.value = ''; if (f0 && /\.zip$/i.test(f0.name)) importFile(f0); else restore(f0); }
 });
 /* drag and drop is handled in importer.js */
 document.addEventListener('submit', e => { if (e.target.id === 'mform') { e.preventDefault(); saveMeal(); } else if (e.target.id === 'refform') { e.preventDefault(); const q = $('#refq').value.trim(); if (q.length >= 2) refLookup(q); } });
@@ -2346,7 +2363,7 @@ if (store.get('parser', 1) < 2) {
 }
 indexRanges(); reindex(); ensurePrices();
 route();
-if (window.MealSync) { MealSync.onchange = () => render(); MealSync.init(); }
+if (window.MealSync) { MealSync.onchange = () => { render(); coJoinCheck(); }; MealSync.init(); }
 if (window.MealNative && MealNative.isNative) MealNative.checkUpdate().then(u => { if (u) { S.update = u; render(); } }).catch(e => console.error('update check', e && e.message));
 window.__mealcost = { S, parseCronometer, costOf, summarize, macros, catOf, recipeCostOf, IDX: () => IDX };
 

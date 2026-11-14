@@ -29,6 +29,13 @@ Owner: Leonidas (GitHub LeonLester, personal email leonidask914@gmail.com for co
 - Setup: run llama-server with `--api-key <KEY>`, expose it with a named Cloudflare Tunnel (`cloudflared tunnel route dns` to a hostname, service `http://127.0.0.1:8080`), then `npx wrangler secret put` each secret above. If the Mac or the tunnel is off, the app says the model is offline.
 - Android updates: `AppUpdatePlugin.java` downloads the APK inside the app and opens the system installer (first time the user must allow installs from Meal cost). Check for updates shows its result as a banner on the Diary, not a popup.
 
+## Coach tools, label scan, export
+- Migration `0004_coach.sql`: `users.coach`, `coach_clients` (status profile, invited, active, revoked), `coach_data` (profile snapshots), `coach_notes`, `audit`. Run `npm run migrate` (or the deploy workflow) before the new worker is live, then tick Coach tools for the owner on the Access page.
+- Server logic is in `src/coach.js`. Invite tokens are random, stored hashed, single use, valid 14 days. The client approves while signed in, and can only narrow the scopes the coach asked for. Revoking or deleting the account ends access at once. Coach notes never reach the client. Coach reads of live data are logged at most once per 10 minutes per link, and the client sees the recent reads under Account and data.
+- Client side is `public/coach.js`: it swaps the global `S` for the client's snapshot (`coWith`), so existing cost and stats code is reused. `window.__mcView` makes `store.set` a no-op and a click guard allows only read-only actions, so nothing from a client view is saved or synced.
+- `POST /api/label` (`src/label.js`, `public/label.js`) uses the same model server and access rule as receipts. Limits: 30 per hour and 100 per day per user, 600 per day overall. Results fill the Add a food form for review.
+- `public/export.js` builds the export zip (stored entries, no compression) and reads zips back for restore.
+
 ## Hosting the model, limits, safety
 - Moving the model to another machine, step by step: [docs/model-server.md](docs/model-server.md).
 - The model runs as two launchd agents on the owner's Mac: `com.mealcost.llama` (llama-server, key read from `~/.config/mealcost/llama.key`) and `com.mealcost.llama-tunnel` (cloudflared tunnel `llama`, config `~/.cloudflared/llama-config.yml`, only `/v1/chat/completions` is routed). Logs: `~/Library/Logs/llama/`. Cloudflare Access (service token `mealcost-worker`, expires 2027-11-14) guards `llama.coachleonidas.com`; the worker sends it as `CF_ACCESS_ID` and `CF_ACCESS_SECRET`. To rotate the key: write a new one to the key file, `launchctl kickstart -k gui/$(id -u)/com.mealcost.llama`, then `wrangler secret put LLAMA_KEY`.
