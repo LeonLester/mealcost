@@ -487,11 +487,12 @@ function appBanner() {
   return `<div class="notice" role="region" aria-label="Get the app" style="margin-bottom:24px">${IC.info}<div style="flex:1"><b>${head}</b><div class="muted" style="font-size:14px">${sub}</div><div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;align-items:center">${main}<a class="btn link" href="/android">All options</a><button class="btn link" data-act="appban-off">Not now</button></div></div></div>`;
 }
 function updateBanner() {
+  if (S.updNote) return `<div class="notice" role="status">${IC.info}<div style="flex:1">${esc(S.updNote)}</div><button class="btn link" data-act="upd-note-off">Dismiss</button></div>`;
   const u = S.update; if (!u || !u.available || u.skipped) return '';
   return `<div class="notice" role="status">${IC.info}<div style="flex:1"><b>Update available</b><div class="muted" style="font-size:14px">Build ${u.latest} is ready, you have ${u.current}. Your data stays.</div><div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap"><button class="btn sm primary" data-act="update-get">Download update</button><button class="btn link" data-act="update-skip">Not now</button></div></div></div>`;
 }
 function appView() {
-  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? progNav('week') + weekView() : S.tab === 'trends' ? progNav('trends') + trendsView() : S.tab === 'progress' ? progNav('progress') + progressView() : S.tab === 'weight' ? progNav('weight') + weightView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : S.tab === 'goals' ? goalsView() : diaryView();
+  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? progNav('week') + weekView() : S.tab === 'trends' ? progNav('trends') + trendsView() : S.tab === 'progress' ? progNav('progress') + progressView() : S.tab === 'weight' ? progNav('weight') + weightView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : S.tab === 'goals' ? goalsView() : S.tab === 'admin' ? adminView() : diaryView();
   return `
   <div class="shell">
   <header class="topbar"><div class="wrap">
@@ -514,6 +515,7 @@ function appView() {
     <button class="ditem" data-act="import">${TOOLIC.import}<span>Add Cronometer export</span></button>
     <button class="ditem" data-act="export-csv">${TOOLIC['export-csv']}<span>Download CSV</span></button>
     <a class="ditem" href="#account">${TOOLIC.account}<span>Account and data</span></a>
+    ${window.MealSync && MealSync.admin ? `<a class="ditem" href="#admin">${TOOLIC.account}<span>Access (admin)</span></a>` : ''}
     <div class="dsec">Preferences</div>
     <button class="ditem" data-act="theme">${TOOLIC.theme}<span>Theme</span><em>${themeLabel()}</em></button>
     <label class="ditem">${TOOLIC.currency}<span>Currency</span>${curSelect('dcur')}</label>
@@ -989,7 +991,7 @@ function pricesView() {
   for (const r of S.ranges) offerList.push({ k: r.from, r, n: r.name, v: r.price });
   offerList.sort((a, b) => b.k.localeCompare(a.k) || a.n.localeCompare(b.n));
   return `
-  <div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Foods and prices</h1><button class="btn primary sm" data-act="add-food">New food</button></div>
+  <div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Foods and prices</h1><span style="display:flex;gap:8px">${rcOk() ? '<button class="btn sm" data-act="scan-receipt">Scan receipt</button>' : ''}<button class="btn primary sm" data-act="add-food">New food</button></span></div>
   <p class="lede">Set a price once and it applies to every day you logged that food. Use an offer when a price was different on one day.</p>
   <div class="notice" id="unp" role="status"${c.un ? '' : ' hidden'}>${IC.info}<div id="unp-t">${unpText(c.un)}</div></div>
   <datalist id="catlist">${[...new Set([...DEFAULT_CATS, ...[...IDX.meta.keys()].map(catOf)])].filter(k => k !== 'Uncategorized').sort().map(k => `<option value="${esc(k)}"></option>`).join('')}</datalist>
@@ -1445,13 +1447,14 @@ function weekView() {
 function render() {
   const sc0 = $('#scroller'), keep = sc0 ? sc0.scrollTop : 0;
   document.body.classList.remove('drawer-open');
-  $('#app').innerHTML = hasData() ? appView() : importView();
+  const shell = hasData() || (S.tab === 'admin' && window.MealSync && MealSync.admin);
+  $('#app').innerHTML = shell ? appView() : importView();
   { const sc = $('#scroller'); if (sc && keep) sc.scrollTop = keep; }
   document.title = (hasData() ? tabLbl(S.tab) + ' | ' : '') + 'Meal cost calculator | Coach Leonidas';
 }
 function route() {
   const h = location.hash.replace('#', '');
-  const t = ['day', 'prices', 'week', 'trends', 'meals', 'account', 'goals', 'progress', 'weight'].includes(h) ? h : 'day';
+  const t = ['day', 'prices', 'week', 'trends', 'meals', 'account', 'goals', 'progress', 'weight', 'admin'].includes(h) ? h : 'day';
   const changed = t !== S.tab;
   S.tab = t;
   S.error = '';
@@ -2159,6 +2162,7 @@ document.addEventListener('click', e => {
   switch (a) {
     case 'import': $('#file').click(); break;
     case 'add-food': openFood(); break;
+    case 'scan-receipt': rcPick(); break;
     case 'edit-food': openFood(d.name); break;
     case 'del-food': if (confirm(`Remove ${d.name} from your foods?`)) { delete S.foods[d.name]; if (!(IDX.byName.get(d.name) || []).length) delete S.prices[d.name]; reindex(); saveAll(); $('#dlg').close(); render(); toast('Food removed'); } break;
     case 'log-food': if (!IDX.meta.size) { toast('Add a food first, then log it'); openFood(); } else openEntry(-1, d.date, d.group); break;
@@ -2185,9 +2189,10 @@ document.addEventListener('click', e => {
     case 'tour-go': openTour(Number(d.i)); break;
     case 'tour-open': $('#dlg').close(); go(d.tab); break;
     case 'appban-off': try { localStorage.setItem('mcc.appban', '1'); } catch (e) { /* storage blocked */ } render(); break;
-    case 'update-get': window.MealNative.openUrl(S.update.url).catch(() => {}); toast('Open the downloaded file to install'); break;
+    case 'update-get': toast('Downloading the update'); MealNative.installUpdate(S.update.url).then(r => { if (r && r.needsPermission) toast('Allow installs from Meal cost, then tap Download again'); }).catch(() => toast('Could not download the update. Try again when online.')); break;
     case 'update-skip': MealNative.skipUpdate(S.update.latest); S.update.skipped = true; render(); break;
-    case 'update-check': document.body.classList.remove('drawer-open'); MealNative.checkUpdate(true).then(u => { S.update = u; render(); toast(u && u.available ? `Build ${u.latest} is available` : `You have the latest version (build ${u ? u.current : '?'})`); }).catch(() => toast('Could not check for updates. Try again when online.')); break;
+    case 'update-check': document.body.classList.remove('drawer-open'); MealNative.checkUpdate(true).then(u => { S.update = u; S.updNote = u && !u.available ? `You have the latest version (build ${u.current}).` : ''; go('day'); render(); }).catch(() => { S.updNote = 'Could not check for updates. Try again when online.'; go('day'); render(); }); break;
+    case 'upd-note-off': S.updNote = ''; render(); break;
     case 'drawer-close': document.body.classList.remove('drawer-open'); break;
     case 'sample': loadSample(); break;
     case 'pick-day': S.day = d.date; render(); break;

@@ -38,7 +38,7 @@ try:
 
         # 2. sample data + exact numbers
         page.click('text=Try it with sample data')
-        page.wait_for_selector('.pricetag .n')
+        page.wait_for_selector('.dz-sum')
         txt = page.inner_text('main')
         check('day total 8.81', page.inner_text('.pricetag .n') == '€8.81', page.inner_text('.pricetag .n'))
         for want in ['€1.83', '€2.57', '€2.20', '€2.21', '€0.84', '€1.96', '191', 'saved €0.42', '2,436']:
@@ -406,7 +406,7 @@ try:
         ph.close()
 
         # tutorial
-        pt = fresh(); pt.click('text=Try it with sample data'); pt.wait_for_selector('.pricetag .n')
+        pt = fresh(); pt.click('text=Try it with sample data'); pt.wait_for_selector('.dz-sum')
         check('tour card is offered to new users', pt.locator('[aria-label="Quick tour"]').count() == 1)
         pt.click('main [data-act=tour]'); pt.wait_for_selector('#dlg[open] #tourform')
         check('tour opens on step 1', 'Step 1 of 7' in pt.inner_text('#tourform'))

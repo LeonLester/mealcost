@@ -37,8 +37,14 @@
     const latest = Number(m[1]);
     return { current: cur, latest, available: latest > cur, skipped: !force && String(latest) === get('upd.skip'), url: APK };
   }
+  // Download inside the app and open the system installer. Falls back to the browser only if the plugin is missing.
+  async function installUpdate(url) {
+    const u = P().AppUpdate;
+    if (!u || !u.install) { await openUrl(url); return { started: true }; }
+    return u.install({ url });
+  }
   const skipUpdate = n => put('upd.skip', String(n));
-  window.MealNative = { isNative, canUpdate, platform, save, openUrl, home: HOME, checkUpdate, skipUpdate };
+  window.MealNative = { isNative, canUpdate, platform, save, openUrl, home: HOME, checkUpdate, skipUpdate, installUpdate };
   if (!isNative) return;
 
   document.documentElement.classList.add('native');

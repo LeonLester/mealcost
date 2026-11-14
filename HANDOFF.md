@@ -21,3 +21,10 @@ Owner: Leonidas (GitHub LeonLester, personal email leonidask914@gmail.com for co
 - Store signing keys as repository secrets (`ANDROID_KEYSTORE_BASE64` etc., workflow already supports them).
 - Open Prices (Open Food Facts) and BLS averages as a "Prices near you" section; Kroger API optional.
 - Parked: macro tracking (OpenNutriTracker style), receipt scanning with inventory, MyFitnessPal importer (needs a real export sample), Cronometer recipe export test.
+
+## Receipt parsing and access control
+- Worker route `POST /api/receipt` forwards a shrunken photo to a llama.cpp server (OpenAI-style `/v1/chat/completions`, multimodal model) and returns `{store, date, currency, items[]}`. Only users with `users.receipts = 1` (migration `0002_access.sql`) or an admin may call it. The Foods screen shows "Scan receipt" for them; they review the lines and apply prices.
+- Admins are the emails in the `ADMIN_EMAILS` secret (comma separated). They get Menu > "Access (admin)" (`#admin`, `public/receipts.js`) to tick which users have receipts or stay free. Users appear after their first sign-in.
+- Worker secrets: `ADMIN_EMAILS`, `LLAMA_URL` (public tunnel URL), `LLAMA_KEY` (the llama-server API key). Optional `CF_ACCESS_ID` and `CF_ACCESS_SECRET` if the tunnel sits behind Cloudflare Access.
+- Setup: run llama-server with `--api-key <KEY>`, expose it with a named Cloudflare Tunnel (`cloudflared tunnel route dns` to a hostname, service `http://127.0.0.1:8080`), then `npx wrangler secret put` each secret above. If the Mac or the tunnel is off, the app says the model is offline.
+- Android updates: `AppUpdatePlugin.java` downloads the APK inside the app and opens the system installer (first time the user must allow installs from Meal cost). Check for updates shows its result as a banner on the Diary, not a popup.

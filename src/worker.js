@@ -41,7 +41,7 @@ function withCors(res, req) {
 async function sessionUser(req, env) {
   const tok = bearer(req) || cookies(req).mc_s;
   if (!tok) return null;
-  const row = await env.DB.prepare('SELECT u.id, u.email FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.hash = ? AND s.expires_at > ?')
+  const row = await env.DB.prepare('SELECT u.id, u.email, u.receipts FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.hash = ? AND s.expires_at > ?')
     .bind(await sha256(tok), Date.now()).first();
   return row || null;
 }
@@ -202,13 +202,56 @@ async function refPrices(env, url) {
   return json({ results: out, notes }, 200, { 'cache-control': 'public, max-age=3600' });
 }
 
+// Admins are listed by email in the ADMIN_EMAILS secret (comma separated), so no address lives in the repository.
+const isAdmin = (user, env) => !!user && String(env.ADMIN_EMAILS || '').toLowerCase().split(',').map((e) => e.trim()).filter(Boolean).includes(String(user.email).toLowerCase());
+const canReceipts = (user, env) => isAdmin(user, env) || user.receipts === 1;
+
+const RECEIPT_PROMPT = `Read this grocery receipt. Reply with JSON only, no prose, in this shape:
+{"store": string|null, "date": "YYYY-MM-DD"|null, "currency": "EUR"|"USD"|"GBP"|"CZK"|... |null,
+ "items": [{"name": string, "qty": number, "unit": "item"|"kg"|"g"|"l"|"ml", "total": number}]}
+Rules: one entry per purchased product, with the price actually paid for that line (after line discounts) in "total". Use the product name as printed, expanded if abbreviated. "qty" is the number of items, or the weight or volume when the line is sold by weight or volume. Skip bags, deposits, subtotals, payment and tax lines. Use a dot as the decimal separator.`;
+
+async function parseReceipt(req, env) {
+  if (!env.LLAMA_URL) return json({ error: 'not_configured' }, 503);
+  const body = await req.json().catch(() => null);
+  const img = body && body.image;
+  if (typeof img !== 'string' || !/^data:image\/(jpeg|png|webp);base64,/.test(img)) return json({ error: 'bad_image' }, 400);
+  if (img.length > 6_000_000) return json({ error: 'too_large' }, 413);
+  const headers = { 'content-type': 'application/json' };
+  if (env.LLAMA_KEY) headers.authorization = `Bearer ${env.LLAMA_KEY}`;
+  if (env.CF_ACCESS_ID && env.CF_ACCESS_SECRET) { headers['CF-Access-Client-Id'] = env.CF_ACCESS_ID; headers['CF-Access-Client-Secret'] = env.CF_ACCESS_SECRET; }
+  let res;
+  try {
+    res = await fetch(`${env.LLAMA_URL.replace(/\/+$/, '')}/v1/chat/completions`, {
+      method: 'POST', headers, signal: AbortSignal.timeout(110000),
+      body: JSON.stringify({
+        temperature: 0, max_tokens: 2000, response_format: { type: 'json_object' }, chat_template_kwargs: { enable_thinking: false },
+        messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: img } }, { type: 'text', text: RECEIPT_PROMPT }] }],
+      }),
+    });
+  } catch { return json({ error: 'model_unreachable' }, 502); }
+  if (!res.ok) return json({ error: 'model_error', status: res.status }, 502);
+  let text = '';
+  try { text = (await res.json()).choices[0].message.content || ''; } catch { return json({ error: 'model_error' }, 502); }
+  text = text.replace(/<think>[\s\S]*?<\/think>/g, '');
+  const m = /\{[\s\S]*\}/.exec(text);
+  let out; try { out = JSON.parse(m ? m[0] : text); } catch { return json({ error: 'unreadable' }, 422); }
+  const UNITS = ['item', 'kg', 'g', 'l', 'ml'];
+  const items = (Array.isArray(out.items) ? out.items : []).slice(0, 80).map((i) => ({
+    name: String(i && i.name || '').slice(0, 120), qty: Number(i && i.qty) > 0 ? Number(i.qty) : 1,
+    unit: UNITS.includes(i && i.unit) ? i.unit : 'item', total: Number(i && i.total),
+  })).filter((i) => i.name && Number.isFinite(i.total) && i.total >= 0);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(out.date || '') ? out.date : null;
+  return json({ store: out.store ? String(out.store).slice(0, 80) : null, date, currency: /^[A-Z]{3}$/.test(out.currency || '') ? out.currency : null, items });
+}
+
 async function api(req, env, url) {
   const user = await sessionUser(req, env);
   const path = url.pathname;
   if (path === '/api/me' && req.method === 'GET') {
     if (!user) return json({ signed: false });
     const row = await env.DB.prepare('SELECT rev, updated_at FROM sync WHERE user_id = ?').bind(user.id).first();
-    return json({ signed: true, email: user.email, rev: row ? row.rev : 0, updated: row ? row.updated_at : null });
+    return json({ signed: true, email: user.email, rev: row ? row.rev : 0, updated: row ? row.updated_at : null, admin: isAdmin(user, env), receipts: canReceipts(user, env) });
   }
   if (!user) return json({ error: 'sign_in' }, 401);
 
@@ -217,7 +260,25 @@ async function api(req, env, url) {
     if (!row) return new Response(null, { status: 204, headers: { 'x-rev': '0', 'cache-control': 'no-store' } });
     return new Response(new Uint8Array(row.data), { headers: { 'content-type': 'application/octet-stream', 'x-rev': String(row.rev), 'cache-control': 'no-store' } });
   }
+  if (path === '/api/admin/users' && req.method === 'GET') {
+    if (!isAdmin(user, env)) return json({ error: 'forbidden' }, 403);
+    const { results } = await env.DB.prepare('SELECT id, email, created_at, receipts FROM users ORDER BY created_at DESC LIMIT 500').all();
+    return json({ users: results.map((u) => ({ id: u.id, email: u.email, created: u.created_at, receipts: u.receipts === 1, admin: isAdmin(u, env) })) });
+  }
   if (!sameSiteWrite(req, url)) return json({ error: 'forbidden' }, 403);
+
+  const grant = /^\/api\/admin\/users\/([0-9a-f-]{36})$/.exec(path);
+  if (grant && req.method === 'PUT') {
+    if (!isAdmin(user, env)) return json({ error: 'forbidden' }, 403);
+    const b = await req.json().catch(() => null);
+    if (!b || typeof b.receipts !== 'boolean') return json({ error: 'bad_request' }, 400);
+    const r = await env.DB.prepare('UPDATE users SET receipts = ? WHERE id = ?').bind(b.receipts ? 1 : 0, grant[1]).run();
+    return r.meta.changes ? json({ ok: true }) : json({ error: 'not_found' }, 404);
+  }
+  if (path === '/api/receipt' && req.method === 'POST') {
+    if (!canReceipts(user, env)) return json({ error: 'no_access' }, 403);
+    return parseReceipt(req, env);
+  }
 
   if (path === '/api/sync' && req.method === 'PUT') {
     const base = Number(url.searchParams.get('base'));

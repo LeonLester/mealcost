@@ -100,7 +100,7 @@
       const me = await res.json();
       M.ready = true;
       if (!me.signed) { M.onchange(); return; }
-      M.signed = true; M.email = me.email; M.rev = me.rev;
+      M.signed = true; M.email = me.email; M.rev = me.rev; M.admin = !!me.admin; M.receipts = !!me.receipts;
       const b = base();
       if (me.rev === 0) { if (hasLocal()) await push(); }
       else if (b === me.rev) { if (LS.get('sync.dirty')) await push(); }
@@ -162,5 +162,6 @@
     if (a === 'use-cloud') M.useCloud(); else if (a === 'keep-device') M.keepDevice(); else if (a === 'now') M.syncNow(); else if (a === 'out') M.signOut(); else if (a === 'switch') M.signOut(true).then(() => { if (!M.signed) M.signIn(); }); else if (a === 'delete') M.deleteCloud();
   });
   window.MealSync = M;
+  M.api = api;
   M.init = init;
 })();

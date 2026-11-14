@@ -35,11 +35,12 @@ jobs:
       - name: Sync tests
         run: |
           python3 tests/mock_google.py 9100 &
+          python3 tests/mock_llama.py 9200 &
           npx wrangler d1 migrations apply mealcost --local
           npx wrangler dev --port 8788 \
             --var GOOGLE_CLIENT_ID:test-client GOOGLE_CLIENT_SECRET:s \
             GOOGLE_AUTH_URL:http://127.0.0.1:9100/auth GOOGLE_TOKEN_URL:http://127.0.0.1:9100/token \
-            PUBLIC_ORIGIN:http://localhost:8788 > wrangler.log 2>&1 &
+            PUBLIC_ORIGIN:http://localhost:8788 ADMIN_EMAILS:admin@example.com LLAMA_URL:http://127.0.0.1:9200 LLAMA_KEY:test-key > wrangler.log 2>&1 &
           for i in $(seq 1 30); do curl -sf localhost:8788/api/me >/dev/null && break; sleep 1; done
           python3 tests/test_sync.py
 

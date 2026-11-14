@@ -25,44 +25,42 @@ function dayStrip(day) {
   for (let i = 0; i < 7; i++) {
     const d = isoAdd(start, i), es = IDX.byDate.get(d) || [], k = es.reduce((a, e) => a + (e.kcal || 0), 0);
     const h = goal ? Math.min(100, Math.round(k / goal * 100)) : (k > 0 ? 60 : 0);
-    cells.push(`<button class="dz-day${d === t ? ' today' : ''}" data-act="pick-day" data-date="${d}" aria-pressed="${d === day}" aria-label="${esc(dMed(d))}${k ? ', ' + n0(k) + ' kcal' : ', nothing logged'}"><small>${esc(dFmt(d, { weekday: 'short' }).slice(0, 3))}</small><b>${dFmt(d, { day: 'numeric' })}</b><span class="dz-mini"><i style="height:${Math.max(k > 0 ? 8 : 0, h)}%"></i></span></button>`);
+    cells.push(`<button class="dz-day${d === t ? ' today' : ''}${k > 0 ? ' has' : ''}" data-act="pick-day" data-date="${d}" aria-pressed="${d === day}" aria-label="${esc(dMed(d))}${k ? ', ' + n0(k) + ' kcal' : ', nothing logged'}"><small>${esc(dFmt(d, { weekday: 'short' }).slice(0, 3))}</small><b>${dFmt(d, { day: 'numeric' })}</b></button>`);
   }
   return `<div class="dz-strip" role="group" aria-label="Pick a day">${cells.join('')}</div>`;
 }
 
 /* ---------- summary: energy and macros against goals ---------- */
-function summaryCard(tot) {
+function summaryCard(tot, cost) {
   const g = S.goals, gk = goalFor('kcal');
   const energy = gk
     ? `<div class="dz-energy"><div><span class="dz-num">${n0(tot.kcal)}</span><span class="dz-unit"> of ${n0(gk)} kcal</span></div><b class="dz-left${tot.kcal > gk ? ' over' : ''}">${tot.kcal > gk ? n0(tot.kcal - gk) + ' over' : n0(gk - tot.kcal) + ' left'}</b></div>${dzBar(tot.kcal, gk, 'm-kcal big', 'Energy')}`
-    : `<div class="dz-energy"><div><span class="dz-num">${n0(tot.kcal)}</span><span class="dz-unit"> kcal</span></div></div>`;
+    : `<div class="dz-energy"><div><span class="dz-num">${n0(tot.kcal)}</span><span class="dz-unit"> kcal</span></div>${g ? '' : '<button class="btn link dz-setgoals" data-act="goals">Set goals</button>'}</div>`;
   const rows = [['pro', 'Protein'], ['carb', 'Carbs'], ['fat', 'Fat'], ['fiber', 'Fiber']].map(([k, n]) => {
     const v = tot[k], gl = goalFor(k);
-    return `<div class="dz-mrow"><div class="dz-mhead"><span>${n}</span><b>${n0(v)}${gl ? `<small> / ${n0(gl)} g</small>` : '<small> g</small>'}</b></div>${dzBar(v, gl, MC[k], n)}</div>`;
+    return `<div class="dz-mrow ${MC[k]}"><div class="dz-mhead"><span>${n}</span></div><div class="dz-mval"><b>${n0(v)}</b><small>${gl ? ' / ' + n0(gl) : ''} g</small></div>${dzBar(v, gl, MC[k], n)}</div>`;
   }).join('');
   const ke = tot.pro * 4 + tot.carb * 4 + tot.fat * 9;
   const split = ke > 0 ? `<p class="dz-split">Energy from protein ${Math.round(tot.pro * 4 / ke * 100)}%, carbs ${Math.round(tot.carb * 4 / ke * 100)}%, fat ${Math.round(tot.fat * 9 / ke * 100)}%</p>` : '';
-  const cta = g ? '' : `<div class="dz-cta"><span>Set daily goals to see how much is left.</span><button class="btn sm" data-act="goals">Set goals</button></div>`;
-  return `<section class="card dz-sum" aria-label="Nutrition for the day">${energy}<div class="dz-macros">${rows}</div>${split}${cta}</section>`;
+  return `<section class="card dz-sum" aria-label="Nutrition for the day">${energy}<div class="dz-macros">${rows}</div>${split}${cost || ''}</section>`;
 }
 
-/* ---------- cost, kept compact ---------- */
+/* ---------- cost: one slim footer inside the summary ---------- */
 function costCard(day, es, sm, names, bad) {
   const budget = S.budget > 0 ? S.budget : null, left = budget ? r2(budget - sm.cost) : 0;
   const offerNames = [...new Set(es.filter(e => costOf(e).offer).map(e => e.name))];
   const pp = sm.pro > 0 && sm.cost > 0 ? sm.cost / (sm.pro / 100) : null;
-  return `<section class="card dz-cost" aria-label="Cost for the day">
-    <div class="pricetag xs"><span class="n">${money(sm.cost)}</span><span class="l">for the day</span></div>
-    ${budget ? `<div class="dz-costline"><span>Budget ${money(budget)}</span><span>${left >= 0 ? money(left) + ' left' : money(-left) + ' over'}</span></div>${dzBar(sm.cost, budget, 'm-cost', 'Budget')}` : ''}
-    ${pp != null ? `<p class="muted dz-small">${money(pp)} per 100 g protein</p>` : ''}
-    ${sm.saved > 0.004 ? `<p class="dz-small" style="color:var(--brand-dark)">${offerNames.length === 1 ? 'Your offer on ' + esc(offerNames[0]) : 'Your ' + offerNames.length + ' offers'} saved ${money(sm.saved)}.</p>` : ''}
-    ${!bad.length && names.length ? `<p class="dz-small">All ${names.length} foods priced.</p>` : ''}
+  const notes = [pp != null ? `${money(pp)} per 100 g protein` : '', sm.saved > 0.004 ? `${offerNames.length === 1 ? 'Offer on ' + esc(offerNames[0]) : offerNames.length + ' offers'} saved ${money(sm.saved)}` : '', !bad.length && names.length ? `All ${names.length} foods priced` : ''].filter(Boolean);
+  return `<div class="dz-cost" aria-label="Cost for the day">
+    <div class="dz-costrow"><span class="pricetag xs"><span class="n">${money(sm.cost)}</span><span class="l">for the day</span></span><span class="dz-budget">${budget ? `<span class="${left < 0 ? 'over' : ''}">${left >= 0 ? money(left) + ' left' : money(-left) + ' over'} of ${money(budget)}</span>` : ''}<button class="btn link" data-act="budget">${budget ? 'Change budget' : 'Set a daily budget'}</button></span></div>
+    ${budget ? dzBar(sm.cost, budget, 'm-cost', 'Budget') : ''}
+    ${notes.length ? `<p class="muted dz-small">${notes.join(' · ')}</p>` : ''}
     ${bad.length ? `<p class="dz-small"><a href="#prices" data-act="unpriced-link">${bad.length} ${bad.length === 1 ? 'food needs' : 'foods need'} a price</a>, so the total leaves ${bad.length === 1 ? 'it' : 'them'} out.</p>` : ''}
-    <button class="btn link" data-act="budget">${budget ? 'Change budget' : 'Set a daily budget'}</button>
-  </section>`;
+  </div>`;
 }
 
 /* ---------- one logged food ---------- */
+const macTxt = o => `<i class="lp">P</i> ${n0(o.pro)} <i class="lc">C</i> ${n0(o.carb)} <i class="lf">F</i> ${n0(o.fat)}`;
 function dzItem(e, day, g, li) {
   const c = costOf(e), rec = S.recipes[e.name], ei = S.entries.indexOf(e), en = esc(e.name);
   let cell, note = '';
@@ -85,14 +83,14 @@ function dzItem(e, day, g, li) {
     subs = `<div class="subitems">${rc.parts.map(p => `<div class="subitem"><span>${esc(p.it.name)}</span><span class="amt">${fr == null ? '' : qtyFmt(Number(p.it.qty) * fr) + ' ' + esc(p.it.unit)}</span><span class="lead"></span>${p.cost != null && fr != null ? `<span>${money(r2(p.cost * fr))}</span>` : `<button class="setprice" data-act="goto-price" data-name="${esc(p.it.name)}">Set price</button>`}</div>`).join('')}</div>`;
   }
   const amt = e.q ? 'Quick add' : `${qtyFmt(e.qty)} ${esc(e.unit)}`;
-  const mac = `P ${n0(e.pro)} · C ${n0(e.carb)} · F ${n0(e.fat)}`;
+  const mac = macTxt(e);
   return `<div class="swipe"><button class="swipe-del" data-act="del-entry" data-i="${ei}" aria-label="Delete ${en}" tabindex="-1">${TOOLIC.trash}</button><div class="item dz-item"><div class="imain"><button class="iname" data-act="edit-entry" data-i="${ei}" aria-label="Edit ${en}"><span class="nm">${en}</span><span class="amt">${amt}<span class="dz-mac"> · ${mac}</span></span></button>${note}${rec ? `<button class="btn link" data-act="toggle-recipe" data-key="${esc(key)}" aria-expanded="${open}">${open ? 'Hide' : 'Show'} ingredients</button>` : ''}</div><div class="dz-r"><b class="dz-k">${n0(e.kcal)}<small> kcal</small></b>${cell}</div></div></div>${subs}`;
 }
 
 function mealSection(g, list, day) {
   const t = nutTotals(list);
   const cost = r2(list.reduce((a, e) => a + (costOf(e).cost || 0), 0));
-  return `<section class="meal dz-meal"><div class="meal-head"><h2>${esc(g)}</h2><span class="kcal">${list.length ? `${n0(t.kcal)} kcal · P ${n0(t.pro)} C ${n0(t.carb)} F ${n0(t.fat)}` : ''}</span>${list.length && cost > 0 ? `<span class="cost">${money(cost)}</span>` : ''}</div>
+  return `<section class="meal dz-meal m-${mkey(g).slice(0,3)}"><div class="meal-head"><h2>${esc(g)}</h2><span class="kcal">${list.length ? `${n0(t.kcal)} kcal · ${macTxt(t)}` : ''}</span>${list.length && cost > 0 ? `<span class="cost">${money(cost)}</span>` : ''}</div>
     <div class="dz-list">${list.map((e, li) => dzItem(e, day, g, li)).join('')}</div>
     <div class="dz-actions"><button class="btn sm" data-act="log-food" data-date="${day}" data-group="${esc(g)}">${list.length ? 'Add food' : 'Add to ' + esc(g.toLowerCase())}</button><button class="btn link" data-act="copy-prev" data-group="${esc(g)}">Copy from earlier</button></div></section>`;
 }
@@ -142,8 +140,7 @@ function diaryView() {
   <div class="cols dz-cols">
     <div class="main2">${es.length ? '' : `<p class="muted dz-empty">${S.entries.length ? 'Nothing logged on this day yet.' : 'Nothing is logged yet.'} Add a food, or copy a day from earlier.</p>`}${sections.map(([g, l]) => mealSection(g, l, day)).join('')}${es.length ? '<p class="muted dz-hint">Tap a food to edit it. Swipe left to delete. Tap a price to change it for this day only.</p>' : ''}</div>
     <aside class="side dz-side">
-      ${summaryCard(tot)}
-      ${costCard(day, es, sm, names, bad)}
+      ${summaryCard(tot, costCard(day, es, sm, names, bad))}
       ${nutrientsCard(tot)}
     </aside>
   </div>`;
@@ -331,7 +328,7 @@ function progressView() {
   const labels = days.map(d => rng <= 14 ? dFmt(d, { weekday: 'short' }).slice(0, 3) : dFmt(d, { day: 'numeric', month: 'short' }));
   const rows = [['pro', 'Protein'], ['carb', 'Carbs'], ['fat', 'Fat'], ['fiber', 'Fiber']].map(([k, n]) => {
     const v = avg(k), gl = goalFor(k), hit = gl ? logged.filter(d => nutTotals(IDX.byDate.get(d))[k] >= gl * .9).length : 0;
-    return `<div class="dz-mrow"><div class="dz-mhead"><span>${n}</span><b>${n0(v)}${gl ? `<small> / ${n0(gl)} g</small>` : '<small> g</small>'}</b></div>${dzBar(v, gl, MC[k], n)}${gl ? `<small class="muted">Goal met on ${hit} of ${nL} days</small>` : ''}</div>`;
+    return `<div class="dz-mrow ${MC[k]}"><div class="dz-mhead"><span>${n}</span><b>${n0(v)}${gl ? `<small> / ${n0(gl)} g</small>` : '<small> g</small>'}</b></div>${dzBar(v, gl, MC[k], n)}${gl ? `<small class="muted">Goal met on ${hit} of ${nL} days</small>` : ''}</div>`;
   }).join('');
   const have = NUT_X.some(n => tot.x[n.k] > 0);
   const micro = have ? `<details class="card dz-nut" style="margin-top:20px"><summary>Vitamins, minerals and limits (daily average)</summary>${[...new Set(NUT_X.map(n => n.grp))].map(gr => `<h3 class="dz-gh">${gr}</h3>${NUT_X.filter(n => n.grp === gr).map(n => { const v = (tot.x[n.k] || 0) / nL, gl = goalFor(n.k), lim = n.kind === 'limit'; return `<div class="dz-mrow"><div class="dz-mhead"><span>${n.n}${lim ? ' <small class="muted">limit</small>' : ''}</span><b>${nfx(v)}<small> / ${nfx(gl)} ${n.u}</small></b></div>${dzBar(v, gl, lim ? 'm-lim' : 'm-fib', n.n)}</div>`; }).join('')}`).join('')}</details>` : '';

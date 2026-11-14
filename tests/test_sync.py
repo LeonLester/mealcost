@@ -92,6 +92,28 @@ with sync_playwright() as pw:
     a.click('[data-sync="use-cloud"]'); a.wait_for_timeout(2000); a.wait_for_selector('#pbody')
     check('choosing cloud data adopts the newer price', str(a.evaluate("JSON.parse(localStorage.getItem('mcc.prices')).Quark.price")) == '12')
 
+
+    # receipt parsing: only allowed users, managed by the admin
+    IMG = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA='
+    def rec(pg): return pg.evaluate("img => fetch('/api/receipt', {method: 'POST', headers: {'content-type': 'application/json', 'x-requested-with': 'mealcost'}, body: JSON.stringify({image: img})}).then(async r => [r.status, await r.json()])", IMG)
+    check('free user cannot parse receipts', rec(a)[0] == 403)
+    check('free user is not an admin', a.evaluate("fetch('/api/me').then(r => r.json())")['admin'] is False)
+    check('free user cannot list users', a.evaluate("fetch('/api/admin/users').then(r => r.status)") == 403)
+    c4, adm = ctx(); who('admin@example.com', 'adm-' + RUN); adm.goto(BASE); adm.click('a[href="/auth/google"]'); adm.wait_for_url('**/#prices')
+    check('admin is recognised', adm.evaluate("fetch('/api/me').then(r => r.json())")['admin'] is True)
+    st, out = rec(adm)
+    check('admin can parse a receipt', st == 200 and len(out['items']) == 2 and out['items'][0]['unit'] == 'g', out)
+    users = adm.evaluate("fetch('/api/admin/users').then(r => r.json())")['users']
+    ada = next((u for u in users if u['email'] == ADA), None)
+    check('admin sees other users', ada is not None and ada['receipts'] is False)
+    adm.goto(BASE + '#admin'); adm.wait_for_selector('[data-rc-grant]')
+    adm.locator(f'tr:has-text("{ADA}") [data-rc-grant]').check(); adm.wait_for_timeout(800)
+    check('admin page grants access', rec(a)[0] == 200)
+    check('granted user sees the scan button', a.evaluate("fetch('/api/me').then(r => r.json())")['receipts'] is True)
+    adm.locator(f'tr:has-text("{ADA}") [data-rc-grant]').uncheck(); adm.wait_for_timeout(800)
+    check('revoking returns the user to free', rec(a)[0] == 403)
+    check('free user cannot change access', a.evaluate("fetch('/api/admin/users/" + ada['id'] + "', {method: 'PUT', headers: {'content-type': 'application/json', 'x-requested-with': 'mealcost'}, body: '{\"receipts\": true}'}).then(r => r.status)") == 403)
+
     # sign out clears this browser, the cloud copy stays
     a.on('dialog', lambda d: d.accept())
     a.goto(BASE + '#prices'); a.wait_for_selector('[data-sync="out"] >> visible=true'); a.click('[data-sync="out"] >> visible=true'); a.wait_for_selector('a[href="/auth/google"] >> visible=true')
