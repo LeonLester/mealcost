@@ -83,9 +83,13 @@ function dzItem(e, day, g, li) {
     const fr = recipeFrac(rec, e), rc = recipeCostOf(rec, e.date);
     subs = `<div class="subitems">${rc.parts.map(p => `<div class="subitem"><span>${esc(p.it.name)}</span><span class="amt">${fr == null ? '' : qtyFmt(Number(p.it.qty) * fr) + ' ' + esc(p.it.unit)}</span><span class="lead"></span>${p.cost != null && fr != null ? `<span>${money(r2(p.cost * fr))}</span>` : `<button class="setprice" data-act="goto-price" data-name="${esc(p.it.name)}">Set price</button>`}</div>`).join('')}</div>`;
   }
-  const amt = e.q ? 'Quick add' : `${qtyFmt(e.qty)} ${esc(e.unit)}`;
+  // A serving or item has no weight in a Cronometer export. Show the weight once the user has set it, and offer to set it.
+  const gpuSet = Number((S.prices[e.name] || {}).gpu) || 0, isCount = !e.q && e.type === 'count' && !rec;
+  const unitTxt = /^(serving|portion|dose)$/.test(e.unit) && e.qty !== 1 ? e.unit + 's' : e.unit;
+  const amt = e.q ? 'Quick add' : `${qtyFmt(e.qty)} ${esc(unitTxt)}${isCount && gpuSet ? ` (${n0(e.qty * gpuSet)} g)` : ''}`;
+  const sizeBtn = isCount && !gpuSet ? ` <button type="button" class="btn link dz-size" data-act="serving-size" data-name="${en}">Set serving size</button>` : '';
   const mac = macTxt(e);
-  return `<div class="swipe"><button class="swipe-del" data-act="del-entry" data-i="${ei}" aria-label="Delete ${en}" tabindex="-1">${TOOLIC.trash}</button><div class="item dz-item"><div class="imain"><button class="iname" data-act="edit-entry" data-i="${ei}" aria-label="Edit ${en}"><span class="nm">${en}</span><span class="amt">${amt}<span class="dz-mac"> · ${mac}</span></span></button>${note}${rec ? `<button class="btn link" data-act="toggle-recipe" data-key="${esc(key)}" aria-expanded="${open}">${open ? 'Hide' : 'Show'} ingredients</button>` : ''}</div><div class="dz-r"><b class="dz-k">${n0(e.kcal)}<small> kcal</small></b>${cell}</div></div></div>${subs}`;
+  return `<div class="swipe"><button class="swipe-del" data-act="del-entry" data-i="${ei}" aria-label="Delete ${en}" tabindex="-1">${TOOLIC.trash}</button><div class="item dz-item"><div class="imain"><button class="iname" data-act="edit-entry" data-i="${ei}" aria-label="Edit ${en}"><span class="nm">${en}</span><span class="amt">${amt}<span class="dz-mac"> · ${mac}</span></span></button>${sizeBtn}${note}${rec ? `<button class="btn link" data-act="toggle-recipe" data-key="${esc(key)}" aria-expanded="${open}">${open ? 'Hide' : 'Show'} ingredients</button>` : ''}</div><div class="dz-r"><b class="dz-k">${n0(e.kcal)}<small> kcal</small></b>${cell}</div></div></div>${subs}`;
 }
 
 /* ---------- go-to meals: saved meals tagged for a slot, one tap to add ---------- */
@@ -113,13 +117,28 @@ function openGoto(day, group) {
   dlg.setAttribute('aria-labelledby', 'dlg-title'); dlg.showModal();
 }
 
-function mealSection(g, list, day) {
-  const t = nutTotals(list);
-  const cost = r2(list.reduce((a, e) => a + (costOf(e).cost || 0), 0));
-  return `<section class="meal dz-meal m-${mkey(g).slice(0,3)}"><div class="meal-head"><h2>${esc(g)}</h2><span class="kcal">${list.length ? `${n0(t.kcal)} kcal · ${macTxt(t)}` : ''}</span>${list.length && cost > 0 ? `<span class="cost">${money(cost)}</span>` : ''}</div>
-    <div class="dz-list">${list.map((e, li) => dzItem(e, day, g, li)).join('')}</div>
+/* Meal sections can be folded, empty ones hidden, and the order changed. These choices stay on this device. */
+const mealPref = {
+  get fold() { return S.mfold || (S.mfold = store.get('mfold', [])); },
+  get order() { return S.morder || (S.morder = store.get('morder', [])); },
+  get hideEmpty() { if (S.hideEmpty === undefined) S.hideEmpty = store.get('hideEmpty', false); return S.hideEmpty; },
+};
+function orderSections(sections) {
+  const o = mealPref.order;
+  return sections.map((s, i) => [s, i]).sort((a, b) => { const x = o.indexOf(mkey(a[0][0])), y = o.indexOf(mkey(b[0][0])); return (x < 0 ? 1e3 + a[1] : x) - (y < 0 ? 1e3 + b[1] : y); }).map(x => x[0]);
+}
+function moveMeal(key, dir, all) {
+  const keys = all.map(s => mkey(s[0])), i = keys.indexOf(key), j = i + dir;
+  if (i < 0 || j < 0 || j >= keys.length) return;
+  [keys[i], keys[j]] = [keys[j], keys[i]]; S.morder = keys; store.set('morder', keys);
+}
+function mealSection(g, list, day, pos) {
+  const t = nutTotals(list), k = mkey(g), folded = mealPref.fold.includes(k), arr = !!S.arrange;
+  const cost0 = r2(list.reduce((a, e) => a + (costOf(e).cost || 0), 0));
+  return `<section class="meal dz-meal m-${k.slice(0, 3)}${folded ? ' folded' : ''}"><div class="meal-head"><button type="button" class="dz-fold" data-act="meal-fold" data-key="${esc(k)}" aria-expanded="${!folded}" aria-label="${folded ? 'Show' : 'Hide'} ${esc(g)}"><svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg><h2>${esc(g)}</h2></button><span class="kcal">${list.length ? `${n0(t.kcal)} kcal${folded ? '' : ' \u00b7 ' + macTxt(t)}` : ''}</span>${list.length && cost0 > 0 ? `<span class="cost">${money(cost0)}</span>` : ''}${arr ? `<span class="dz-mv"><button type="button" class="ibtn" data-act="meal-move" data-key="${esc(k)}" data-dir="-1" aria-label="Move ${esc(g)} up"${pos.first ? ' disabled' : ''}>\u2191</button><button type="button" class="ibtn" data-act="meal-move" data-key="${esc(k)}" data-dir="1" aria-label="Move ${esc(g)} down"${pos.last ? ' disabled' : ''}>\u2193</button></span>` : ''}</div>
+    ${folded ? '' : `<div class="dz-list">${list.map((e, li) => dzItem(e, day, g, li)).join('')}</div>
     ${gotoChips(g, day)}
-    <div class="dz-actions"><button class="btn sm" data-act="log-food" data-date="${day}" data-group="${esc(g)}">${list.length ? 'Add food' : 'Add to ' + esc(g.toLowerCase())}</button><button class="btn link" data-act="copy-prev" data-group="${esc(g)}">Copy from earlier</button></div></section>`;
+    <div class="dz-actions"><button class="btn sm" data-act="log-food" data-date="${day}" data-group="${esc(g)}">${list.length ? 'Add food' : 'Add to ' + esc(g.toLowerCase())}</button><button class="btn link" data-act="copy-prev" data-group="${esc(g)}">Copy from earlier</button></div>`}</section>`;
 }
 
 /* ---------- nutrients that come with a Cronometer export ---------- */
@@ -141,7 +160,8 @@ function diaryView() {
   const names = [...new Set(es.map(e => e.name))], bad = names.filter(n => !es.find(e => e.name === n && e.q) && issue(n));
   const grouped = new Map(groupEntries(es).map(([g, l]) => [mkey(g), [g, l]]));
   for (const n in S.meals) { const sl = S.meals[n].slot; if (sl && !MEAL_BASE.some(b => mkey(b) === mkey(sl)) && !grouped.has(mkey(sl))) grouped.set(mkey(sl), [sl, []]); }
-  const sections = MEAL_BASE.map(b => { const hit = grouped.get(mkey(b)); grouped.delete(mkey(b)); return [hit ? hit[0] : b, hit ? hit[1] : []]; }).concat([...grouped.values()]);
+  const sections = orderSections(MEAL_BASE.map(b => { const hit = grouped.get(mkey(b)); grouped.delete(mkey(b)); return [hit ? hit[0] : b, hit ? hit[1] : []]; }).concat([...grouped.values()]));
+  const shown = mealPref.hideEmpty && !S.arrange ? sections.filter(([g, l]) => l.length) : sections, hidden = sections.filter(s => !shown.includes(s));
   const rel = relDay(day), full = dLong(day);
   return `
   <div class="pagehead dz-head">
@@ -156,6 +176,8 @@ function diaryView() {
       <button class="btn primary" data-act="log-food" data-date="${day}">Add food</button>
       <details class="dz-menu"><summary class="btn" aria-label="More for this day">Options</summary><div class="dz-pop">
         <button data-act="goto-open" data-date="${day}" data-group="">Add a go-to meal</button>
+        <button data-act="meal-hide-empty">${mealPref.hideEmpty ? 'Show empty meals' : 'Hide empty meals'}</button>
+        <button data-act="meal-arrange">${S.arrange ? 'Done arranging' : 'Arrange meals'}</button>
         <button data-act="quick-add" data-date="${day}">Quick add calories</button>
         <button data-act="copy-prev" data-group="">Copy a day from earlier</button>
         <button data-act="goals">Daily goals</button>
@@ -167,7 +189,7 @@ function diaryView() {
   </div>
   ${dayStrip(day)}
   <div class="cols dz-cols">
-    <div class="main2">${es.length ? '' : `<p class="muted dz-empty">${S.entries.length ? 'Nothing logged on this day yet.' : 'Nothing is logged yet.'} Add a food, or copy a day from earlier.</p>`}${sections.map(([g, l]) => mealSection(g, l, day)).join('')}${es.length ? '<p class="muted dz-hint">Tap a food to edit it. Swipe left to delete. Tap a price to change it for this day only.</p>' : ''}</div>
+    <div class="main2">${es.length ? '' : `<p class="muted dz-empty">${S.entries.length ? 'Nothing logged on this day yet.' : 'Nothing is logged yet.'} Add a food, or copy a day from earlier.</p>`}${shown.map(([g, l], i) => mealSection(g, l, day, { first: i === 0, last: i === shown.length - 1 })).join('')}${hidden.length ? `<div class="dz-hiddenrow"><span class="muted">Add to</span>${hidden.map(([g]) => `<button type="button" class="chip" data-act="log-food" data-date="${day}" data-group="${esc(g)}">${esc(g)}</button>`).join('')}</div>` : ''}${S.arrange ? '<p class="muted dz-hint" style="display:block">Use the arrows to change the order. Tap Done in Options when you are finished.</p>' : ''}${es.length ? '<p class="muted dz-hint">Tap a food to edit it. Swipe left to delete. Tap a price to change it for this day only.</p>' : ''}</div>
     <aside class="side dz-side">
       ${summaryCard(tot, costCard(day, es, sm, names, bad))}
       ${nutrientsCard(tot)}
@@ -299,8 +321,34 @@ function copyEarlier(group) {
 }
 
 /* ---------- events ---------- */
+/* ---------- how big is one serving? Cronometer exports a count (3 servings) without a weight ---------- */
+function openServing(name) {
+  const dlg = $('#dlg'), p = S.prices[name] || {}, m = IDX.meta.get(name) || { unit: 'serving' };
+  dlg.classList.remove('wide'); dlg.className = '';
+  dlg.innerHTML = `<form method="dialog" id="svform"><h2 id="dlg-title" style="font-size:20px">Size of one ${esc(m.unit)}</h2>
+    <p class="muted" style="font-size:14px">${esc(name)} is logged by the ${esc(m.unit)}, and the Cronometer export does not say how much that weighs. Enter it once and every day uses it, so a per-kg price works and the weight shows in the Diary.</p>
+    <div class="gl-f"><label for="svg">One ${esc(m.unit)} weighs</label><div class="gl-in"><input class="field" id="svg" inputmode="decimal" value="${esc(p.gpu || '')}" placeholder="for example 100" autocomplete="off"><span>g</span></div></div>
+    <div id="sverr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
+    <div class="dlg-actions" style="gap:8px"><button type="submit" class="btn primary">Save</button><button type="button" class="btn" data-act="close-dlg">Cancel</button></div></form>`;
+  dlg.setAttribute('aria-labelledby', 'dlg-title'); dlg.showModal(); $('#svg').focus();
+  $('#svform').addEventListener('submit', ev => {
+    ev.preventDefault(); const g = num($('#svg').value);
+    if (!(g > 0 && g <= 5000)) { $('#sverr').textContent = 'Enter the weight in grams, for example 100.'; return; }
+    if (!S.prices[name]) S.prices[name] = { price: '', basis: 'kg', gpu: '' };
+    S.prices[name].gpu = g; dlg.close(); saveAll(); render(); toast(`One ${m.unit} of ${name} is now ${n0(g)} g`);
+  });
+}
 function diaryAct(a, d) {
   switch (a) {
+    case 'serving-size': openServing(d.name); return true;
+    case 'meal-fold': { const f = mealPref.fold, i = f.indexOf(d.key); if (i < 0) f.push(d.key); else f.splice(i, 1); store.set('mfold', f); render(); return true; }
+    case 'meal-hide-empty': S.hideEmpty = !mealPref.hideEmpty; store.set('hideEmpty', S.hideEmpty); render(); return true;
+    case 'meal-arrange': S.arrange = !S.arrange; render(); return true;
+    case 'meal-move': {
+      const day = S.day, es = IDX.byDate.get(day) || [], grouped = new Map(groupEntries(es).map(([g, l]) => [mkey(g), [g, l]]));
+      const all = orderSections(MEAL_BASE.map(b => { const hit = grouped.get(mkey(b)); grouped.delete(mkey(b)); return [hit ? hit[0] : b, hit ? hit[1] : []]; }).concat([...grouped.values()]));
+      moveMeal(d.key, Number(d.dir), all); render(); return true;
+    }
     case 'goals': go('goals'); return true;
     case 'goals-clear': if (confirm('Remove your daily goals?')) { S.goals = null; saveAll(); go('day'); toast('Goals removed'); } return true;
     case 'goals-calc': {

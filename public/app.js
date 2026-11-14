@@ -496,12 +496,13 @@ function updateBanner() {
   const u = S.update; if (!u || !u.available || u.skipped) return '';
   return `<div class="notice" role="status">${IC.info}<div style="flex:1"><b>Update available</b><div class="muted" style="font-size:14px">Build ${u.latest} is ready, you have ${u.current}. Your data stays.</div><div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap"><button class="btn sm primary" data-act="update-get">Download update</button><button class="btn link" data-act="update-skip">Not now</button></div></div></div>`;
 }
+const sbCollapsed = () => { try { return localStorage.getItem('mcc.sbcol') === '1'; } catch (e) { return false; } };
 function appView() {
   const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? progNav('week') + weekView() : S.tab === 'trends' ? progNav('trends') + trendsView() : S.tab === 'progress' ? progNav('progress') + progressView() : S.tab === 'weight' ? progNav('weight') + weightView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : S.tab === 'goals' ? goalsView() : S.tab === 'admin' ? adminView() : S.tab === 'more' ? moreView() : S.tab === 'pantry' ? pantryView() : diaryView();
   return `
-  <div class="shell">
+  <div class="shell${sbCollapsed() ? ' sb-collapsed' : ''}">
   <header class="topbar"><div class="wrap">
-    <div class="brand">${LOGO}<b>Meal cost</b><span>by Coach Leonidas</span></div>
+    <div class="brand">${LOGO}<b>Meal cost</b><span>by Coach Leonidas</span><button type="button" class="sbtoggle" data-act="sb-toggle" aria-label="${sbCollapsed() ? 'Expand' : 'Collapse'} the sidebar" aria-expanded="${!sbCollapsed()}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.500" y="4.500" width="17" height="15" rx="2.500"/><path d="M9.500 5v14"/></svg></button></div>
     <nav class="tabs" aria-label="Sections">${navHtml()}</nav>
     <div class="tright">${window.MealSync ? MealSync.topHtml() : ''}</div>
   </div></header>
@@ -1003,10 +1004,10 @@ function pricesView() {
         <button class="btn sm" data-act="flip" aria-pressed="${S.flip}">${S.sort === 'name' ? (S.flip ? 'Z to A' : 'A to Z') : (S.flip ? 'Lowest first' : 'Highest first')}</button>
       </div></details>
       <div class="tablewrap" style="margin-top:16px"><table>
-        <thead><tr><th scope="col" aria-sort="${S.sort === 'name' ? (S.flip ? 'descending' : 'ascending') : 'none'}"><button class="thbtn" data-act="sort-col" data-sort="name">Food${S.sort === 'name' ? (S.flip ? ' \u2191' : ' \u2193') : ''}</button></th><th scope="col">Price</th><th scope="col">Per</th><th scope="col">Grams per serving or item</th><th scope="col" class="r" aria-sort="${S.sort === 'spent' ? (S.flip ? 'ascending' : 'descending') : 'none'}"><button class="thbtn" data-act="sort-col" data-sort="spent">Spent${S.sort === 'spent' ? (S.flip ? ' \u2191' : ' \u2193') : ''}</button></th></tr></thead>
+        <thead><tr><th scope="col" aria-sort="${S.sort === 'name' ? (S.flip ? 'descending' : 'ascending') : 'none'}"><button class="thbtn" data-act="sort-col" data-sort="name">Food${S.sort === 'name' ? (S.flip ? ' \u2191' : ' \u2193') : ''}</button></th><th scope="col">Price</th><th scope="col">Priced per</th><th scope="col">One serving or item weighs (g)</th><th scope="col" class="r" aria-sort="${S.sort === 'spent' ? (S.flip ? 'ascending' : 'descending') : 'none'}"><button class="thbtn" data-act="sort-col" data-sort="spent">Spent${S.sort === 'spent' ? (S.flip ? ' \u2191' : ' \u2193') : ''}</button></th></tr></thead>
         <tbody id="pbody">${rows}</tbody></table></div>
       <div id="pfoot" style="margin-top:12px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px">${foot}</div>
-      <p class="muted" style="margin-top:8px;max-width:620px;font-size:13px">Grams per item is only needed when a food is logged one way and priced another, for example eggs logged as items but priced per kg.</p>
+      <p class="muted" style="margin-top:8px;max-width:620px;font-size:13px">The weight of one serving or item is needed when a food is logged one way and priced another, for example eggs logged as items but priced per kg, or Cronometer servings of 100 g that the export gives without a weight.</p>
     </div>
     <aside class="side">
       ${refCard()}
@@ -2145,6 +2146,7 @@ document.addEventListener('click', e => {
     case 'import': $('#file').click(); break;
     case 'add-food': openFood(); break;
     case 'scan-receipt': rcPick(); break;
+    case 'sb-toggle': { const on = !sbCollapsed(); try { localStorage.setItem('mcc.sbcol', on ? '1' : '0'); } catch (e) { /* storage blocked */ } const sh = $('.shell'); if (sh) sh.classList.toggle('sb-collapsed', on); t.setAttribute('aria-expanded', String(!on)); t.setAttribute('aria-label', (on ? 'Expand' : 'Collapse') + ' the sidebar'); break; }
     case 'edit-food': openFood(d.name); break;
     case 'del-food': if (confirm(`Remove ${d.name} from your foods?`)) { delete S.foods[d.name]; if (!(IDX.byName.get(d.name) || []).length) delete S.prices[d.name]; reindex(); saveAll(); $('#dlg').close(); render(); toast('Food removed'); } break;
     case 'log-food': if (!IDX.meta.size) { toast('Add a food first, then log it'); openFood(); } else openEntry(-1, d.date, d.group); break;

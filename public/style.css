@@ -258,7 +258,7 @@ dialog.wide{max-width:680px}
   #pbody td[colspan]{grid-column:1/-1}
   #pbody td:nth-child(2)::before{content:"Price";display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
   #pbody td:nth-child(3)::before{content:"Per";display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
-  #pbody td:nth-child(4)::before{content:"Grams per serving or item";display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+  #pbody td:nth-child(4)::before{content:"One serving or item weighs (g)";display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
   #pbody td:nth-child(5)::before{content:"Spent";display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
   #pbody td.r{text-align:left}
   #pbody .field,#pbody .money-in{width:100%}
@@ -1059,3 +1059,31 @@ dialog.sheet::backdrop{background:rgba(0,0,0,.5)}
   .shell .dz-cols{gap:18px}
 }
 @media (min-width:1180px){.shell .dz-cols>.dz-side{position:sticky;top:20px}}
+
+/* collapsible sidebar and meal sections */
+.sbtoggle{display:none}
+@media (min-width:1024px){
+  .shell .sbtoggle{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;margin-left:auto;border:0;border-radius:10px;background:transparent;color:var(--muted)}
+  .shell .sbtoggle:hover{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink)}
+  .shell{transition:grid-template-columns .18s ease}
+  .shell.sb-collapsed{--sbw:76px;grid-template-columns:76px minmax(0,1fr)}
+  .shell.sb-collapsed .brand b,.shell.sb-collapsed .tab span:not(.plusdot):not(.plusl){display:none}
+  .shell.sb-collapsed .brand{flex-direction:column;justify-content:center;gap:8px;padding:2px 0 14px}
+  .shell.sb-collapsed .sbtoggle{margin-left:0}
+  .shell.sb-collapsed .tab{justify-content:center;padding:10px 0}
+  .shell.sb-collapsed .tab.plus .plusl{display:none}
+  .shell.sb-collapsed .tright{display:none}
+}
+@media (prefers-reduced-motion:reduce){.shell{transition:none}}
+.dz-fold{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;padding:4px 6px 4px 0;color:inherit;cursor:pointer;min-height:36px}
+.dz-fold .chev{color:var(--muted);transition:transform .15s}
+.dz-meal.folded .dz-fold .chev{transform:rotate(-90deg)}
+.dz-fold h2{margin:0}
+.dz-meal.folded{padding-bottom:10px}
+.dz-mv{display:inline-flex;gap:2px;margin-left:6px}
+.dz-mv .ibtn{width:36px;height:36px;border:1px solid var(--line);border-radius:10px;font-size:16px;color:var(--ink)}
+.dz-mv .ibtn:disabled{opacity:.35}
+.dz-hiddenrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:14px;font-size:14px}
+.dz-hiddenrow .chip{min-height:34px;padding:4px 12px;font-size:13px}
+
+.dz-size{display:inline;min-height:0;padding:0 0 0 8px;font-size:12px;font-weight:600;text-decoration:underline}
