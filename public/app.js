@@ -25,6 +25,7 @@ const S = {
   nomerge: store.get('nomerge', []),
   sort: store.get('sort', 'freq'), flip: store.get('flip', false),
   cats: store.get('cats', {}), ranges: store.get('ranges', []), recipes: store.get('recipes', {}), meals: store.get('meals', {}), foods: store.get('foods', {}), started: store.get('started', false), tview: store.get('tview', 'cost'), vmacro: store.get('vmacro', 'pro'), vall: false, open: new Set(), grain: store.get('grain', 'week'), trange: store.get('trange', 90),
+  goals: store.get('goals', null), weights: store.get('weights', []), wunit: store.get('wunit', 'kg'),
   pa: null, cfrom: '', cto: '', tab: 'day', day: null, cat: '', range: 7, filter: '', chip: 'all', showAll: false, error: ''
 };
 if (!CURRENCIES.includes(S.currency)) S.currency = 'EUR';
@@ -102,6 +103,7 @@ function mapCols(h) {
   };
   return {
     date: find('day', 'date'), group: find('group', 'meal'), name: find('food name', 'name'),
+    x: Object.fromEntries(NUT_X.map(n => [n.k, L.indexOf(n.col)]).filter(([, i]) => i >= 0)),
     amount: find('amount'), kcal: find('energy', 'calories'), protein: find('protein'),
     carbs: find('carbs', 'carbohydrates'), fat: find('fat (g)', 'fat'), fiber: find('fiber', 'fibre'), cat: find('category')
   };
@@ -166,11 +168,13 @@ function parseCronometer(text) {
     const name = (r[c.name] || '').trim(), date = normDate(r[c.date]);
     if (!name || !date) continue;
     const a = parseAmount(r[c.amount]);
+    const xs = {}; for (const k in c.x) { const v = num(r[c.x[k]]); if (v > 0) xs[k] = Math.round(v * 100) / 100; }
     out.push({
       date, group: (c.group >= 0 && (r[c.group] || '').trim()) || 'Meal', name,
       qty: a.qty, unit: a.unit, type: a.type,
       kcal: num(r[c.kcal]), pro: num(r[c.protein]), carb: num(r[c.carbs]), fat: num(r[c.fat]), fiber: c.fiber >= 0 ? num(r[c.fiber]) : 0,
-      cat: c.cat >= 0 ? (r[c.cat] || '').trim() : ''
+      cat: c.cat >= 0 ? (r[c.cat] || '').trim() : '',
+      ...(Object.keys(xs).length ? { x: xs } : {})
     });
   }
   if (!out.length) throw new Error('No food entries found in this file.');
@@ -184,8 +188,7 @@ function reindex() {
   const byName = new Map(), byDate = new Map(), meta = new Map();
   for (const e of S.entries) { if (e.src === undefined) e.src = e.name; e.name = canon(e.src); }
   for (const e of S.entries) {
-    if (!byName.has(e.name)) byName.set(e.name, []);
-    byName.get(e.name).push(e);
+    if (!e.q) { if (!byName.has(e.name)) byName.set(e.name, []); byName.get(e.name).push(e); }
     if (!byDate.has(e.date)) byDate.set(e.date, []);
     byDate.get(e.date).push(e);
   }
@@ -263,6 +266,7 @@ function calc(e, pi) {
   return null;
 }
 function costOf(e, useOverride = true) {
+  if (e.q) return { cost: 0, quick: true };
   if (S.recipes[e.name]) return recipeEntryCost(e, useOverride);
   const pi = priceInfo(e.name, e.date, useOverride);
   if (!pi) return { cost: null, why: 'noprice' };
@@ -397,9 +401,12 @@ function siteFooter() {
 
 /* ============ view: shell ============ */
 const LOGO = '<svg class="logo" viewBox="0 0 64 64" width="30" height="30" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#B5532A"/><circle cx="29" cy="30" r="15" fill="none" stroke="#fff" stroke-width="4.5"/><path d="M33 38h15l9 9-9 9H33z" fill="#FFD43B"/><circle cx="39" cy="47" r="2.6" fill="#B5532A"/></svg>';
-const TABLBL = { week: 'Summary' };
+const TABLBL = { day: 'Diary', prices: 'Foods', progress: 'Progress', week: 'Spending', weight: 'Weight', goals: 'Daily goals' };
+const NAV = [['day', 'Diary'], ['progress', 'Progress'], ['prices', 'Foods'], ['meals', 'Meals']];
+const navOf = t => ['progress', 'weight', 'week', 'trends'].includes(t) ? 'progress' : t === 'goals' ? 'day' : t;
 const tabLbl = t => TABLBL[t] || cap(t);
 const TABIC = {
+  progress: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-9"/><path d="M15 6h6v6"/></svg>',
   day: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg>',
   prices: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8L3 12z"/><circle cx="7.5" cy="8.5" r="1.2"/></svg>',
   week: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V12M10 20V6M15 20V10M20 20V15"/></svg>',
@@ -408,6 +415,8 @@ const TABIC = {
 };
 
 const TOOLIC = {
+  weight: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.500 9a4.500 4.500 0 0 1 7 0M12 13l2-2.500"/></svg>',
+  goal: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".8"/></svg>',
   account: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/></svg>',
   import: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>',
   'export-csv': '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg>',
@@ -481,28 +490,35 @@ function updateBanner() {
   return `<div class="notice" role="status">${IC.info}<div style="flex:1"><b>Update available</b><div class="muted" style="font-size:14px">Build ${u.latest} is ready, you have ${u.current}. Your data stays.</div><div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap"><button class="btn sm primary" data-act="update-get">Download update</button><button class="btn link" data-act="update-skip">Not now</button></div></div></div>`;
 }
 function appView() {
-  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? weekView() : S.tab === 'trends' ? trendsView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : dayView();
+  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? progNav('week') + weekView() : S.tab === 'trends' ? progNav('trends') + trendsView() : S.tab === 'progress' ? progNav('progress') + progressView() : S.tab === 'weight' ? progNav('weight') + weightView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : S.tab === 'goals' ? goalsView() : diaryView();
   return `
   <div class="shell">
   <header class="topbar"><div class="wrap">
     <button class="burger" data-act="drawer" aria-label="Menu" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="brand">${LOGO}<b>Meal cost</b><span>by Coach Leonidas</span></div>
-    <nav class="tabs" aria-label="Sections">${['day', 'prices', 'week', 'trends', 'meals'].map(t => `<a class="tab" href="#${t}"${S.tab === t ? ' aria-current="page"' : ''}>${TABIC[t]}<span>${tabLbl(t)}</span></a>`).join('')}</nav>
-    <div class="tools">${toolBtn('add-food', 'New food')}${toolBtn('import', 'Add export', 'pri')}${toolBtn('export-csv', 'Download CSV')}${toolBtn('theme', 'Theme: ' + themeLabel())}<label class="curtool">${curSelect('sm')}</label><a class="btn sm tb" href="#account" aria-label="Account" title="Account"${S.tab === 'account' ? ' aria-current="page"' : ''}>${TOOLIC.account}<span class="lbl">Account</span></a>${window.MealSync ? MealSync.topHtml() : ''}</div>
+    <nav class="tabs" aria-label="Sections">${NAV.map(([t, l]) => `<a class="tab" href="#${t}"${navOf(S.tab) === t ? ' aria-current="page"' : ''}>${TABIC[t]}<span>${l}</span></a>`).join('')}</nav>
+    <div class="tright">${window.MealSync ? MealSync.topHtml() : ''}</div>
   </div></header>
   <div class="scrim" data-act="drawer-close"></div>
   <aside class="drawer" id="drawer" aria-label="Menu">
     <div class="dhead"><b class="dlogo">${LOGO}Meal cost</b><button class="burger" data-act="drawer-close" aria-label="Close menu"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     ${window.MealNative && MealNative.canUpdate ? `<button class="ditem" data-act="update-check"><span>Check for updates</span>${S.update && S.update.available ? '<em>New</em>' : ''}</button>` : ''}
-    <button class="ditem" data-act="tour"><span>How it works</span></button>
-    <a class="ditem" href="#account">${TOOLIC.account}<span>Account and data</span></a>
-    <button class="ditem" data-act="log-food">${TOOLIC['log-food']}<span>Log a food to your diary</span></button>
+    <div class="dsec">Log</div>
+    <button class="ditem" data-act="log-food">${TOOLIC['log-food']}<span>Add food to the diary</span></button>
+    <button class="ditem" data-act="quick-add">${TOOLIC['add-food']}<span>Quick add calories</span></button>
+    <button class="ditem" data-act="log-weight">${TOOLIC.weight}<span>Log weight</span></button>
     <button class="ditem" data-act="add-food">${TOOLIC['add-food']}<span>Create a custom food</span></button>
+    <div class="dsec">Targets and data</div>
+    <a class="ditem" href="#goals">${TOOLIC.goal}<span>Daily goals</span></a>
     <button class="ditem" data-act="import">${TOOLIC.import}<span>Add Cronometer export</span></button>
-    <a class="ditem" href="https://cronometer.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>Get a new Cronometer export</span></a>
     <button class="ditem" data-act="export-csv">${TOOLIC['export-csv']}<span>Download CSV</span></button>
+    <a class="ditem" href="#account">${TOOLIC.account}<span>Account and data</span></a>
+    <div class="dsec">Preferences</div>
     <button class="ditem" data-act="theme">${TOOLIC.theme}<span>Theme</span><em>${themeLabel()}</em></button>
     <label class="ditem">${TOOLIC.currency}<span>Currency</span>${curSelect('dcur')}</label>
+    <div class="dsec">Help</div>
+    <button class="ditem" data-act="tour"><span>How it works</span></button>
+    <a class="ditem" href="https://cronometer.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>Open Cronometer</span></a>
     <div class="dlinks"><a href="/android">Get the Android app</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="https://coachleonidas.com">coachleonidas.com</a></div>
   </aside>
   <div class="scroll" id="scroller">
@@ -1434,7 +1450,7 @@ function render() {
 }
 function route() {
   const h = location.hash.replace('#', '');
-  const t = ['day', 'prices', 'week', 'trends', 'meals', 'account'].includes(h) ? h : 'day';
+  const t = ['day', 'prices', 'week', 'trends', 'meals', 'account', 'goals', 'progress', 'weight'].includes(h) ? h : 'day';
   const changed = t !== S.tab;
   S.tab = t;
   S.error = '';
@@ -1465,7 +1481,7 @@ function toast(msg) {
 /* ============ persistence ============ */
 let _save;
 function saveSoon() { clearTimeout(_save); _save = setTimeout(saveAll, 250); }
-function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('meals', S.meals); store.set('foods', S.foods); store.set('started', S.started); store.set('tview', S.tview); store.set('vmacro', S.vmacro); store.set('grain', S.grain); store.set('trange', S.trange); }
+function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('meals', S.meals); store.set('foods', S.foods); store.set('started', S.started); store.set('tview', S.tview); store.set('vmacro', S.vmacro); store.set('grain', S.grain); store.set('trange', S.trange); store.set('goals', S.goals); store.set('weights', S.weights); store.set('wunit', S.wunit); }
 function saveEntries() { store.set('entries', S.entries.map(({ src, ...r }) => ({ ...r, name: src !== undefined ? src : r.name }))); }
 
 /* ============ import ============ */
@@ -1549,16 +1565,24 @@ function loadSample() {
     { Breakfast: [['oats', 70], ['milk', 250], ['kiwi', 160], ['whey', 30]], Lunch: [['chicken', 280], ['rice', 100], ['carrot', 150], ['oil', 10]], Dinner: [['pork', 220], ['potato', 250], ['carrot', 120], ['oil', 8]], Snacks: [['greek', 250], ['blue', 100], ['honey', 20], ['apple', 150]] },
     { Breakfast: [['eggs', 4], ['feta', 40], ['tomato', 150]], Lunch: [['beef', 220], ['rice', 90], ['lettuce', 100], ['oil', 10]], Dinner: [['chicken', 250], ['sweet', 250], ['cabbage', 150]], Snacks: [['cottage', 200], ['kiwi', 90]] }
   ];
+  // Rough per 100 g values so the sample shows the nutrient table: sugars g, sodium, potassium, calcium, iron, vitamin C.
+  const M = {
+    oats: [1, 6, 429, 54, 4.7, 0], milk: [4.8, 44, 150, 120, 0, 0], blue: [10, 1, 77, 6, 0.3, 10], whey: [6, 400, 400, 500, 0.5, 0], chicken: [0, 70, 220, 5, 0.4, 0], rice: [0.1, 5, 115, 10, 0.8, 0],
+    cabbage: [3.2, 18, 170, 40, 0.5, 36], oil: [0, 2, 1, 1, 0.6, 0], skyr: [3.5, 40, 150, 120, 0, 0], kiwi: [9, 3, 312, 34, 0.3, 93], honey: [82, 4, 52, 6, 0.4, 0.5], choc: [24, 20, 715, 73, 12, 0],
+    sweet: [4.2, 55, 337, 30, 0.6, 2.4], potato: [0.8, 6, 421, 12, 0.8, 19], cottage: [3, 330, 150, 100, 0.1, 0], greek: [4, 36, 141, 110, 0, 0], berries: [5, 1, 100, 15, 0.5, 15], feta: [4, 917, 62, 493, 0.7, 0],
+    lettuce: [2, 10, 141, 18, 0.4, 3], carrot: [4.7, 69, 320, 33, 0.3, 6], eidam: [0, 800, 100, 750, 0.2, 0], beef: [0, 66, 300, 15, 2.2, 0], apple: [10, 1, 107, 6, 0.1, 5], tomato: [2.6, 5, 237, 10, 0.3, 14],
+    pork: [0, 60, 350, 6, 0.9, 0], casein: [3, 150, 150, 1000, 0.5, 0]
+  };
   const q = s => '"' + String(s).replace(/"/g, '""') + '"';
   const today = isoOf(new Date());
-  const lines = ['Day,Group,Food Name,Amount,Energy (kcal),Protein (g),Carbs (g),Fat (g),Fiber (g),Category'];
+  const lines = ['Day,Group,Food Name,Amount,Energy (kcal),Protein (g),Carbs (g),Fat (g),Fiber (g),Category,Sugars (g),Sodium (mg),Potassium (mg),Calcium (mg),Iron (mg),Vitamin C (mg)'];
   const egg = ['Eggs, large', 72, 6.3, 0.4, 4.8, 0];
   for (let i = 0; i < 14; i++) {
     const d = isoAdd(today, i - 13), p = days[i % days.length], s = [1, 0.95, 1.05, 1, 0.9, 1.1, 1][i % 7];
     for (const g of Object.keys(p)) for (const [k, n] of p[g]) {
-      if (k === 'eggs') { lines.push([d, g, q(egg[0]), q(n + ' large'), egg[1] * n, +(egg[2] * n).toFixed(1), +(egg[3] * n).toFixed(1), +(egg[4] * n).toFixed(1), 0, q('Dairy and Egg Products')].join(',')); continue; }
+      if (k === 'eggs') { lines.push([d, g, q(egg[0]), q(n + ' large'), egg[1] * n, +(egg[2] * n).toFixed(1), +(egg[3] * n).toFixed(1), +(egg[4] * n).toFixed(1), 0, q('Dairy and Egg Products'), ...[0.2, 70, 69, 28, 0.9, 0].map(v => +(v * n).toFixed(1))].join(',')); continue; }
       const f = F[k], gr = Math.round(n * s / 5) * 5 || n, m = gr / 100, u = f[0] === 'Milk, semi-skimmed 1.5%' ? 'ml' : 'g';
-      lines.push([d, g, q(f[0]), q(gr + ' ' + u), Math.round(f[1][0] * m), +(f[1][1] * m).toFixed(1), +(f[1][2] * m).toFixed(1), +(f[1][3] * m).toFixed(1), +(f[1][4] * m).toFixed(1), q(f[3])].join(','));
+      lines.push([d, g, q(f[0]), q(gr + ' ' + u), Math.round(f[1][0] * m), +(f[1][1] * m).toFixed(1), +(f[1][2] * m).toFixed(1), +(f[1][3] * m).toFixed(1), +(f[1][4] * m).toFixed(1), q(f[3]), ...M[k].map(v => +(v * m).toFixed(1))].join(','));
     }
   }
   const prices = { [egg[0]]: { price: 0.32, basis: 'unit', gpu: '' } };
@@ -1567,6 +1591,8 @@ function loadSample() {
   S.overrides[today] = { 'Chicken breast, raw': 6.99 };
   S.ranges.push({ id: 'sample-r1', name: 'Olive oil, extra virgin', from: isoAdd(today, -9), to: isoAdd(today, -5), price: 8.5 });
   indexRanges();
+  S.goals = { kcal: 2500, pro: 170, carb: 280, fat: 75, fiber: 30, x: {}, profile: null };
+  S.weights = [82.6, 82.4, 82.5, 82.1, 82.3, 82.0, 81.9, 82.0].map((kg, i) => ({ date: isoAdd(today, Math.min(0, -13 + i * 2)), kg }));
   importText(lines.join('\n'));
 }
 
@@ -1688,29 +1714,31 @@ function perUnit(name, unit, noCross) {
   if (_nc.idx !== IDX) _nc = { idx: IDX, m: new Map() };
   const key = `${name}|${u}|${noCross ? 1 : 0}`;
   if (_nc.m.has(key)) return _nc.m.get(key);
-  let out = null, q = 0, k = 0, p = 0, c = 0, f = 0, b = 0;
+  let out = null, q = 0, k = 0, p = 0, c = 0, f = 0, b = 0, xt = {}, xq = 0;
   for (const e of IDX.byName.get(name) || []) {
     if ((u === 'item') !== (e.type === 'count')) continue;
     q += e.qty; k += e.kcal; p += e.pro; c += e.carb; f += e.fat; b += e.fiber || 0;
+    if (e.x) { xq += e.qty; for (const n in e.x) xt[n] = (xt[n] || 0) + e.x[n]; }
   }
-  if (q > 0) out = { k: k / q, p: p / q, c: c / q, f: f / q, b: b / q };
+  if (q > 0) { out = { k: k / q, p: p / q, c: c / q, f: f / q, b: b / q }; if (xq > 0) { out.x = {}; for (const n in xt) out.x[n] = xt[n] / xq; } }
   const cf = S.foods[name];
   if (!out && cf && (cf.per === 'item') === (u === 'item')) { const d = u === 'item' ? 1 : 100; out = { k: cf.kcal / d, p: cf.pro / d, c: cf.carb / d, f: cf.fat / d, b: 0 }; }
   if (!out && !noCross) {
     const gpu = Number((S.prices[name] || {}).gpu) || 0, r = S.recipes[name];
     if (gpu > 0) {
       const o = perUnit(name, u === 'item' ? 'g' : 'item', true), s = u === 'item' ? gpu : 1 / gpu;
-      if (o) out = { k: o.k * s, p: o.p * s, c: o.c * s, f: o.f * s, b: o.b * s };
+      if (o) { out = { k: o.k * s, p: o.p * s, c: o.c * s, f: o.f * s, b: o.b * s }; if (o.x) { out.x = {}; for (const n in o.x) out.x[n] = o.x[n] * s; } }
     }
     if (!out && r && r.items.length) {
-      const t = { k: 0, p: 0, c: 0, f: 0, b: 0 }; let ok = true;
+      const t = { k: 0, p: 0, c: 0, f: 0, b: 0, x: {} }; let ok = true;
       for (const it of r.items) {
         const o = perUnit(canon(it.name), it.unit === 'item' ? 'item' : 'g'), q2 = Number(it.qty) || 0;
         if (!o) { ok = false; break; }
         t.k += o.k * q2; t.p += o.p * q2; t.c += o.c * q2; t.f += o.f * q2; t.b += o.b * q2;
+        if (o.x) t.x = addX(t.x, o.x, q2);
       }
       const den = u === 'item' ? (Number(r.servings) > 0 ? Number(r.servings) : 1) : Number(r.yieldG);
-      if (ok && den > 0) out = { k: t.k / den, p: t.p / den, c: t.c / den, f: t.f / den, b: t.b / den };
+      if (ok && den > 0) { out = { k: t.k / den, p: t.p / den, c: t.c / den, f: t.f / den, b: t.b / den }; const xo = {}; for (const n in t.x) xo[n] = t.x[n] / den; if (Object.keys(xo).length) out.x = xo; }
     }
   }
   _nc.m.set(key, out);
@@ -1892,7 +1920,7 @@ function addToDiary(name, date, group, eaten) {
   for (const it of m.items) {
     const n = canon(it.name), q = r2(it.qty * k), o = perUnit(n, it.unit === 'item' ? 'item' : 'g');
     if (!(q > 0)) continue;
-    list.push({ date, group, name: n, src: n, qty: q, unit: it.unit, type: it.unit === 'item' ? 'count' : it.unit === 'ml' ? 'volume' : 'mass', kcal: o ? r2(o.k * q) : 0, pro: o ? r2(o.p * q) : 0, carb: o ? r2(o.c * q) : 0, fat: o ? r2(o.f * q) : 0, fiber: o ? r2(o.b * q) : 0 });
+    list.push({ date, group, name: n, src: n, qty: q, unit: it.unit, type: it.unit === 'item' ? 'count' : it.unit === 'ml' ? 'volume' : 'mass', kcal: o ? r2(o.k * q) : 0, pro: o ? r2(o.p * q) : 0, carb: o ? r2(o.c * q) : 0, fat: o ? r2(o.f * q) : 0, fiber: o ? r2(o.b * q) : 0, ...(o && o.x ? { x: scaleX(o.x, q) } : {}) });
   }
   S.entries = S.entries.concat(list).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
   reindex(); ensurePrices(); saveEntries(); saveAll();
@@ -1932,8 +1960,8 @@ function openEntry(i, date, group) {
     if (!(qty > 0)) return err('Enter an amount greater than zero.');
     const o = perUnit(n, unit === 'item' ? 'item' : 'g');
     const e = { date, group, name: n, src: n, qty: r2(qty), unit, type: unit === 'item' ? 'count' : unit === 'ml' ? 'volume' : 'mass' };
-    if (o) Object.assign(e, { kcal: r2(o.k * qty), pro: r2(o.p * qty), carb: r2(o.c * qty), fat: r2(o.f * qty), fiber: r2(o.b * qty) });
-    else if (cur && cur.name === n && cur.qty > 0 && cur.type === e.type) { const k = qty / cur.qty; Object.assign(e, { kcal: r2(cur.kcal * k), pro: r2(cur.pro * k), carb: r2(cur.carb * k), fat: r2(cur.fat * k), fiber: r2((cur.fiber || 0) * k) }); if (cur.cat) e.cat = cur.cat; }
+    if (o) Object.assign(e, { kcal: r2(o.k * qty), pro: r2(o.p * qty), carb: r2(o.c * qty), fat: r2(o.f * qty), fiber: r2(o.b * qty) }, o.x ? { x: scaleX(o.x, qty) } : {});
+    else if (cur && cur.name === n && cur.qty > 0 && cur.type === e.type) { const k = qty / cur.qty; Object.assign(e, { kcal: r2(cur.kcal * k), pro: r2(cur.pro * k), carb: r2(cur.carb * k), fat: r2(cur.fat * k), fiber: r2((cur.fiber || 0) * k) }, cur.x ? { x: scaleX(Object.fromEntries(Object.entries(cur.x).map(([n, v]) => [n, v / cur.qty])), qty) } : {}); if (cur.cat) e.cat = cur.cat; }
     else Object.assign(e, { kcal: 0, pro: 0, carb: 0, fat: 0, fiber: 0 });
     if (cur) S.entries[i] = e; else S.entries.push(e);
     S.entries.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
@@ -1983,7 +2011,7 @@ function exportCsv() {
   toast('CSV downloaded');
 }
 function backup() {
-  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges, ranges: S.ranges, recipes: S.recipes, meals: S.meals, foods: S.foods, cats: S.cats };
+  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges, ranges: S.ranges, recipes: S.recipes, meals: S.meals, foods: S.foods, cats: S.cats, goals: S.goals, weights: S.weights, wunit: S.wunit };
   download('meal-cost-prices.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   toast('Backup downloaded');
 }
@@ -2023,6 +2051,9 @@ async function restore(file) {
     }
     for (const [a, b] of Object.entries(d.cats && typeof d.cats === 'object' ? d.cats : {})) if (typeof b === 'string' && b.trim()) S.cats[a] = b.trim();
     for (const [a, b] of Object.entries(d.merges || {})) if (typeof b === 'string' && a !== b && b) S.merges[a] = b;
+    if (d.goals && typeof d.goals === 'object') S.goals = d.goals;
+    if (Array.isArray(d.weights)) { const m = new Map(S.weights.map(w => [w.date, w])); for (const w of d.weights) if (w && /^\d{4}-\d{2}-\d{2}$/.test(w.date) && Number(w.kg) > 0) m.set(w.date, { date: w.date, kg: Number(w.kg) }); S.weights = [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1); }
+    if (d.wunit === 'lb' || d.wunit === 'kg') S.wunit = d.wunit;
     if (CURRENCIES.includes(d.currency)) S.currency = d.currency;
     if (d.budget > 0) S.budget = Number(d.budget);
     indexRanges(); reindex(); ensurePrices();
@@ -2105,6 +2136,7 @@ document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]'); if (!t) return;
   const a = t.dataset.act, d = t.dataset;
   if (a !== 'drawer' && t.closest('#drawer')) document.body.classList.remove('drawer-open');
+  if (diaryAct(a, d)) return;
   switch (a) {
     case 'import': $('#file').click(); break;
     case 'add-food': openFood(); break;
@@ -2193,7 +2225,7 @@ document.addEventListener('click', e => {
     case 'restore': $('#pfile').click(); break;
     case 'reset':
       if (confirm('Delete all entries, prices, foods and meals from this device? This cannot be undone.')) {
-        store.clear(); S.entries = []; S.prices = {}; S.overrides = {}; S.merges = {}; S.nomerge = []; S.ranges = []; S.recipes = {}; S.meals = {}; S.foods = {}; S.started = false; MB.draft = null; MB.cmp = []; S.cats = {}; indexRanges(); S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
+        store.clear(); S.entries = []; S.prices = {}; S.overrides = {}; S.merges = {}; S.nomerge = []; S.ranges = []; S.recipes = {}; S.meals = {}; S.foods = {}; S.started = false; MB.draft = null; MB.cmp = []; S.cats = {}; S.goals = null; S.weights = []; S.wunit = 'kg'; S.prange = 7; indexRanges(); S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
         history.replaceState(null, '', location.pathname); S.tab = 'day'; render(); toast('All data deleted');
       }
       break;

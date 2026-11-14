@@ -41,22 +41,22 @@ try:
         page.wait_for_selector('.pricetag .n')
         txt = page.inner_text('main')
         check('day total 8.81', page.inner_text('.pricetag .n') == '€8.81', page.inner_text('.pricetag .n'))
-        for want in ['€1.83', '€2.57', '€2.20', '€2.21', '€0.84', '€1.96', '191 g', 'saved you €0.42', '2,436']:
+        for want in ['€1.83', '€2.57', '€2.20', '€2.21', '€0.84', '€1.96', '191', 'saved €0.42', '2,436']:
             check('day shows ' + want, want in txt, want)
         check('offer tag shown', page.locator('.offer-tag').count() >= 1)
         check('all priced', 'All 14 foods priced' in txt)
 
         # 3. edit a price live
-        page.click('a.tab:has-text("Prices")')
+        page.click('a.tab:has-text("Foods")')
         page.wait_for_selector('#pbody tr')
         row = page.locator('#pbody tr', has_text='Whey protein').first
         row.locator('input[data-f=price]').fill('12')
         check('spend updates live', '€' in row.locator('.sp').inner_text() and row.locator('.sp').inner_text() != '€3.00', row.locator('.sp').inner_text())
-        page.click('a.tab:has-text("Day")')
+        page.click('a.tab:has-text("Diary")')
         check('total after price change', page.inner_text('.pricetag .n') == '€8.33', page.inner_text('.pricetag .n'))
 
         # 4. unit mismatch needs grams
-        page.click('a.tab:has-text("Prices")')
+        page.click('a.tab:has-text("Foods")')
         page.fill('#q', 'eggs')
         row = page.locator('#pbody tr', has_text='Eggs, large').first
         row.locator('select[data-f=basis]').select_option('kg')
@@ -68,7 +68,7 @@ try:
         page.fill('#q', '')
 
         # 5. offer dialog from the day view
-        page.click('a.tab:has-text("Day")')
+        page.click('a.tab:has-text("Diary")')
         page.locator('button.costbtn', has=page.locator('text=€0.38')).click()
         page.wait_for_selector('#dlg[open]')
         page.fill('#op', '1.60')
@@ -83,7 +83,7 @@ try:
         check('budget bar', 'left' in page.inner_text('.side') or 'over' in page.inner_text('.side'))
 
         # 7. week
-        page.click('a.tab:has-text("Summary")')
+        page.evaluate("location.hash='week'")
         page.wait_for_selector('.chart')
         wk = page.inner_text('main')
         check('week kpis', 'average day' in wk and 'per 30 days' in wk)
@@ -91,9 +91,9 @@ try:
         check('protein ranking', 'Cheapest protein' in wk and page.locator('.brow').count() >= 6)
 
         # 8. share image
-        page.click('a.tab:has-text("Day")')
+        page.click('a.tab:has-text("Diary")')
         with page.expect_download() as d:
-            page.click('text=Make share image')
+            page.click('summary:has-text("More")'); page.click('text=Make share image')
         path = d.value.path()
         data = open(path, 'rb').read()
         w, h = struct.unpack('>II', data[16:24])
@@ -103,7 +103,7 @@ try:
 
         # 9. csv export
         with page.expect_download() as d:
-            page.click('header >> text=Download CSV')
+            page.click('header .burger'); page.click('#drawer >> text=Download CSV')
         csv = open(d.value.path(), encoding='utf-8').read()
         check('csv export', csv.startswith('Date,Meal,Food') and csv.count('\n') > 20)
 
@@ -133,7 +133,7 @@ try:
             if basis: r.locator('select[data-f=basis]').select_option(basis)
         setp('Chicken', '10', 'kg'); setp('Oats', '2', 'kg'); setp('Eggs', '0.3', 'unit'); setp('Milk', '1.5', 'kg')
         check('notice hidden when priced', not p2.locator('#unp').is_visible())
-        p2.click('a.tab:has-text("Day")')
+        p2.click('a.tab:has-text("Diary")')
         # latest day = 2026-11-10: chicken 0.5 lb = 226.796 g -> 2.27 ; milk 250 ml -> 0.375 -> 0.38 ; total 2.65
         check('lb + ml parsed and costed', p2.inner_text('.pricetag .n') == '€2.65', p2.inner_text('.pricetag .n'))
         p2.click('button[data-act=prev-day]')
@@ -289,7 +289,7 @@ try:
         pr2.goto(BASE + '#day'); pr2.wait_for_selector('.pricetag .n')
         import datetime as _dt
         _d = _dt.date.today() - _dt.timedelta(days=2)
-        pr2.click('.daybtn[data-date="' + _d.isoformat() + '"]'); pr2.wait_for_selector('[data-act="toggle-recipe"]')
+        pr2.click('.dz-day[data-date="' + _d.isoformat() + '"]'); pr2.wait_for_selector('[data-act="toggle-recipe"]')
         pr2.locator('[data-act="toggle-recipe"]').first.click()
         check('ingredients expand under the recipe line', pr2.locator('.subitem').count() == 2)
         pr2.goto(BASE + '#trends'); pr2.wait_for_selector('#tgrain')
@@ -512,7 +512,7 @@ try:
         pm.route('https://world.openfoodfacts.org/**', lambda r: r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body='{"status":1,"product":{"product_name":"Skyr natural","brands":"Arla, Other","nutriments":{"energy-kcal_100g":63,"proteins_100g":11,"carbohydrates_100g":3.9,"fat_100g":0.2}}}'))
         pm.goto(BASE); pm.wait_for_selector('[data-act=start-manual]')
         pm.click('[data-act=start-manual]'); pm.wait_for_selector('main [data-act=log-food]')
-        check('manual start opens the Day tab with no export', pm.inner_text('main h1') == 'Day', pm.inner_text('main h1'))
+        check('manual start opens the Day tab with no export', pm.inner_text('main h1') == 'Today', pm.inner_text('main h1'))
         pm.click('main [data-act=log-food]'); pm.wait_for_selector('#fform')
         check('logging with no foods opens Add a food', pm.is_visible('#fform'))
         pm.fill('#fbc', '5711953016014'); pm.click('#fbl'); pm.wait_for_timeout(1000)
@@ -538,9 +538,9 @@ try:
         pm.locator('main [data-act=log-food]').first.click(); pm.wait_for_selector('#eform')
         pm.fill('#ed', '2026-11-10'); pm.fill('#en', 'Chicken breast'); pm.fill('#eq', '200'); pm.click('#eform [type=submit]'); pm.wait_for_timeout(300)
         check('logging a food by hand creates a day', 'Chicken breast' in pm.inner_text('main') and '1.50' in pm.inner_text('main'), pm.inner_text('main')[:300])
-        pm.locator('.ibtn[data-act=edit-entry]').first.click(); pm.wait_for_selector('#eform'); pm.fill('#eq', '100'); pm.click('#eform [type=submit]'); pm.wait_for_timeout(300)
+        pm.locator('.iname[data-act=edit-entry]').first.click(); pm.wait_for_selector('#eform'); pm.fill('#eq', '100'); pm.click('#eform [type=submit]'); pm.wait_for_timeout(300)
         check('editing an entry updates cost', '0.75' in pm.inner_text('main'), pm.inner_text('main')[:300])
-        pm.locator('.ibtn[data-act=edit-entry]').first.click(); pm.wait_for_selector('#eform'); pm.click('#edel'); pm.wait_for_timeout(300)
+        pm.locator('.iname[data-act=edit-entry]').first.click(); pm.wait_for_selector('#eform'); pm.click('#edel'); pm.wait_for_timeout(300)
         check('deleting an entry clears the day', 'Nothing is logged yet' in pm.inner_text('main'))
         pm.evaluate("location.hash='trends'"); pm.wait_for_selector('main [data-act=tview][data-v=nutrition]'); pm.click('main [data-act=tview][data-v=nutrition]'); pm.wait_for_selector('.ntab')
         check('nutrition table lists foods', pm.locator('.ntab tbody tr').count() == 2)
@@ -564,7 +564,7 @@ try:
         ic = b.new_context(viewport={'width': 1100, 'height': 900}, locale='en-US'); pi = ic.new_page(); ierrs = []
         pi.on('pageerror', lambda e: ierrs.append(str(e)))
         pi.goto(BASE); pi.click('text=Try it with sample data'); pi.wait_for_selector('.pricetag .n')
-        pi.click('a.tab:has-text("Summary")'); pi.wait_for_selector('#range')
+        pi.evaluate("location.hash='week'"); pi.wait_for_selector('#range')
         check('Summary tab is named Summary, not Week', pi.locator('a.tab:has-text("Week")').count() == 0)
         pi.select_option('#range', 'week'); pi.wait_for_selector('.pnav')
         t0 = pi.inner_text('main h1')
@@ -577,7 +577,7 @@ try:
         check('custom dates with no entries say so', 'Nothing is logged in this period' in pi.inner_text('main'), pi.inner_text('main')[:200])
         pi.select_option('#range', '7'); pi.wait_for_selector('.kpis')
         check('last 7 days still works', 'average day' in pi.inner_text('.kpis'))
-        pi.click('a.tab:has-text("Trends")'); pi.wait_for_selector('#trange')
+        pi.evaluate("location.hash='trends'"); pi.wait_for_selector('#trange')
         pi.select_option('#trange', 'week'); pi.wait_for_selector('.pnav')
         check('Trends supports a specific week', pi.locator('.pnav').count() == 1)
         pi.select_option('#trange', '90')
@@ -616,6 +616,55 @@ try:
         check('manifest is installable', mf['display'] == 'standalone' and any(i['sizes'] == '512x512' for i in mf['icons']) and mf['start_url'] == '/')
         check('home screen icon exists', pw.evaluate("fetch('/apple-touch-icon.png').then(r => r.ok)") is True and pw.evaluate("fetch('/sw.js').then(r => r.ok)") is True)
         pw.close()
+
+        # macro tracking: goals, diary, quick add, weight, progress
+        pg = b.new_context(viewport={'width': 1360, 'height': 900}, locale='en-US').new_page()
+        perr = []; pg.on('pageerror', lambda e: perr.append(str(e)))
+        pg.goto(BASE); pg.click('text=Try it with sample data'); pg.wait_for_selector('.dz-sum')
+        check('diary shows energy against the goal', 'of 2,500 kcal' in pg.inner_text('.dz-sum'), pg.inner_text('.dz-sum')[:120])
+        check('header has four tabs and no tool row', pg.locator('nav.tabs a.tab').count() == 4 and pg.locator('.tools').count() == 0)
+        check('every meal section is present', all(m in pg.inner_text('main') for m in ['Breakfast', 'Lunch', 'Dinner', 'Snacks']))
+        check('food rows show macros', 'P 10' in pg.inner_text('.dz-list') and 'kcal' in pg.inner_text('.dz-list'))
+        check('nutrient table lists sodium from the sample', pg.evaluate("(() => { document.querySelector('.dz-nut').open = true; return document.querySelector('.dz-nut').innerText.includes('Sodium'); })()"))
+        t0 = pg.inner_text('h1')
+        pg.click('[data-act=prev-day]'); check('previous day moves back one calendar day', pg.inner_text('h1') == 'Yesterday', pg.inner_text('h1'))
+        pg.click('[data-act=next-day]'); pg.click('[data-act=next-day]'); check('can browse to tomorrow, which is empty', pg.inner_text('h1') == 'Tomorrow' and 'Nothing logged on this day' in pg.inner_text('main'))
+        pg.click('[data-act=today]'); check('Today button returns to today', pg.inner_text('h1') == t0)
+        # quick add
+        before = pg.evaluate("window.__mealcost.S.entries.length")
+        pg.click('summary:has-text("More")'); pg.click('.dz-pop >> text=Quick add calories'); pg.wait_for_selector('#qform')
+        pg.fill('#qn', 'Restaurant lunch'); pg.fill('#qk', '600'); pg.fill('#qp', '30'); pg.click('#qform [type=submit]'); pg.wait_for_timeout(300)
+        check('quick add logs an entry with no cost', pg.evaluate("window.__mealcost.S.entries.length") == before + 1 and 'Restaurant lunch' in pg.inner_text('main'))
+        check('quick add stays out of Foods and prices', pg.evaluate("!window.__mealcost.IDX().meta.has('Restaurant lunch')"))
+        check('quick add leaves the day cost alone', pg.inner_text('.pricetag .n') == '€8.81', pg.inner_text('.pricetag .n'))
+        check('quick add counts toward energy', '3,036' in pg.inner_text('.dz-sum'), pg.inner_text('.dz-sum')[:80])
+        # copy from earlier
+        pg.click('[data-act=prev-day]'); pg.click('[data-act=next-day]')
+        # weight
+        pg.click('header .burger'); pg.click('#drawer >> text=Log weight'); pg.wait_for_selector('#wform')
+        pg.fill('#wv', '81.5'); pg.click('#wform [type=submit]'); pg.wait_for_timeout(300)
+        check('weight is saved in kilograms', pg.evaluate("window.__mealcost.S.weights.slice(-1)[0].kg") == 81.5)
+        pg.evaluate("location.hash='weight'"); pg.wait_for_selector('.pchart .line')
+        check('weight chart and history render', pg.locator('.wrow').count() >= 8 and '81.5 kg' in pg.inner_text('main'))
+        pg.click('[data-act=del-weight] >> nth=0'); pg.wait_for_timeout(200)
+        check('a weigh-in can be deleted', pg.evaluate("window.__mealcost.S.weights.length") == 7)
+        pg.evaluate("location.hash='progress'"); pg.wait_for_selector('.pchart .pc-bar')
+        check('progress shows averages and bars', 'kcal a day on average' in pg.inner_text('main') and pg.locator('.pc-bar').count() == 7)
+        check('progress tab is highlighted for its subpages', pg.locator('nav.tabs a[aria-current=page]').inner_text() == 'Progress')
+        pg.click('[data-act=prange][data-v="30"]'); pg.wait_for_timeout(200)
+        check('progress range switches', pg.locator('.pc-bar').count() == 30 or pg.locator('.pchart text.tick').count() > 0)
+        # goals calculator
+        pg.evaluate("location.hash='goals'"); pg.wait_for_selector('#goalform')
+        pg.select_option('#cs', 'm'); pg.fill('#ca', '30'); pg.fill('#ch', '180'); pg.fill('#cw', '80'); pg.select_option('#cact', '1.55'); pg.select_option('#cgoal', 'maintain')
+        pg.click('[data-act=goals-calc]'); pg.wait_for_selector('[data-act=goals-use]')
+        check('calculator estimates maintenance energy', '2,7' in pg.inner_text('#cresult') or '2,6' in pg.inner_text('#cresult') or '2700' in pg.inner_text('#cresult'), pg.inner_text('#cresult')[:140])
+        pg.click('[data-act=goals-use]'); pg.click('#goalform [type=submit]'); pg.wait_for_selector('.dz-sum')
+        check('saved goals show in the diary', 'of 2,7' in pg.inner_text('.dz-sum') or 'of 2,6' in pg.inner_text('.dz-sum'), pg.inner_text('.dz-sum')[:100])
+        pg.set_viewport_size({'width': 390, 'height': 844})
+        pg.evaluate("location.hash='day'"); pg.wait_for_selector('.dz-sum')
+        check('phone diary has no sideways scroll', pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1 && document.querySelector('#scroller').scrollWidth <= window.innerWidth + 1"))
+        check('macro screens raise no errors', not perr, perr)
+        pg.context.close()
 
         # desktop screenshots
         for tab in ['day', 'prices', 'week']:

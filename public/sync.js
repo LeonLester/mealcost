@@ -1,7 +1,7 @@
 /* Optional sign-in and sync. Without signing in, nothing here talks to a server. */
 (() => {
   'use strict';
-  const KEYS = ['entries', 'prices', 'overrides', 'currency', 'budget', 'merges', 'nomerge', 'ranges', 'cats', 'recipes', 'meals', 'foods'];
+  const KEYS = ['goals', 'weights', 'wunit', 'entries', 'prices', 'overrides', 'currency', 'budget', 'merges', 'nomerge', 'ranges', 'cats', 'recipes', 'meals', 'foods'];
   const LS = {
     get(k) { try { return localStorage.getItem('mcc.' + k); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem('mcc.' + k, v); } catch (e) { /* ignore */ } },
