@@ -447,7 +447,7 @@ function appView() {
   <div class="scrim" data-act="drawer-close"></div>
   <aside class="drawer" id="drawer" aria-label="Menu">
     <div class="dhead"><b class="dlogo">${LOGO}Meal cost</b><button class="burger" data-act="drawer-close" aria-label="Close menu"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    ${window.MealNative && MealNative.isNative ? `<button class="ditem" data-act="update-check"><span>Check for updates</span>${S.update && S.update.available ? '<em>New</em>' : ''}</button>` : ''}
+    ${window.MealNative && MealNative.canUpdate ? `<button class="ditem" data-act="update-check"><span>Check for updates</span>${S.update && S.update.available ? '<em>New</em>' : ''}</button>` : ''}
     <a class="ditem" href="#account">${TOOLIC.account}<span>Account and data</span></a>
     <button class="ditem" data-act="log-food">${TOOLIC['log-food']}<span>Log a food to your diary</span></button>
     <button class="ditem" data-act="add-food">${TOOLIC['add-food']}<span>Create a custom food</span></button>

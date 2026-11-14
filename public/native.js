@@ -4,6 +4,9 @@
   const C = window.Capacitor;
   const isNative = !!(C && typeof C.isNativePlatform === 'function' && C.isNativePlatform());
   const HOME = 'https://mealcost.coachleonidas.com';
+  const platform = C && typeof C.getPlatform === 'function' ? C.getPlatform() : 'android';
+  // Only the Android app updates itself from GitHub. iPhone builds are re-installed through the sideloading tool.
+  const canUpdate = isNative && platform === 'android';
   const P = () => (C && C.Plugins) || {};
   const toBase64 = blob => new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -24,7 +27,7 @@
   const get = k => { try { return localStorage.getItem('mcc.' + k); } catch (e) { return null; } };
   const put = (k, v) => { try { localStorage.setItem('mcc.' + k, v); } catch (e) { /* storage blocked */ } };
   async function checkUpdate(force) {
-    if (!isNative || !P().App || !P().App.getInfo) return null;
+    if (!canUpdate || !P().App || !P().App.getInfo) return null;
     if (!force && Date.now() - Number(get('upd.at') || 0) < 6 * 3600e3) return null;
     const cur = Number((await P().App.getInfo()).build) || 0;
     const res = await fetch(REL, { headers: { accept: 'application/vnd.github+json' } });
@@ -35,7 +38,7 @@
     return { current: cur, latest, available: latest > cur, skipped: !force && String(latest) === get('upd.skip'), url: APK };
   }
   const skipUpdate = n => put('upd.skip', String(n));
-  window.MealNative = { isNative, save, openUrl, home: HOME, checkUpdate, skipUpdate };
+  window.MealNative = { isNative, canUpdate, platform, save, openUrl, home: HOME, checkUpdate, skipUpdate };
   if (!isNative) return;
 
   document.documentElement.classList.add('native');

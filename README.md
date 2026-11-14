@@ -95,3 +95,21 @@ Open https://leonlester.github.io/mealcost/fdroid/ on the phone and tap Add to F
 `https://leonlester.github.io/mealcost/fdroid/repo` in F-Droid under Settings, Repositories.
 The repository key and the APK signing key live in the GitHub Actions cache, kept alive by
 `.github/workflows/keepalive.yml`. Metadata is in `fdroid/metadata`, the build is `scripts/fdroid.sh`.
+
+## Install on iPhone (sideloading)
+
+The easiest way on iPhone is still the web app: open https://mealcost.coachleonidas.com in Safari, tap Share, then Add to Home Screen.
+
+There is also a native build for people who want it. Apple only runs apps signed by a developer account, so the release file is unsigned and you sign it with your own free Apple ID using a sideloading tool.
+
+1. Download `mealcost-unsigned.ipa` from https://github.com/LeonLester/mealcost/releases/tag/ios-latest on your Mac or PC.
+2. Install it with one of these tools. All of them sign the app with your Apple ID:
+   - Sideloadly (Mac or Windows): open Sideloadly, plug in the iPhone, drag the `.ipa` in, enter your Apple ID, press Start.
+   - AltStore (Mac or Windows): install AltServer, install AltStore on the phone, then open the `.ipa` in AltStore.
+   - SideStore: like AltStore, refreshes over Wi-Fi without a computer after setup.
+3. On the iPhone, open Settings, General, VPN and Device Management, trust your Apple ID. Turn on Developer Mode (Settings, Privacy and Security) if iOS asks.
+4. Free Apple IDs sign for 7 days, up to 3 apps. The tool must refresh the app every week or it stops opening. Your data stays on the phone.
+
+Or build it yourself on a Mac with Xcode: `npm ci && npm run build:web && npx cap add ios && npx cap sync ios && npx cap open ios`, then pick your team under Signing and run on the phone.
+
+The iPhone build does not update itself. Download a newer `.ipa` and install it over the old one. It is built by `.github/workflows/ios.yml` on every push to `main`. Barcode scanning and Google sign-in on iPhone are not tested yet.

@@ -1,0 +1,88 @@
+name: iOS app (unsigned IPA)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'public/**'
+      - 'capacitor.config.json'
+      - 'package*.json'
+      - 'scripts/**'
+      - 'assets/**'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build web assets
+        run: npm run build:web
+
+      # The iOS project is generated here instead of being kept in the repo.
+      - name: Generate the iOS project
+        run: |
+          npx cap add ios
+          npx cap sync ios
+          APP_PLIST=ios/App/App/Info.plist
+          PB=/usr/libexec/PlistBuddy
+          $PB -c "Set :CFBundleDisplayName 'Meal cost'" $APP_PLIST || $PB -c "Add :CFBundleDisplayName string 'Meal cost'" $APP_PLIST
+          $PB -c "Add :CFBundleURLTypes array" $APP_PLIST || true
+          $PB -c "Add :CFBundleURLTypes:0 dict" $APP_PLIST
+          $PB -c "Add :CFBundleURLTypes:0:CFBundleURLName string com.coachleonidas.mealcost" $APP_PLIST
+          $PB -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" $APP_PLIST
+          $PB -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string com.coachleonidas.mealcost" $APP_PLIST
+          $PB -c "Add :NSCameraUsageDescription string 'The camera scans food barcodes. Images stay on your device.'" $APP_PLIST
+          $PB -c "Set :CFBundleVersion ${{ github.run_number }}" $APP_PLIST || $PB -c "Add :CFBundleVersion string ${{ github.run_number }}" $APP_PLIST
+          $PB -c "Set :CFBundleShortVersionString 1.0.${{ github.run_number }}" $APP_PLIST || $PB -c "Add :CFBundleShortVersionString string 1.0.${{ github.run_number }}" $APP_PLIST
+          plutil -p $APP_PLIST | head -40
+          ls ios/App
+
+      - name: Generate icons
+        run: npx capacitor-assets generate --ios || echo "icon generation skipped"
+
+      - name: Build without code signing
+        run: |
+          cd ios/App
+          if [ -d App.xcworkspace ]; then TARGET="-workspace App.xcworkspace"; else TARGET="-project App.xcodeproj"; fi
+          xcodebuild $TARGET -scheme App -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath ../../build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            -skipPackagePluginValidation -skipMacroValidation build | tail -40
+
+      - name: Package the IPA
+        run: |
+          APP=$(find build/Build/Products -maxdepth 2 -name "App.app" | head -1)
+          test -n "$APP"
+          mkdir -p dist/Payload && cp -R "$APP" dist/Payload/
+          (cd dist && zip -qry mealcost-unsigned.ipa Payload)
+          rm -rf dist/Payload
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mealcost-ios
+          path: dist/*.ipa
+          retention-days: 30
+
+      - name: Publish the IPA as a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=ios-latest
+          gh release view $TAG >/dev/null 2>&1 || gh release create $TAG --prerelease --title "iPhone app (latest build)" --notes "Unsigned iPhone build."
+          gh release upload $TAG dist/mealcost-unsigned.ipa --clobber
+          gh release edit $TAG --notes "Build ${{ github.run_number }} from ${{ github.sha }}. This file is unsigned. Install it with AltStore, SideStore or Sideloadly, which sign it with your Apple ID. See the README section Install on iPhone."
