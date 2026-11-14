@@ -27,6 +27,7 @@ const S = {
   merges: NP(store.get('merges', {})),
   nomerge: store.get('nomerge', []),
   sort: store.get('sort', 'freq'), flip: store.get('flip', false),
+  pantry: NP(store.get('pantry', {})), pantryAuto: store.get('pantryAuto', true), sug: store.get('sug', null),
   cats: NP(store.get('cats', {})), ranges: store.get('ranges', []), recipes: NP(store.get('recipes', {})), meals: NP(store.get('meals', {})), foods: NP(store.get('foods', {})), started: store.get('started', false), tview: store.get('tview', 'cost'), vmacro: store.get('vmacro', 'pro'), vall: false, open: new Set(), grain: store.get('grain', 'week'), trange: store.get('trange', 90),
   goals: cleanGoals(store.get('goals', null)), weights: store.get('weights', []), wunit: store.get('wunit', 'kg'),
   pa: null, cfrom: '', cto: '', tab: 'day', day: null, cat: '', range: 7, filter: '', chip: 'all', showAll: false, error: ''
@@ -496,7 +497,7 @@ function updateBanner() {
   return `<div class="notice" role="status">${IC.info}<div style="flex:1"><b>Update available</b><div class="muted" style="font-size:14px">Build ${u.latest} is ready, you have ${u.current}. Your data stays.</div><div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap"><button class="btn sm primary" data-act="update-get">Download update</button><button class="btn link" data-act="update-skip">Not now</button></div></div></div>`;
 }
 function appView() {
-  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? progNav('week') + weekView() : S.tab === 'trends' ? progNav('trends') + trendsView() : S.tab === 'progress' ? progNav('progress') + progressView() : S.tab === 'weight' ? progNav('weight') + weightView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : S.tab === 'goals' ? goalsView() : S.tab === 'admin' ? adminView() : S.tab === 'more' ? moreView() : diaryView();
+  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? progNav('week') + weekView() : S.tab === 'trends' ? progNav('trends') + trendsView() : S.tab === 'progress' ? progNav('progress') + progressView() : S.tab === 'weight' ? progNav('weight') + weightView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : S.tab === 'goals' ? goalsView() : S.tab === 'admin' ? adminView() : S.tab === 'more' ? moreView() : S.tab === 'pantry' ? pantryView() : diaryView();
   return `
   <div class="shell">
   <header class="topbar"><div class="wrap">
@@ -1434,7 +1435,7 @@ function render() {
 }
 function route() {
   const h = location.hash.replace('#', '');
-  const t = ['day', 'prices', 'week', 'trends', 'meals', 'account', 'goals', 'progress', 'weight', 'admin', 'more'].includes(h) ? h : 'day';
+  const t = ['day', 'prices', 'week', 'trends', 'meals', 'account', 'goals', 'progress', 'weight', 'admin', 'more', 'pantry'].includes(h) ? h : 'day';
   const changed = t !== S.tab;
   S.tab = t;
   S.error = '';
@@ -1465,7 +1466,7 @@ function toast(msg) {
 /* ============ persistence ============ */
 let _save;
 function saveSoon() { clearTimeout(_save); _save = setTimeout(saveAll, 250); }
-function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('meals', S.meals); store.set('foods', S.foods); store.set('started', S.started); store.set('tview', S.tview); store.set('vmacro', S.vmacro); store.set('grain', S.grain); store.set('trange', S.trange); store.set('goals', S.goals); store.set('weights', S.weights); store.set('wunit', S.wunit); }
+function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('meals', S.meals); store.set('pantry', S.pantry); store.set('pantryAuto', S.pantryAuto); store.set('foods', S.foods); store.set('started', S.started); store.set('tview', S.tview); store.set('vmacro', S.vmacro); store.set('grain', S.grain); store.set('trange', S.trange); store.set('goals', S.goals); store.set('weights', S.weights); store.set('wunit', S.wunit); }
 function saveEntries() { store.set('entries', S.entries.map(({ src, ...r }) => ({ ...r, name: src !== undefined ? src : r.name }))); }
 
 /* ============ import ============ */
@@ -1908,6 +1909,7 @@ function addToDiary(name, date, group, eaten, quiet) {
     list.push({ date, group, name: n, src: n, qty: q, unit: it.unit, type: it.unit === 'item' ? 'count' : it.unit === 'ml' ? 'volume' : 'mass', kcal: o ? r2(o.k * q) : 0, pro: o ? r2(o.p * q) : 0, carb: o ? r2(o.c * q) : 0, fat: o ? r2(o.f * q) : 0, fiber: o ? r2(o.b * q) : 0, ...(o && o.x ? { x: scaleX(o.x, q) } : {}) });
   }
   S.entries = S.entries.concat(list).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  pantryUseEntries(list);
   reindex(); ensurePrices(); saveEntries(); saveAll();
   S.day = date; if ($('#dlg').open) $('#dlg').close(); go('day'); if (!quiet) toast(`Added to ${dMed(date)}`);
 }
@@ -1966,7 +1968,7 @@ function openEntry(i, date, group) {
     if (o) Object.assign(e, { kcal: r2(o.k * qty), pro: r2(o.p * qty), carb: r2(o.c * qty), fat: r2(o.f * qty), fiber: r2(o.b * qty) }, o.x ? { x: scaleX(o.x, qty) } : {});
     else if (cur && cur.name === n && cur.qty > 0 && cur.type === e.type) { const k = qty / cur.qty; Object.assign(e, { kcal: r2(cur.kcal * k), pro: r2(cur.pro * k), carb: r2(cur.carb * k), fat: r2(cur.fat * k), fiber: r2((cur.fiber || 0) * k) }, cur.x ? { x: scaleX(Object.fromEntries(Object.entries(cur.x).map(([n, v]) => [n, v / cur.qty])), qty) } : {}); if (cur.cat) e.cat = cur.cat; }
     else Object.assign(e, { kcal: 0, pro: 0, carb: 0, fat: 0, fiber: 0 });
-    if (cur) S.entries[i] = e; else S.entries.push(e);
+    if (cur) S.entries[i] = e; else { S.entries.push(e); pantryUseEntries([e]); }
     S.entries.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
     reindex(); ensurePrices(); saveEntries(); saveAll();
     S.day = date; $('#dlg').close(); if (S.tab !== 'day') go('day'); else render(); toast(cur ? 'Entry saved' : `Added to ${dMed(date)}`);
@@ -2346,7 +2348,7 @@ if (store.get('parser', 1) < 2) {
 indexRanges(); reindex(); ensurePrices();
 route();
 if (window.MealSync) { MealSync.onchange = () => render(); MealSync.init(); }
-if (window.MealNative && MealNative.isNative) MealNative.checkUpdate().then(u => { if (u) { S.update = u; render(); } }).catch(() => {});
+if (window.MealNative && MealNative.isNative) MealNative.checkUpdate().then(u => { if (u) { S.update = u; render(); } }).catch(e => console.error('update check', e && e.message));
 window.__mealcost = { S, parseCronometer, costOf, summarize, macros, catOf, recipeCostOf, IDX: () => IDX };
 
 if ('serviceWorker' in navigator && !(window.MealNative && MealNative.isNative) && location.protocol === 'https:') {

@@ -2,13 +2,23 @@
 'use strict';
 
 const PLUS_IC = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
-const MORE_TABS = ['more', 'goals', 'meals', 'account', 'admin'];
+const MORE_TABS = ['more', 'goals', 'meals', 'account', 'admin', 'pantry'];
 const navOf2 = t => ['progress', 'weight', 'week', 'trends'].includes(t) ? 'progress' : MORE_TABS.includes(t) ? 'more' : t;
 
 function navHtml() {
-  return [['day', 'Diary'], ['progress', 'Progress'], ['+', 'Add'], ['prices', 'Foods'], ['more', 'More']].map(([t, l]) => t === '+'
-    ? `<button type="button" class="tab plus" data-act="plus" aria-label="Add to diary" aria-haspopup="dialog"><span class="plusdot">${PLUS_IC}</span><span class="plusl">Add</span></button>`
-    : `<a class="tab" href="#${t}"${navOf2(S.tab) === t ? ' aria-current="page"' : ''}>${TABIC[t]}<span>${l}</span></a>`).join('');
+  const I = d => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const cur = t => t === 'more' ? S.tab === 'more' : navOf2(S.tab) === t;
+  const link = (t, l, ic) => `<a class="tab" href="#${t}" aria-label="${l}" title="${l}"${cur(t) ? ' aria-current="page"' : ''}${t === 'more' && S.tab !== 'more' && MORE_TABS.includes(S.tab) ? ' data-sub="1"' : ''}>${ic}<span>${l}</span></a>`;
+  const desk = (t, l, ic) => `<a class="tab desk" href="#${t}" aria-label="${l}" title="${l}"${S.tab === t ? ' aria-current="page"' : ''}>${ic}<span>${l}</span></a>`;
+  return [
+    link('day', 'Diary', TABIC.day), link('progress', 'Progress', TABIC.progress),
+    `<button type="button" class="tab plus" data-act="plus" aria-label="Add to diary" aria-haspopup="dialog"><span class="plusdot">${PLUS_IC}</span><span class="plusl">Add</span></button>`,
+    link('prices', 'Foods', TABIC.prices),
+    desk('meals', 'Meals', TABIC.meals),
+    desk('pantry', 'Pantry', I('<path d="M5 8h14v12H5zM4 4h16v4H4zM9 12h6"/>')),
+    desk('goals', 'Targets', I('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>')),
+    link('more', 'More', TABIC.more),
+  ].join('');
 }
 
 /* ---------- the + sheet: everything that adds something ---------- */
@@ -61,6 +71,7 @@ function moreView() {
   ${sec('Your plan', [
     moreRow('#goals', '', I('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>'), 'Targets', 'Calories and macros, with a calculator'),
     moreRow('#meals', '', TABIC.meals, 'Meals', 'Go-to meals and the meal builder'),
+    moreRow('#pantry', '', I('<path d="M5 8h14v12H5zM4 4h16v4H4zM9 12h6"/>'), 'Pantry', 'What is in the house, and meal ideas'),
     moreRow('#prices', '', TABIC.prices, 'Foods and prices', 'What each food costs, offers and merges')
   ])}
   ${sec('Account', [

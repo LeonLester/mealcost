@@ -37,6 +37,22 @@ function rcPrice(it) {
   if (it.unit === 'g' || it.unit === 'ml') return { price: r2(it.total / q * 1000), basis: 'kg' };
   return { price: r2(it.total / q), basis: 'unit' };
 }
+// What goes into the pantry for a receipt line. A pack size printed in the name (460 g) is used when the food is logged by weight.
+function rcPantryAmount(it, food) {
+  const m = IDX.meta.get(food) || { vol: 0, mass: 0, countFirst: false };
+  if (it.unit === 'kg') return { qty: it.qty * 1000, unit: 'g' };
+  if (it.unit === 'g') return { qty: it.qty, unit: 'g' };
+  if (it.unit === 'l') return { qty: it.qty * 1000, unit: 'ml' };
+  if (it.unit === 'ml') return { qty: it.qty, unit: 'ml' };
+  const pack = /(\d+(?:[.,]\d+)?)\s*(kg|g|ml|l)\b/i.exec(it.name);
+  if (pack && !m.countFirst) {
+    const v = parseFloat(pack[1].replace(',', '.')), u = pack[2].toLowerCase();
+    return u === 'kg' ? { qty: v * 1000 * it.qty, unit: 'g' } : u === 'l' ? { qty: v * 1000 * it.qty, unit: 'ml' } : { qty: v * it.qty, unit: u };
+  }
+  const gpu = Number((S.prices[food] || {}).gpu) || 0;
+  if (!m.countFirst && gpu > 0) return { qty: it.qty * gpu, unit: m.vol > m.mass ? 'ml' : 'g' };
+  return { qty: it.qty, unit: 'item' };
+}
 function rcDialog(r) {
   const dlg = $('#dlg'); dlg.classList.add('wide');
   const foods = [...IDX.meta.keys()].sort((a, b) => a.localeCompare(b));
@@ -50,7 +66,8 @@ function rcDialog(r) {
   dlg.innerHTML = `<form method="dialog" id="rcform"><h2 id="dlg-title" style="font-size:20px">Receipt${r.store ? ' from ' + esc(r.store) : ''}</h2>
     <p class="muted" style="font-size:14px">${r.items.length ? 'Check each line, pick the food it belongs to, then tap Apply prices. This sets the standard price of those foods.' : 'No items were found. Try a flatter, brighter photo.'}</p>
     ${r.items.length ? `<div class="tablewrap" style="max-height:50vh;overflow:auto"><table style="min-width:0"><tbody>${rows}</tbody></table></div>` : ''}
-    <div class="dlg-actions" style="gap:8px">${r.items.length ? '<button type="submit" class="btn primary">Apply prices</button>' : ''}<button type="button" class="btn" data-act="close-dlg">Close</button></div></form>`;
+    ${r.items.length ? '<label class="cmp" style="margin:10px 0 0"><input type="checkbox" id="rcpantry" checked><span>Also add these to my pantry</span></label>' : ''}
+    <div class="dlg-actions" style="gap:8px">${r.items.length ? '<button type="submit" class="btn primary">Apply</button>' : ''}<button type="button" class="btn" data-act="close-dlg">Close</button></div></form>`;
   dlg.setAttribute('aria-labelledby', 'dlg-title'); dlg.showModal();
   $('#rcform').addEventListener('submit', ev => {
     ev.preventDefault(); let n = 0;
@@ -58,8 +75,9 @@ function rcDialog(r) {
       const food = $('[data-rc=food]', tr).value, it = r.items[Number(tr.dataset.i)];
       if (!food || !$('[data-rc=on]', tr).checked || !S.prices[food]) return;
       const p = rcPrice(it); S.prices[food].price = p.price; S.prices[food].basis = p.basis; n++;
+      if ($('#rcpantry') && $('#rcpantry').checked) { const a = rcPantryAmount(it, food); if (a) pantryAdd(food, a.qty, a.unit); }
     });
-    dlg.close(); saveAll(); render(); toast(n ? `Updated ${n} ${n === 1 ? 'price' : 'prices'}` : 'No prices changed');
+    store.set('pantry', S.pantry); dlg.close(); saveAll(); render(); toast(n ? `Updated ${n} ${n === 1 ? 'price' : 'prices'}` : 'No prices changed');
   });
 }
 const RC_ERR = { no_access: 'Receipt scanning is not enabled for your account.', not_configured: 'Receipt scanning is not set up on the server.', model_unreachable: 'The receipt model is offline right now.', unreadable: 'The model could not read that receipt.', too_large: 'That photo is too large.', rate_limited: 'You have scanned a lot of receipts lately. Try again later.' };
