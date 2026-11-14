@@ -414,6 +414,7 @@ const TABIC = {
   prices: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8L3 12z"/><circle cx="7.5" cy="8.5" r="1.2"/></svg>',
   week: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V12M10 20V6M15 20V10M20 20V15"/></svg>',
   trends: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-9"/><path d="M15 6h6v6"/></svg>',
+  more: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.200"/><circle cx="12" cy="12" r="1.200"/><circle cx="19" cy="12" r="1.200"/></svg>',
   meals: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16a8 8 0 0 1-16 0zM8 8c0-1.5 1-1.5 1-3M13 8c0-1.5 1-1.5 1-3"/></svg>',
 };
 
@@ -495,38 +496,14 @@ function updateBanner() {
   return `<div class="notice" role="status">${IC.info}<div style="flex:1"><b>Update available</b><div class="muted" style="font-size:14px">Build ${u.latest} is ready, you have ${u.current}. Your data stays.</div><div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap"><button class="btn sm primary" data-act="update-get">Download update</button><button class="btn link" data-act="update-skip">Not now</button></div></div></div>`;
 }
 function appView() {
-  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? progNav('week') + weekView() : S.tab === 'trends' ? progNav('trends') + trendsView() : S.tab === 'progress' ? progNav('progress') + progressView() : S.tab === 'weight' ? progNav('weight') + weightView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : S.tab === 'goals' ? goalsView() : S.tab === 'admin' ? adminView() : diaryView();
+  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? progNav('week') + weekView() : S.tab === 'trends' ? progNav('trends') + trendsView() : S.tab === 'progress' ? progNav('progress') + progressView() : S.tab === 'weight' ? progNav('weight') + weightView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : S.tab === 'goals' ? goalsView() : S.tab === 'admin' ? adminView() : S.tab === 'more' ? moreView() : diaryView();
   return `
   <div class="shell">
   <header class="topbar"><div class="wrap">
-    <button class="burger" data-act="drawer" aria-label="Menu" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="brand">${LOGO}<b>Meal cost</b><span>by Coach Leonidas</span></div>
-    <nav class="tabs" aria-label="Sections">${NAV.map(([t, l]) => `<a class="tab" href="#${t}"${navOf(S.tab) === t ? ' aria-current="page"' : ''}>${TABIC[t]}<span>${l}</span></a>`).join('')}</nav>
+    <nav class="tabs" aria-label="Sections">${navHtml()}</nav>
     <div class="tright">${window.MealSync ? MealSync.topHtml() : ''}</div>
   </div></header>
-  <div class="scrim" data-act="drawer-close"></div>
-  <aside class="drawer" id="drawer" aria-label="Menu">
-    <div class="dhead"><b class="dlogo">${LOGO}Meal cost</b><button class="burger" data-act="drawer-close" aria-label="Close menu"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-    ${window.MealNative && MealNative.canUpdate ? `<button class="ditem" data-act="update-check"><span>Check for updates</span>${S.update && S.update.available ? '<em>New</em>' : ''}</button>` : ''}
-    <div class="dsec">Log</div>
-    <button class="ditem" data-act="log-food">${TOOLIC['log-food']}<span>Add food to the diary</span></button>
-    <button class="ditem" data-act="quick-add">${TOOLIC['add-food']}<span>Quick add calories</span></button>
-    <button class="ditem" data-act="log-weight">${TOOLIC.weight}<span>Log weight</span></button>
-    <button class="ditem" data-act="add-food">${TOOLIC['add-food']}<span>Create a custom food</span></button>
-    <div class="dsec">Targets and data</div>
-    <a class="ditem" href="#goals">${TOOLIC.goal}<span>Daily goals</span></a>
-    <button class="ditem" data-act="import">${TOOLIC.import}<span>Add Cronometer export</span></button>
-    <button class="ditem" data-act="export-csv">${TOOLIC['export-csv']}<span>Download CSV</span></button>
-    <a class="ditem" href="#account">${TOOLIC.account}<span>Account and data</span></a>
-    ${window.MealSync && MealSync.admin ? `<a class="ditem" href="#admin">${TOOLIC.account}<span>Access (admin)</span></a>` : ''}
-    <div class="dsec">Preferences</div>
-    <button class="ditem" data-act="theme">${TOOLIC.theme}<span>Theme</span><em>${themeLabel()}</em></button>
-    <label class="ditem">${TOOLIC.currency}<span>Currency</span>${curSelect('dcur')}</label>
-    <div class="dsec">Help</div>
-    <button class="ditem" data-act="tour"><span>How it works</span></button>
-    <a class="ditem" href="https://cronometer.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>Open Cronometer</span></a>
-    <div class="dlinks"><a href="/android">Get the Android app</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="https://coachleonidas.com">coachleonidas.com</a></div>
-  </aside>
   <div class="scroll" id="scroller">
   <main class="wrap">${updateBanner()}${appBanner()}${tourCard()}${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
   ${siteFooter()}
@@ -1450,14 +1427,14 @@ function weekView() {
 function render() {
   const sc0 = $('#scroller'), keep = sc0 ? sc0.scrollTop : 0;
   document.body.classList.remove('drawer-open');
-  const shell = hasData() || (S.tab === 'admin' && window.MealSync && MealSync.admin);
+  const shell = hasData() || (S.tab === 'admin' && window.MealSync && MealSync.admin) || S.tab === 'more';
   $('#app').innerHTML = shell ? appView() : importView();
   { const sc = $('#scroller'); if (sc && keep) sc.scrollTop = keep; }
   document.title = (hasData() ? tabLbl(S.tab) + ' | ' : '') + 'Meal cost calculator | Coach Leonidas';
 }
 function route() {
   const h = location.hash.replace('#', '');
-  const t = ['day', 'prices', 'week', 'trends', 'meals', 'account', 'goals', 'progress', 'weight', 'admin'].includes(h) ? h : 'day';
+  const t = ['day', 'prices', 'week', 'trends', 'meals', 'account', 'goals', 'progress', 'weight', 'admin', 'more'].includes(h) ? h : 'day';
   const changed = t !== S.tab;
   S.tab = t;
   S.error = '';
@@ -2161,7 +2138,6 @@ async function shareImage() {
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]'); if (!t) return;
   const a = t.dataset.act, d = t.dataset;
-  if (a !== 'drawer' && t.closest('#drawer')) document.body.classList.remove('drawer-open');
   if (diaryAct(a, d)) return;
   switch (a) {
     case 'import': $('#file').click(); break;

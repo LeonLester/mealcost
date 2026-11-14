@@ -154,7 +154,7 @@ function diaryView() {
     </div>
     <div class="dz-top">
       <button class="btn primary" data-act="log-food" data-date="${day}">Add food</button>
-      <details class="dz-menu"><summary class="btn" aria-label="More for this day">More</summary><div class="dz-pop">
+      <details class="dz-menu"><summary class="btn" aria-label="More for this day">Options</summary><div class="dz-pop">
         <button data-act="goto-open" data-date="${day}" data-group="">Add a go-to meal</button>
         <button data-act="quick-add" data-date="${day}">Quick add calories</button>
         <button data-act="copy-prev" data-group="">Copy a day from earlier</button>
