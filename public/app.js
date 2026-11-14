@@ -1478,36 +1478,48 @@ async function handleFile(file) {
 
 /* sample data */
 function loadSample() {
+  // Staples from a real Cronometer log: per 100 g nutrition [kcal, protein, carbs, fat, fiber], price per kg in EUR, and category.
   const F = {
-    oats: ['Oats, rolled', '80 g', 311, 10.5, 53, 5.5, 2.2, 'kg'], milk: ['Milk, whole', '250 ml', 160, 8.5, 12, 8.5, 1.2, 'kg'],
-    banana: ['Banana', '1 medium', 105, 1.3, 27, 0.4, 0.25, 'unit'], eggs: ['Eggs, whole, large', '3 large', 216, 18.9, 1.1, 14.3, 0.35, 'unit'],
-    skyr: ['Skyr, plain', '200 g', 126, 22, 8, 0.4, 7, 'kg'], blue: ['Blueberries', '100 g', 57, 0.7, 14, 0.3, 2.4, '100'],
-    whey: ['Whey protein powder', '30 g', 120, 24, 3, 1.5, 30, 'kg'], chicken: ['Chicken breast, cooked', '200 g', 330, 62, 0, 7, 11, 'kg'],
-    rice: ['Basmati rice, cooked', '250 g', 325, 6.5, 70, 0.8, 1.2, 'kg'], broc: ['Broccoli', '150 g', 51, 4.2, 10, 0.6, 3.2, 'kg'],
-    oil: ['Olive oil', '1 tbsp', 119, 0, 0, 13.5, 0.12, 'unit'], salmon: ['Salmon, cooked', '180 g', 374, 40, 0, 22, 24, 'kg'],
-    sweet: ['Sweet potato, baked', '250 g', 225, 4, 52, 0.3, 2.5, 'kg'], greens: ['Mixed salad greens', '80 g', 14, 1.2, 2.6, 0.2, 9, 'kg'],
-    beef: ['Beef mince, 5% fat', '200 g', 244, 40, 0, 9, 10, 'kg'], pasta: ['Pasta, cooked', '300 g', 470, 17, 92, 2.7, 1, 'kg'],
-    passata: ['Tomato passata', '150 g', 42, 2, 8, 0.3, 1.8, 'kg'], avo: ['Avocado', '0.5 medium', 120, 1.5, 6.4, 11, 1.2, 'unit'],
-    cottage: ['Cottage cheese', '200 g', 196, 22, 6, 9, 6, 'kg'], almonds: ['Almonds', '30 g', 174, 6.4, 6.5, 15, 14, 'kg'],
-    apple: ['Apple', '1 medium', 95, 0.5, 25, 0.3, 0.4, 'unit'], choc: ['Dark chocolate, 85%', '20 g', 120, 2, 6, 10, 25, 'kg']
+    oats: ['Rolled oats', [371, 13.7, 68.2, 6.9, 9.4], 2.2, 'Breakfast Cereals'], milk: ['Milk, semi-skimmed 1.5%', [47, 3.4, 4.8, 1.5, 0], 1.1, 'Dairy and Egg Products'],
+    blue: ['Blueberries', [57, 0.7, 14.6, 0.3, 2.4], 9, 'Fruits and Fruit Juices'], whey: ['Whey protein', [384, 71.9, 8.6, 6.1, 0], 28, 'Supplements'],
+    chicken: ['Chicken breast, raw', [120, 22.5, 0, 2.6, 0], 8.5, 'Poultry Products'], rice: ['Basmati rice, dry', [362, 6.5, 79, 0.5, 1.3], 3.2, 'Cereal Grains and Pasta'],
+    cabbage: ['Cabbage', [28, 1, 6.4, 0.2, 2.2], 1.3, 'Vegetables and Vegetable Products'], oil: ['Olive oil, extra virgin', [884, 0, 0, 100, 0], 11, 'Fats and Oils'],
+    skyr: ['Skyr, plain', [64, 11, 4, 0.2, 0], 3.2, 'Dairy and Egg Products'], kiwi: ['Kiwi', [61, 1.1, 14.7, 0.5, 3], 3.5, 'Fruits and Fruit Juices'],
+    honey: ['Honey', [292, 0.3, 78.7, 0, 0.2], 9, 'Sweets'], choc: ['Dark chocolate 85%', [590, 12, 19, 50, 12], 22, 'Sweets'],
+    sweet: ['Sweet potato', [77, 1.6, 17.3, 0.4, 3], 2.4, 'Vegetables and Vegetable Products'], potato: ['Potato', [77, 2, 17.5, 0.1, 1.5], 1.2, 'Vegetables and Vegetable Products'],
+    cottage: ['Cottage cheese, fat free', [72, 12, 3.5, 0.3, 0], 5.5, 'Dairy and Egg Products'], greek: ['Greek yogurt 0%', [59, 10, 4.5, 0, 0], 3, 'Dairy and Egg Products'],
+    berries: ['Mixed berries, frozen', [48, 1, 9.1, 0.2, 2.2], 7, 'Fruits and Fruit Juices'], feta: ['Feta cheese', [273, 19.7, 5.6, 19.1, 0], 10, 'Dairy and Egg Products'],
+    lettuce: ['Iceberg lettuce', [14, 0.7, 3.4, 0.1, 1.2], 3.5, 'Vegetables and Vegetable Products'], carrot: ['Carrots', [45, 0.9, 10.3, 0.3, 3.1], 1.2, 'Vegetables and Vegetable Products'],
+    eidam: ['Eidam cheese 30%', [330, 26, 0, 25, 0], 9.5, 'Dairy and Egg Products'], beef: ['Beef mince', [196, 19.3, 0, 12.5, 0], 9, 'Beef Products'],
+    apple: ['Apple', [52, 0.3, 13.8, 0.2, 2.4], 2.5, 'Fruits and Fruit Juices'], tomato: ['Tomato', [18, 0.9, 3.9, 0.2, 1.2], 3.5, 'Vegetables and Vegetable Products'],
+    pork: ['Pork roast, raw', [143, 21, 0, 6, 0], 7.5, 'Pork Products'], casein: ['Casein protein', [367, 76.7, 10, 3.3, 0], 30, 'Supplements']
   };
-  const plan = [
-    { Breakfast: ['oats', 'milk', 'banana', 'whey'], Lunch: ['chicken', 'rice', 'broc', 'oil'], Dinner: ['salmon', 'sweet', 'greens', 'oil'], Snacks: ['almonds', 'apple'] },
-    { Breakfast: ['eggs', 'skyr', 'blue'], Lunch: ['beef', 'pasta', 'passata', 'greens'], Dinner: ['chicken', 'rice', 'broc', 'avo'], Snacks: ['choc', 'skyr'] },
-    { Breakfast: ['oats', 'milk', 'blue', 'whey'], Lunch: ['salmon', 'rice', 'greens', 'oil'], Dinner: ['beef', 'sweet', 'broc'], Snacks: ['cottage', 'apple'] }
+  // Each day is a list of meals; an item is [food, grams]. Eggs are logged as items.
+  const days = [
+    { Breakfast: [['oats', 60], ['milk', 250], ['blue', 80], ['whey', 30]], Lunch: [['chicken', 250], ['rice', 90], ['cabbage', 150], ['oil', 10]], Dinner: [['skyr', 250], ['kiwi', 180], ['honey', 15]], Snacks: [['choc', 20]] },
+    { Breakfast: [['eggs', 3], ['eidam', 40], ['kiwi', 150]], Lunch: [['beef', 200], ['potato', 300], ['tomato', 150], ['oil', 10]], Dinner: [['cottage', 250], ['berries', 150], ['honey', 15]], Snacks: [['whey', 30], ['apple', 150]] },
+    { Breakfast: [['skyr', 250], ['oats', 50], ['berries', 120]], Lunch: [['chicken', 300], ['sweet', 300], ['lettuce', 100], ['oil', 12]], Dinner: [['pork', 250], ['potato', 250], ['carrot', 150], ['oil', 8]], Snacks: [['choc', 20], ['casein', 30]] },
+    { Breakfast: [['oats', 70], ['milk', 250], ['kiwi', 160], ['whey', 30]], Lunch: [['chicken', 280], ['rice', 100], ['carrot', 150], ['oil', 10]], Dinner: [['pork', 220], ['potato', 250], ['carrot', 120], ['oil', 8]], Snacks: [['greek', 250], ['blue', 100], ['honey', 20], ['apple', 150]] },
+    { Breakfast: [['eggs', 4], ['feta', 40], ['tomato', 150]], Lunch: [['beef', 220], ['rice', 90], ['lettuce', 100], ['oil', 10]], Dinner: [['chicken', 250], ['sweet', 250], ['cabbage', 150]], Snacks: [['cottage', 200], ['kiwi', 90]] }
   ];
-  const times = { Breakfast: '08:00', Lunch: '13:00', Dinner: '19:30', Snacks: '16:00' };
   const q = s => '"' + String(s).replace(/"/g, '""') + '"';
   const today = isoOf(new Date());
-  const lines = ['Day,Time,Group,Food Name,Amount,Energy (kcal),Protein (g),Carbs (g),Fat (g)'];
-  for (let i = 0; i < 7; i++) {
-    const d = isoAdd(today, i - 6), p = plan[i % 3];
-    for (const g of Object.keys(p)) for (const k of p[g]) { const f = F[k]; lines.push([d, times[g], g, q(f[0]), q(f[1]), f[2], f[3], f[4], f[5]].join(',')); }
+  const lines = ['Day,Group,Food Name,Amount,Energy (kcal),Protein (g),Carbs (g),Fat (g),Fiber (g),Category'];
+  const egg = ['Eggs, large', 72, 6.3, 0.4, 4.8, 0];
+  for (let i = 0; i < 14; i++) {
+    const d = isoAdd(today, i - 13), p = days[i % days.length], s = [1, 0.95, 1.05, 1, 0.9, 1.1, 1][i % 7];
+    for (const g of Object.keys(p)) for (const [k, n] of p[g]) {
+      if (k === 'eggs') { lines.push([d, g, q(egg[0]), q(n + ' large'), egg[1] * n, +(egg[2] * n).toFixed(1), +(egg[3] * n).toFixed(1), +(egg[4] * n).toFixed(1), 0, q('Dairy and Egg Products')].join(',')); continue; }
+      const f = F[k], gr = Math.round(n * s / 5) * 5 || n, m = gr / 100, u = f[0] === 'Milk, semi-skimmed 1.5%' ? 'ml' : 'g';
+      lines.push([d, g, q(f[0]), q(gr + ' ' + u), Math.round(f[1][0] * m), +(f[1][1] * m).toFixed(1), +(f[1][2] * m).toFixed(1), +(f[1][3] * m).toFixed(1), +(f[1][4] * m).toFixed(1), q(f[3])].join(','));
+    }
   }
-  const prices = {};
-  for (const k in F) prices[F[k][0]] = { price: F[k][6], basis: F[k][7], gpu: '' };
+  const prices = { [egg[0]]: { price: 0.32, basis: 'unit', gpu: '' } };
+  for (const k in F) prices[F[k][0]] = { price: F[k][2], basis: 'kg', gpu: '' };
   Object.assign(S.prices, prices);
-  S.overrides[today] = { 'Salmon, cooked': 16 };
+  S.overrides[today] = { 'Chicken breast, raw': 6.99 };
+  S.ranges.push({ id: 'sample-r1', name: 'Olive oil, extra virgin', from: isoAdd(today, -9), to: isoAdd(today, -5), price: 8.5 });
+  indexRanges();
   importText(lines.join('\n'));
 }
 
@@ -1744,15 +1756,8 @@ function mealCompareHtml(date) {
   return `<div class="card pad" style="margin-top:16px"><h3 style="font:700 20px var(--display)">Compare</h3><p class="sub" style="margin-top:4px">${esc(diff)}</p>
     <table class="mtab cmpt"><thead><tr><th scope="col"><span class="vh">Measure</span></th><th scope="col">${esc(a)}</th><th scope="col">${esc(b)}</th></tr></thead><tbody>${rows.map(r => `<tr><th scope="row">${r[0]}</th>${cell(A, r[2], B, r[1], r[3], r[4])}${cell(B, r[2], A, r[1], r[3], r[4])}</tr>`).join('')}</tbody></table></div>`;
 }
-function mealsView() {
-  if (!MB.draft) MB.draft = newDraft();
-  const d = MB.draft, date = mealDate();
-  const foods = [...IDX.meta.keys()].sort((a, b) => a.localeCompare(b));
-  return `
-  <h1 class="h1" id="h1" tabindex="-1">Meal builder</h1>
-  <p class="lede">Pick foods and recipes, set amounts, and see what a meal costs and what is in it. The cost is always worked out from your current prices.</p>
-  <datalist id="mlist">${foods.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
-  <div class="cols" style="margin-top:24px">
+function mealFormHtml(d, date) {
+  return `<div class="cols" style="margin-top:24px">
     <form id="mform" class="card pad main2" style="flex:2 1 560px" novalidate>
       <h2 style="font-size:17px">${d.orig ? `Editing ${esc(d.orig)}` : 'New meal'}</h2>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
@@ -1763,10 +1768,21 @@ function mealsView() {
       <div id="mrows" style="margin-top:16px">${d.items.map((it, i) => mealRowHtml(it, i, date)).join('')}</div>
       <div><button type="button" class="btn sm" data-act="meal-add">Add ingredient</button></div>
       <div id="merr" class="sub" style="color:var(--offer-ink);margin-top:10px" role="alert"></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button type="submit" class="btn primary" style="flex:1 1 160px">Save meal</button><button type="button" class="btn" data-act="meal-new">${d.orig ? 'New meal' : 'Clear'}</button></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button type="submit" class="btn primary" style="flex:1 1 160px">Save meal</button><button type="button" class="btn" data-act="meal-new">${d.orig ? 'New meal' : 'Clear'}</button><button type="button" class="btn" data-act="meal-close">Close</button></div>
     </form>
     <div class="side"><div class="card pad" id="mtot" aria-live="polite">${mealTotalsHtml(mealFromDraft(), date)}</div></div>
-  </div>
+  </div>`;
+}
+function mealsView() {
+  if (!MB.draft) MB.draft = newDraft();
+  const d = MB.draft, date = mealDate();
+  const foods = [...IDX.meta.keys()].sort((a, b) => a.localeCompare(b));
+  const open = MB.open || d.orig || d.items.some(i => i.name.trim());
+  return `
+  <h1 class="h1" id="h1" tabindex="-1">Meal builder</h1>
+  <p class="lede">Pick foods and recipes, set amounts, and see what a meal costs and what is in it. The cost is always worked out from your current prices.</p>
+  <datalist id="mlist">${foods.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
+  ${open ? mealFormHtml(d, date) : `<div style="margin-top:20px"><button type="button" class="btn primary" data-act="meal-open" aria-expanded="false">New meal</button></div>`}
   <h2 style="font-size:18px;margin-top:32px">Saved meals</h2>
   <div id="mcmp">${mealCompareHtml(date)}</div>
   <div id="mlist2" class="mlist">${mealListHtml(date)}</div>`;
@@ -2086,7 +2102,9 @@ document.addEventListener('click', e => {
     case 'ph-del': S.ph = S.ph.filter(n => n !== d.name); store.set('phist', S.ph); render(); break;
     case 'meal-add': mealSync(); MB.draft.items.push({ name: '', qty: '', unit: 'g' }); render(); { const r = document.querySelectorAll('#mform .mrow'); const f = r.length && $('[data-m=name]', r[r.length - 1]); if (f) f.focus(); } break;
     case 'meal-del-row': mealSync(); MB.draft.items.splice(Number(d.i), 1); if (!MB.draft.items.length) MB.draft.items.push({ name: '', qty: '', unit: 'g' }); render(); break;
-    case 'meal-new': MB.draft = newDraft(); render(); { const f = $('#mn'); if (f) f.focus(); } break;
+    case 'meal-open': MB.open = true; render(); { const f = $('#mn'); if (f) f.focus(); } break;
+    case 'meal-close': MB.open = false; MB.draft = newDraft(); render(); break;
+    case 'meal-new': MB.draft = newDraft(); MB.open = true; render(); { const f = $('#mn'); if (f) f.focus(); } break;
     case 'meal-edit': loadMeal(d.name, false); break;
     case 'meal-dup': loadMeal(d.name, true); toast('Copy opened. Rename it and save.'); break;
     case 'meal-diary': openDiary(d.name); break;
