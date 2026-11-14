@@ -405,6 +405,21 @@ try:
         check('chosen foods persist', ph.locator('#phist .phchip').count() == 2)
         ph.close()
 
+        # app banner that matches the phone
+        for ua, want, other in [('Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36', 'mealcost.apk', 'Show me how'), ('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1', '/android#iphone', 'mealcost.apk')]:
+            ctx = b.new_context(viewport={'width': 400, 'height': 800}, user_agent=ua, locale='en-US', has_touch=True); pbn = ctx.new_page(); pbn.goto(BASE)
+            pbn.wait_for_selector('[aria-label="Get the app"]')
+            html = pbn.inner_html('[aria-label="Get the app"]')
+            check('banner offers the right download for this phone', want in html and other not in html, html[:160])
+            pbn.click('[data-act=appban-off]'); pbn.wait_for_timeout(200)
+            check('Not now hides the app banner', pbn.locator('[aria-label="Get the app"]').count() == 0)
+            pbn.reload(); pbn.wait_for_selector('h1')
+            check('app banner stays hidden after a reload', pbn.locator('[aria-label="Get the app"]').count() == 0)
+            ctx.close()
+        pdk = b.new_context(viewport={'width': 1200, 'height': 800}, locale='en-US').new_page(); pdk.goto(BASE); pdk.wait_for_selector('h1')
+        check('no app banner on a desktop browser', pdk.locator('[aria-label="Get the app"]').count() == 0)
+        pdk.close()
+
         # Android app glue (Capacitor is mocked)
         cap = b.new_context(viewport={'width': 412, 'height': 900}, locale='en-US')
         cap.add_init_script("""

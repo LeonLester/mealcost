@@ -344,6 +344,7 @@ function importView() {
   return `
   <header class="topbar plain"><div class="wrap"><div class="brand"><b>Coach Leonidas</b><span>Meal cost calculator</span></div><span class="grow"></span><span class="muted">Free and private</span>${window.MealSync ? MealSync.topHtml() : ''}</div></header>
   <main class="wrap">
+    ${appBanner()}
     ${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}
     <div class="hero">
       <div style="flex:1 1 520px">
@@ -430,6 +431,19 @@ function openTheme() {
 function toolBtn(act, label, cls = '') {
   return `<button class="btn sm tb ${cls}" data-act="${act}" aria-label="${esc(label)}" title="${esc(label)}">${TOOLIC[act]}<span class="lbl">${esc(label)}</span></button>`;
 }
+
+// A small banner on phones that matches the phone: the APK on Android, the app options on iPhone. Web only.
+function appBanner() {
+  if (window.MealNative && MealNative.isNative) return '';
+  let off = false; try { off = localStorage.getItem('mcc.appban') === '1'; } catch (e) { /* storage blocked */ }
+  const ua = navigator.userAgent || '', standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1), android = /Android/.test(ua);
+  if (off || standalone || (!ios && !android)) return '';
+  const head = android ? 'Get the Android app' : 'Get the iPhone app';
+  const sub = android ? 'Installs in a minute and keeps your data. New versions install over the old one.' : 'Add it to your Home Screen for free, or install the app file.';
+  const main = android ? '<a class="btn sm primary" href="https://github.com/LeonLester/mealcost/releases/download/android-latest/mealcost.apk">Download the APK</a>' : '<a class="btn sm primary" href="/android#iphone">Show me how</a>';
+  return `<div class="notice" role="region" aria-label="Get the app" style="margin-bottom:24px">${IC.info}<div style="flex:1"><b>${head}</b><div class="muted" style="font-size:14px">${sub}</div><div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;align-items:center">${main}<a class="btn link" href="/android">All options</a><button class="btn link" data-act="appban-off">Not now</button></div></div></div>`;
+}
 function updateBanner() {
   const u = S.update; if (!u || !u.available || u.skipped) return '';
   return `<div class="notice" role="status">${IC.info}<div style="flex:1"><b>Update available</b><div class="muted" style="font-size:14px">Build ${u.latest} is ready, you have ${u.current}. Your data stays.</div><div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap"><button class="btn sm primary" data-act="update-get">Download update</button><button class="btn link" data-act="update-skip">Not now</button></div></div></div>`;
@@ -459,7 +473,7 @@ function appView() {
     <div class="dlinks"><a href="/android">Get the Android app</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="https://coachleonidas.com">coachleonidas.com</a></div>
   </aside>
   <div class="scroll" id="scroller">
-  <main class="wrap">${updateBanner()}${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
+  <main class="wrap">${updateBanner()}${appBanner()}${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
   ${siteFooter()}
   </div>
   </div>`;
@@ -2082,6 +2096,7 @@ document.addEventListener('click', e => {
     case 'wi-add': (S.whatif = S.whatif || []).push({ name: '', price: '' }); render(); break;
     case 'wi-del': S.whatif.splice(Number(d.i), 1); render(); break;
     case 'drawer': document.body.classList.toggle('drawer-open'); t.setAttribute('aria-expanded', document.body.classList.contains('drawer-open')); break;
+    case 'appban-off': try { localStorage.setItem('mcc.appban', '1'); } catch (e) { /* storage blocked */ } render(); break;
     case 'update-get': window.MealNative.openUrl(S.update.url).catch(() => {}); toast('Open the downloaded file to install'); break;
     case 'update-skip': MealNative.skipUpdate(S.update.latest); S.update.skipped = true; render(); break;
     case 'update-check': document.body.classList.remove('drawer-open'); MealNative.checkUpdate(true).then(u => { S.update = u; render(); toast(u && u.available ? `Build ${u.latest} is available` : `You have the latest version (build ${u ? u.current : '?'})`); }).catch(() => toast('Could not check for updates. Try again when online.')); break;
