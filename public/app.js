@@ -837,13 +837,12 @@ function openFood(name) {
   const per = cf ? cf.per : '100g';
   dlg.innerHTML = `<form id="fform" method="dialog" novalidate>
     <h2 id="dlg-title" style="font-size:20px">${cf ? 'Edit food' : 'Add a food'}</h2>
-    <p class="muted" style="font-size:14px">Enter what the label says and what you pay. Then use it in meals and rankings. No other app needed.</p>
-    ${cf ? '' : `<div class="bc"><label for="fbc">Barcode</label><div class="bcrow"><input class="field" id="fbc" inputmode="numeric" autocomplete="off" placeholder="Barcode number"><button type="button" class="btn" id="fbl">Look up</button>${canScan() ? '<button type="button" class="btn" id="fscan">Scan</button>' : ''}</div><video id="fvid" playsinline muted hidden></video><div id="fbs" class="sub" role="status"></div></div>`}
+    ${cf ? '' : `<div class="bc"><div class="bcrow"><input class="field" id="fbc" inputmode="numeric" autocomplete="off" aria-label="Barcode number" placeholder="Barcode number (optional)"><button type="button" class="btn" id="fbl">Look up</button>${canScan() ? '<button type="button" class="btn" id="fscan">Scan</button>' : ''}</div><video id="fvid" playsinline muted hidden></video><div id="fbs" class="sub" role="status"></div></div>`}
     <div><label for="fn">Name</label><input class="field" style="width:100%" id="fn" maxlength="60" autocomplete="off" placeholder="For example, Greek yogurt"${cf ? ' readonly' : ''} value="${v(name)}"></div>
-    <div><label for="fper">Nutrition is for</label><select class="field" style="width:100%" id="fper"><option value="100g"${per === '100g' ? ' selected' : ''}>100 g (or 100 ml)</option><option value="item"${per === 'item' ? ' selected' : ''}>1 item or serving</option></select></div>
-    <div class="fgrid"><div><label for="fk">Calories</label><input class="field" id="fk" inputmode="decimal" placeholder="kcal" value="${v(cf && cf.kcal)}"></div><div><label for="fp">Protein (g)</label><input class="field" id="fp" inputmode="decimal" placeholder="0" value="${v(cf && cf.pro)}"></div><div><label for="fc">Carbs (g)</label><input class="field" id="fc" inputmode="decimal" placeholder="0" value="${v(cf && cf.carb)}"></div><div><label for="ff">Fat (g)</label><input class="field" id="ff" inputmode="decimal" placeholder="0" value="${v(cf && cf.fat)}"></div></div>
-    <div class="fgrid"><div><label for="fpr">Price (${esc(sym)})</label><input class="field" id="fpr" inputmode="decimal" placeholder="optional" value="${v(p && p.price)}"></div><div><label for="fpb">Price is per</label><select class="field" id="fpb"><option value="kg"${p && p.basis === 'kg' ? ' selected' : ''}>kg or litre</option><option value="100"${!p || p.basis === '100' ? ' selected' : ''}>100 g or 100 ml</option><option value="unit"${p && p.basis === 'unit' ? ' selected' : ''}>item</option></select></div></div>
-    <div id="fgw"${per === 'item' ? '' : ' hidden'}><label for="fg">Grams per item (optional)</label><input class="field" style="width:100%" id="fg" inputmode="decimal" placeholder="Lets a per-kg price work for items" value="${v(p && p.gpu)}"></div>
+    <div class="fgrid"><div><label for="fper">Nutrition is for</label><select class="field" id="fper"><option value="100g"${per === '100g' ? ' selected' : ''}>100 g or 100 ml</option><option value="item"${per === 'item' ? ' selected' : ''}>1 item</option></select></div><div><label for="fk">Calories</label><input class="field" id="fk" inputmode="decimal" placeholder="kcal" value="${v(cf && cf.kcal)}"></div></div>
+    <div class="fgrid three"><div><label for="fp">Protein g</label><input class="field" id="fp" inputmode="decimal" placeholder="0" value="${v(cf && cf.pro)}"></div><div><label for="fc">Carbs g</label><input class="field" id="fc" inputmode="decimal" placeholder="0" value="${v(cf && cf.carb)}"></div><div><label for="ff">Fat g</label><input class="field" id="ff" inputmode="decimal" placeholder="0" value="${v(cf && cf.fat)}"></div></div>
+    <div class="fgrid"><div><label for="fpr">Price (${esc(sym)})</label><input class="field" id="fpr" inputmode="decimal" placeholder="optional" value="${v(p && p.price)}"></div><div><label for="fpb">Price per</label><select class="field" id="fpb"><option value="kg"${p && p.basis === 'kg' ? ' selected' : ''}>kg or litre</option><option value="100"${!p || p.basis === '100' ? ' selected' : ''}>100 g or 100 ml</option><option value="unit"${p && p.basis === 'unit' ? ' selected' : ''}>item</option></select></div></div>
+    <div id="fgw"${per === 'item' ? '' : ' hidden'}><label for="fg">Grams per item</label><input class="field" style="width:100%" id="fg" inputmode="decimal" placeholder="optional, lets a per-kg price work" value="${v(p && p.gpu)}"></div>
     <div id="ferr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">${cf ? 'Save' : 'Add food'}</button><button type="button" class="btn" data-act="close-dlg">Cancel</button>${cf ? `<button type="button" class="btn link" data-act="del-food" data-name="${esc(name)}">Delete</button>` : ''}</div>
   </form>`;
@@ -1163,28 +1162,48 @@ function trendsCost() {
 }
 
 const VM = { pro: ['Protein', 'p', 'g'], carb: ['Carbs', 'c', 'g'], fat: ['Fat', 'f', 'g'], kcal: ['Calories', 'k', 'kcal'] };
-function valueRows(macro) {
+function valueRows(macro, over) {
   const k = VM[macro][1], date = IDX.dates[IDX.dates.length - 1] || mealToday(), out = [];
   for (const name of IDX.meta.keys()) {
     if (S.recipes[name]) continue;
-    const pi = priceInfo(name, date); if (!pi || !(pi.price > 0)) continue;
+    let pi = priceInfo(name, date), what = false;
+    if (over && over[name] > 0) { what = true; pi = { basis: pi ? pi.basis : (perUnit(name, 'g') ? 'kg' : 'unit'), price: over[name] }; }
+    if (!pi || !(pi.price > 0)) continue;
     let per = null;
     if (pi.basis === 'unit') { const o = perUnit(name, 'item'); if (o) per = o[k] / pi.price; }
     else { const o = perUnit(name, 'g'); if (o) per = o[k] / (pi.basis === 'kg' ? pi.price / 1000 : pi.price / 100); }
     if (!(per > 0)) continue;
-    out.push({ name, v: per, price: `${money(pi.price)} / ${pi.basis === 'kg' ? 'kg' : pi.basis === '100' ? '100 g' : 'item'}` });
+    out.push({ name, v: per, what, price: `${money(pi.price)} / ${pi.basis === 'kg' ? 'kg' : pi.basis === '100' ? '100 g' : 'item'}` });
   }
   return out.sort((a, b) => b.v - a.v || a.name.localeCompare(b.name));
 }
+function whatIfOver() {
+  const o = {}; for (const w of S.whatif || []) { const n = canon((w.name || '').trim()), pr = num(w.price); if (IDX.meta.has(n) && pr > 0) o[n] = pr; } return o;
+}
+function whatIfCard(m, base, rows) {
+  const W = S.whatif || [], sym = currencySymbol(), names = [...IDX.meta.keys()].filter(n => !S.recipes[n]).sort((a, b) => a.localeCompare(b));
+  const verdict = Object.keys(whatIfOver()).map(n => {
+    const i = rows.findIndex(r => r.name === n && r.what); if (i < 0) return '';
+    const was = base.findIndex(r => r.name === n), r = rows[i], val = r.v >= 100 ? Math.round(r.v) : r.v.toFixed(1);
+    return `<p style="margin-top:8px"><b>${esc(n)}</b> at ${esc(r.price)} gives ${val} ${VM[m][2] === 'g' ? 'g' : 'kcal'} per ${esc(sym)}1 and would rank <b>${i + 1} of ${rows.length}</b>${was >= 0 ? `, now ${was + 1}` : ''}.</p>`;
+  }).join('');
+  return `<details class="more whatif"${W.length ? ' open' : ''}><summary>What if a price changed?</summary>
+    <datalist id="wilist">${names.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
+    <p class="muted" style="font-size:13px;margin:4px 0 10px">Try a price and see where the food would rank. Nothing is saved.</p>
+    ${W.map((w, i) => `<div class="wirow"><input class="field" list="wilist" data-wi="name" data-i="${i}" placeholder="Food" aria-label="Food" autocomplete="off" value="${esc(w.name || '')}"><input class="field" data-wi="price" data-i="${i}" inputmode="decimal" placeholder="Price" aria-label="Price" value="${esc(w.price || '')}"><button type="button" class="btn link" data-act="wi-del" data-i="${i}" aria-label="Remove">Remove</button></div>`).join('')}
+    ${W.length < 4 ? '<button type="button" class="btn sm" data-act="wi-add">Add a food to test</button>' : ''}
+    <div class="muted" style="font-size:14px;margin-top:6px">Price uses the same unit as the food's current price (${esc(sym)} per kg, 100 g or item).</div>${verdict}</details>`;
+}
 function valueCard() {
-  const m = S.vmacro in VM ? S.vmacro : 'pro', rows = valueRows(m), shown = S.vall ? rows : rows.slice(0, 10), sym = currencySymbol();
+  const m = S.vmacro in VM ? S.vmacro : 'pro', over = whatIfOver(), base = valueRows(m), rows = Object.keys(over).length ? valueRows(m, over) : base, sym = currencySymbol();
+  const top = S.vall ? rows : rows.slice(0, 10), shown = rows.filter((r, i) => i < top.length || r.what);
   const seg = `<div class="seg" role="group" aria-label="Nutrient">${Object.entries(VM).map(([k, v]) => `<button type="button" data-act="vmacro" data-v="${k}" aria-pressed="${k === m}">${v[0]}</button>`).join('')}</div>`;
   const unit = VM[m][2] === 'g' ? `g of ${VM[m][0].toLowerCase()}` : 'kcal';
-  const body = rows.length ? `<table class="vtab bvtab"><thead><tr><th scope="col">Food</th><th scope="col" class="r">${esc(unit === 'kcal' ? 'kcal' : 'g')} per ${esc(sym)}1</th></tr></thead><tbody>${shown.map((r, i) => `<tr><td><div class="bvn"><span class="rk">${i + 1}</span><span class="bvt"><span>${esc(r.name)}</span><span class="note muted">${esc(r.price)}</span></span></div><div class="bvbar" aria-hidden="true"><i style="width:${(r.v / rows[0].v * 100).toFixed(1)}%"></i></div></td><td class="r"><b>${r.v >= 100 ? Math.round(r.v) : r.v.toFixed(1)}</b></td></tr>`).join('')}</tbody></table>
+  const body = rows.length ? `<table class="vtab bvtab"><thead><tr><th scope="col">Food</th><th scope="col" class="r">${esc(unit === 'kcal' ? 'kcal' : 'g')} per ${esc(sym)}1</th></tr></thead><tbody>${shown.map(r => `<tr${r.what ? ' class="wi"' : ''}><td><div class="bvn"><span class="rk">${rows.indexOf(r) + 1}</span><span class="bvt"><span>${esc(r.name)}${r.what ? ' <span class="tag">what if</span>' : ''}</span><span class="note muted">${esc(r.price)}</span></span></div><div class="bvbar" aria-hidden="true"><i style="width:${(r.v / rows[0].v * 100).toFixed(1)}%"></i></div></td><td class="r"><b>${r.v >= 100 ? Math.round(r.v) : r.v.toFixed(1)}</b></td></tr>`).join('')}</tbody></table>
     ${rows.length > 10 ? `<button class="btn link" data-act="vall">${S.vall ? 'Show the top 10' : `Show all ${rows.length}`}</button>` : ''}
     <p class="muted" style="font-size:13px;margin-top:8px">Higher is better value. Uses each food's current price and nutrition. Foods without a price or nutrition are left out.</p>`
     : `<div class="notice" style="margin-top:16px">${IC.info}<div>Nothing to rank yet. Add a food with its nutrition and price, or set prices on the Prices tab.</div></div><p style="margin-top:12px"><button class="btn primary" data-act="add-food">Add a food</button></p>`;
-  return `<div class="card pad" style="margin-top:16px"><h2 style="font-size:17px">${esc(VM[m][0])} per ${esc(sym)}1 spent</h2><div style="margin-top:12px">${seg}</div><div style="margin-top:12px">${body}</div></div>`;
+  return `<div class="card pad" style="margin-top:16px"><h2 style="font-size:17px">${esc(unit === 'kcal' ? 'Calories' : 'Grams of ' + VM[m][0].toLowerCase())} per ${esc(sym)}1 spent</h2><div style="margin-top:12px">${seg}</div>${whatIfCard(m, base, rows)}<div style="margin-top:12px">${body}</div></div>`;
 }
 function nutritionRows() {
   const out = [];
@@ -2007,6 +2026,8 @@ document.addEventListener('click', e => {
     case 'tview': S.tview = d.v; saveAll(); render(); break;
     case 'vmacro': S.vmacro = d.v; S.vall = false; saveAll(); render(); break;
     case 'vall': S.vall = !S.vall; render(); break;
+    case 'wi-add': (S.whatif = S.whatif || []).push({ name: '', price: '' }); render(); break;
+    case 'wi-del': S.whatif.splice(Number(d.i), 1); render(); break;
     case 'drawer': document.body.classList.toggle('drawer-open'); t.setAttribute('aria-expanded', document.body.classList.contains('drawer-open')); break;
     case 'drawer-close': document.body.classList.remove('drawer-open'); break;
     case 'sample': loadSample(); break;
@@ -2109,6 +2130,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   const t = e.target;
+  if (t.dataset && t.dataset.wi) { const w = S.whatif[Number(t.dataset.i)]; if (w) { w[t.dataset.wi] = t.value; if (t.dataset.wi === 'name') { const pr = priceInfo(canon(t.value.trim()), IDX.dates[IDX.dates.length - 1] || mealToday()); if (pr && !w.price) w.price = String(pr.price); } render(); } return; }
   if (t.id === 'phq') { phAdd(t.value); return; }
   if (t.dataset && t.dataset.cmp !== undefined) {
     MB.cmp = MB.cmp.filter(n => n !== t.dataset.cmp);

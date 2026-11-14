@@ -631,3 +631,15 @@ h1,h2,h3{font-weight:650;letter-spacing:-.01em}
   #pbody tr.needs .ps-price{color:var(--offer-ink)}
   #pbody td[colspan]{padding:0 16px 12px}
 }
+/* compact add-food dialog */
+dialog{max-height:calc(100dvh - 24px);overflow-y:auto}
+#fform,#eform{padding:16px;gap:10px}
+#fform label,#eform label{font-size:13px;margin-bottom:4px}
+#fform .sub:empty{display:none}
+.fgrid.three{grid-template-columns:repeat(3,1fr)}
+#fform .bc{padding-bottom:10px}
+#fform h2{margin:0}
+.wirow{display:grid;grid-template-columns:1fr 90px auto;gap:8px;align-items:center;margin-bottom:8px}
+.wirow .field{width:100%;min-width:0}
+.vtab tr.wi td{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.tag{font-size:11px;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:0 5px;margin-left:6px;white-space:nowrap}
