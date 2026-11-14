@@ -404,7 +404,7 @@ function siteFooter() {
 }
 
 /* ============ view: shell ============ */
-const LOGO = '<svg class="logo" viewBox="0 0 64 64" width="30" height="30" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#B5532A"/><circle cx="29" cy="30" r="15" fill="none" stroke="#fff" stroke-width="4.5"/><path d="M33 38h15l9 9-9 9H33z" fill="#FFD43B"/><circle cx="39" cy="47" r="2.6" fill="#B5532A"/></svg>';
+const LOGO = '<img class="logo" src="/logo-mark.png" width="30" height="30" alt="">';
 const TABLBL = { day: 'Diary', prices: 'Foods', progress: 'Progress', week: 'Spending', weight: 'Weight', goals: 'Daily goals' };
 const NAV = [['day', 'Diary'], ['progress', 'Progress'], ['prices', 'Foods'], ['meals', 'Meals']];
 const navOf = t => ['progress', 'weight', 'week', 'trends'].includes(t) ? 'progress' : t === 'goals' ? 'day' : t;

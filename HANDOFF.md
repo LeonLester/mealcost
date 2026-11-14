@@ -39,3 +39,8 @@ Owner: Leonidas (GitHub LeonLester, personal email leonidask914@gmail.com for co
 ## Layout, pantry
 - Navigation: phones get a bottom bar with a centre + (Add sheet) and a More screen (`public/more.js`); from 641 px wide the same nav becomes a sidebar (icon rail below 1024 px). Sidebar-only links (Meals, Pantry, Targets) carry the class `desk`.
 - Pantry (`public/pantry.js`): `S.pantry[food] = { qty, unit }` with unit g, ml or item, synced like the rest. Logging a food (or a go-to meal) takes it out when "Take foods out of the pantry" is on; a receipt scan can add its lines. Meal ideas filter saved meals by protein, cost and kcal limits, and rank meals you can make now first. Suggestions only come from the user's own saved meals, so the recipes always make sense.
+
+## Look and icon
+- Colours follow the Coach Leonidas brand: near-black `#0D0D0D`, warm off-white `#F4F0E8`, gold `#BF9A3F` (light theme fills) and `#D4B05A` (dark theme). `--brand-ink` is the accessible gold for text on light backgrounds. Macro colours: protein blue, carbs teal, fat purple, fibre green.
+- The app icon is the gold line art of the logo (traced from `https://coachleonidas.com/images/logo.png`, which is only 200 px, so it was smoothed) on a dark tile. Source art and sizes are produced from `assets/` with `npx @capacitor/assets generate --android`; the web icons and `public/logo-mark.png` were made from the same art. `public/og.png` (share image) still has the old look.
+- Planning ahead: the Diary navigates to any date, week arrows sit beside the day strip, future days show a Planned tag, and the day menu can copy a day to another date (and the next four weeks).

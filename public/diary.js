@@ -2,6 +2,8 @@
 'use strict';
 
 const MEAL_BASE = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
+const relMeta = (day, rel) => ['Today', 'Yesterday', 'Tomorrow'].includes(rel) ? dFmt(day, { weekday: 'short', month: 'short', day: 'numeric' }) : isoDiff(day) <= 6 ? dFmt(day, { month: 'short', day: 'numeric' }) : '';
+const isoDiff = day => Math.abs(Math.round((dObj(day) - dObj(todayIso())) / 864e5));
 const MEAL_SLOTS = ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Pre-workout', 'Post-workout'];
 const mkey = g => String(g).toLowerCase().replace(/^meal\s*\d+\s*[-:]\s*/, '').replace(/s$/, '');
 const todayIso = () => mealToday();
@@ -18,7 +20,9 @@ function relDay(day) {
   if (day === t) return 'Today';
   if (day === isoAdd(t, -1)) return 'Yesterday';
   if (day === isoAdd(t, 1)) return 'Tomorrow';
-  return dFmt(day, { weekday: 'long' });
+  const diff = Math.round((dObj(day) - dObj(t)) / 864e5);
+  if (Math.abs(diff) <= 6) return dFmt(day, { weekday: 'long' });
+  return dFmt(day, dObj(day).getFullYear() === dObj(t).getFullYear() ? { weekday: 'short', month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' });
 }
 function dayStrip(day) {
   const dow = (dObj(day).getDay() + 6) % 7, start = isoAdd(day, -dow), t = todayIso(), goal = goalFor('kcal');
@@ -28,7 +32,7 @@ function dayStrip(day) {
     const h = goal ? Math.min(100, Math.round(k / goal * 100)) : (k > 0 ? 60 : 0);
     cells.push(`<button class="dz-day${d === t ? ' today' : ''}${k > 0 ? ' has' : ''}" data-act="pick-day" data-date="${d}" aria-pressed="${d === day}" aria-label="${esc(dMed(d))}${k ? ', ' + n0(k) + ' kcal' : ', nothing logged'}"><small>${esc(dFmt(d, { weekday: 'short' }).slice(0, 3))}</small><b>${dFmt(d, { day: 'numeric' })}</b></button>`);
   }
-  return `<div class="dz-strip" role="group" aria-label="Pick a day">${cells.join('')}</div>`;
+  return `<div class="dz-stripwrap"><button type="button" class="dz-wk" data-act="week-step" data-dir="-1" aria-label="Previous week">${IC.left}</button><div class="dz-strip" role="group" aria-label="Pick a day">${cells.join('')}</div><button type="button" class="dz-wk" data-act="week-step" data-dir="1" aria-label="Next week">${IC.right}</button></div>`;
 }
 
 /* ---------- summary: energy and macros against goals ---------- */
@@ -165,7 +169,7 @@ function diaryView() {
   const rel = relDay(day), full = dLong(day);
   return `
   <div class="pagehead dz-head">
-    <div class="dz-title"><h1 class="h1" id="h1" tabindex="-1">${esc(rel)}</h1>${rel === full.split(',')[0] ? '' : `<span class="muted dz-date">${esc(full)}</span>`}</div>
+    <div class="dz-title"><h1 class="h1" id="h1" tabindex="-1">${esc(rel)}</h1><span class="muted dz-date">${esc(relMeta(day, rel))}</span>${day > todayIso() ? '<span class="dz-plan">Planned</span>' : ''}</div>
     <div class="dz-nav">
       <button class="iconbtn" data-act="prev-day" aria-label="Previous day">${IC.left}</button>
       <button class="iconbtn" data-act="next-day" aria-label="Next day">${IC.right}</button>
@@ -174,8 +178,9 @@ function diaryView() {
     </div>
     <div class="dz-top">
       <button class="btn primary" data-act="log-food" data-date="${day}">Add food</button>
-      <details class="dz-menu"><summary class="btn" aria-label="More for this day">Options</summary><div class="dz-pop">
+      <details class="dz-menu"><summary class="iconbtn dz-dots" aria-label="More for this day"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5.500" r="1.800"/><circle cx="12" cy="12" r="1.800"/><circle cx="12" cy="18.500" r="1.800"/></svg></summary><div class="dz-pop">
         <button data-act="goto-open" data-date="${day}" data-group="">Add a go-to meal</button>
+        <button data-act="copy-to" data-date="${day}">Copy this day to another date</button>
         <button data-act="meal-hide-empty">${mealPref.hideEmpty ? 'Show empty meals' : 'Hide empty meals'}</button>
         <button data-act="meal-arrange">${S.arrange ? 'Done arranging' : 'Arrange meals'}</button>
         <button data-act="quick-add" data-date="${day}">Quick add calories</button>
@@ -189,7 +194,7 @@ function diaryView() {
   </div>
   ${dayStrip(day)}
   <div class="cols dz-cols">
-    <div class="main2">${es.length ? '' : `<p class="muted dz-empty">${S.entries.length ? 'Nothing logged on this day yet.' : 'Nothing is logged yet.'} Add a food, or copy a day from earlier.</p>${S.entries.length ? '' : dropzone('food')}`}${shown.map(([g, l], i) => mealSection(g, l, day, { first: i === 0, last: i === shown.length - 1 })).join('')}${hidden.length ? `<div class="dz-hiddenrow"><span class="muted">Add to</span>${hidden.map(([g]) => `<button type="button" class="chip" data-act="log-food" data-date="${day}" data-group="${esc(g)}">${esc(g)}</button>`).join('')}</div>` : ''}${S.arrange ? '<p class="muted dz-hint" style="display:block">Use the arrows to change the order. Tap Done in Options when you are finished.</p>' : ''}${es.length ? '<p class="muted dz-hint">Tap a food to edit it. Swipe left to delete. Tap a price to change it for this day only.</p>' : ''}</div>
+    <div class="main2">${es.length ? '' : `<p class="muted dz-empty">${S.entries.length ? 'Nothing logged on this day yet.' : 'Nothing is logged yet.'} Add a food, or copy a day from earlier.</p>${S.entries.length ? '' : dropzone('food')}`}${shown.map(([g, l], i) => mealSection(g, l, day, { first: i === 0, last: i === shown.length - 1 })).join('')}${hidden.length ? `<div class="dz-hiddenrow"><span class="muted">Add to</span>${hidden.map(([g]) => `<button type="button" class="chip" data-act="log-food" data-date="${day}" data-group="${esc(g)}">${esc(g)}</button>`).join('')}</div>` : ''}${S.arrange ? '<p class="muted dz-hint" style="display:block">Use the arrows to change the order. Choose Done arranging in the day menu when you are finished.</p>' : ''}${es.length ? '<p class="muted dz-hint">Tap a food to edit it. Swipe left to delete. Tap a price to change it for this day only.</p>' : ''}</div>
     <aside class="side dz-side">
       ${summaryCard(tot, costCard(day, es, sm, names, bad))}
       ${nutrientsCard(tot)}
@@ -395,6 +400,27 @@ function openQuick(date) {
   if (!dlg.open) dlg.showModal(); $('#qn').focus();
 }
 // Copy what you ate on the nearest earlier day that has entries (all meals, or just one) to the day on screen.
+/* copy a whole day to another date, for planning ahead */
+function openCopyTo(day) {
+  const es = IDX.byDate.get(day) || [];
+  if (!es.length) { toast('This day has nothing to copy yet'); return; }
+  const dlg = $('#dlg'); dlg.className = '';
+  dlg.innerHTML = `<form method="dialog" id="ctform"><h2 id="dlg-title" style="font-size:20px">Copy this day</h2>
+    <p class="muted" style="font-size:14px">Copies the ${es.length} ${es.length === 1 ? 'food' : 'foods'} from ${esc(dMed(day))} to another date. Handy for planning your week.</p>
+    <div class="gl-f"><label for="ctd">Copy to</label><input class="field" style="width:100%" type="date" id="ctd" value="${isoAdd(day, 1)}"></div>
+    <label class="cmp"><input type="checkbox" id="ctw"><span>Also copy to the same day for the next 4 weeks</span></label>
+    <div id="cterr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
+    <div class="dlg-actions" style="gap:8px"><button type="submit" class="btn primary">Copy</button><button type="button" class="btn" data-act="close-dlg">Cancel</button></div></form>`;
+  dlg.setAttribute('aria-labelledby', 'dlg-title'); dlg.showModal();
+  $('#ctform').addEventListener('submit', ev => {
+    ev.preventDefault(); const to = $('#ctd').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(to)) { $('#cterr').textContent = 'Choose a date.'; return; }
+    const dates = [to]; if ($('#ctw').checked) for (let i = 1; i <= 4; i++) dates.push(isoAdd(to, 7 * i));
+    const add = []; for (const d of dates) for (const { src: s, ...e } of es) add.push({ ...e, src: s, date: d, name: s !== undefined ? s : e.name });
+    S.entries = S.entries.concat(add).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    reindex(); ensurePrices(); saveEntries(); saveAll(); dlg.close(); S.day = to; render(); toast(`Copied to ${dates.length} ${dates.length === 1 ? 'day' : 'days'}`);
+  });
+}
 function copyEarlier(group) {
   const day = S.day || todayIso(); let src = null;
   for (let i = 1; i <= 60; i++) {
@@ -429,6 +455,8 @@ function openServing(name) {
 function diaryAct(a, d) {
   switch (a) {
     case 'serving-size': openServing(d.name); return true;
+    case 'week-step': S.day = isoAdd(S.day || todayIso(), 7 * Number(d.dir)); render(); return true;
+    case 'copy-to': openCopyTo(d.date); return true;
     case 'gl-set-kcal': glSetKcal(); return true;
     case 'gl-scale': glScale(); return true;
     case 'meal-fold': { const f = mealPref.fold, i = f.indexOf(d.key); if (i < 0) f.push(d.key); else f.splice(i, 1); store.set('mfold', f); render(); return true; }
