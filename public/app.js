@@ -444,10 +444,11 @@ function toolBtn(act, label, cls = '') {
 
 /* ============ tutorial ============ */
 const TOUR = [
-  { t: 'Log what you eat', b: 'Tap Log a food on the Day screen. Search your foods, scan a barcode, or create a food with its nutrition. You can also import a Cronometer export for months of history at once.', go: 'day', l: 'Open Day' },
-  { t: 'Set prices once', b: 'On the Prices screen, type what each food costs and whether that is per kg, per 100 g or per item. It then applies to every day you logged it. Use an offer when a price was different on one day or for a period.', go: 'prices', l: 'Open Prices' },
-  { t: 'See what each day costs', b: 'The Day screen shows the cost of every meal and food, and the protein, carbs and fat for the day. Tap any price to change it for that day only. Set a daily budget to see what is left.', go: 'day', l: 'Open Day' },
-  { t: 'Find the best value', b: 'The Summary screen ranks your foods by protein, carbs or fat per euro. Add a what if row to test a price, for example chicken at a lower price against pork loin. Typical prices on the Prices screen looks up what a food usually costs.', go: 'week', l: 'Open Summary' },
+  { t: 'Log what you eat', b: 'Tap Add food on the Diary. Search your foods, scan a barcode, or create a food with its nutrition. You can also import a Cronometer export for months of history at once.', go: 'day', l: 'Open Diary' },
+  { t: 'Set your daily goals', b: 'Open Daily goals from the menu. Enter your age, height, weight and activity to get a calorie and macro estimate, or type your own targets. The Diary then shows how much is left each day.', go: 'goals', l: 'Open Goals' },
+  { t: 'Set prices once', b: 'On the Foods screen, type what each food costs and whether that is per kg, per 100 g or per item. It then applies to every day you logged it. Use an offer when a price was different on one day or for a period.', go: 'prices', l: 'Open Foods' },
+  { t: 'See what each day costs', b: 'The Diary shows calories, protein, carbs and fat for every meal and food against your daily goals, plus what the day cost. Tap any price to change it for that day only. Set a daily budget to see what is left.', go: 'day', l: 'Open Diary' },
+  { t: 'Track progress', b: 'Progress shows your daily averages against your goals, and Weight charts your weigh-ins. Spending and Trends sit beside them. Trends ranks your foods by protein, carbs or fat per euro, and the Foods screen looks up what a food usually costs.', go: 'progress', l: 'Open Progress' },
   { t: 'Build and compare meals', b: 'On Meals, build a recipe from your foods and see its cost and nutrition per serving. Pick two saved meals to compare them side by side.', go: 'meals', l: 'Open Meals' },
   { t: 'Keep your data safe', b: 'Everything stays on this device unless you sign in. Download a backup from Account and data, or sign in with Google to sync across your devices. You can reopen this tour any time from the menu.', go: 'account', l: 'Open Account' }
 ];
@@ -552,7 +553,7 @@ function accountView() {
       ${row('Download your diary', 'Every logged entry as a CSV spreadsheet.', '<button class="btn" data-act="export-csv">Download CSV</button>')}
     </section>
     <section class="card pad"><h2>Delete</h2>
-      ${row('Delete data on this device', 'Removes your diary, prices, foods and meals from this device. Your cloud copy, if you have one, is not touched.', '<button class="btn danger" data-act="reset">Delete data</button>')}
+      ${row('Delete data on this device', 'Removes your diary, goals, weight log, prices, foods and meals from this device. Your cloud copy, if you have one, is not touched.', '<button class="btn danger" data-act="reset">Delete data</button>')}
       ${signed ? row('Delete my account', 'Permanently removes your account and everything stored in the cloud. This cannot be undone.', '<button class="btn danger" data-sync="delete">Delete account</button>') : ''}
     </section>
     <p class="muted" style="font-size:14px"><a href="/privacy">Privacy policy</a> &middot; <a href="/terms">Terms of service</a> &middot; <a href="/android">Get the Android app</a></p>
@@ -935,8 +936,8 @@ function openFood(name) {
     ev.preventDefault();
     const nm = $('#fn').value.trim().replace(/\s+/g, ' '), err = t => { $('#ferr').textContent = t; };
     if (!nm) { err('Enter a name.'); $('#fn').focus(); return; }
-    if (!cf && IDX.meta.has(canon(nm)) && !S.foods[nm]) { err('A food with this name already exists. Set its price on the Prices tab.'); return; }
-    if (!cf && S.foods[nm]) { err('You already added this food. Search for it on the Prices tab to edit it.'); return; }
+    if (!cf && IDX.meta.has(canon(nm)) && !S.foods[nm]) { err('A food with this name already exists. Set its price on the Foods tab.'); return; }
+    if (!cf && S.foods[nm]) { err('You already added this food. Search for it on the Foods tab to edit it.'); return; }
     const kcal = num($('#fk').value), pro = num($('#fp').value), carb = num($('#fc').value), fat = num($('#ff').value);
     if ([$('#fk').value, $('#fp').value, $('#fc').value, $('#ff').value].some(x => x.trim() && (!Number.isFinite(parseFloat(x.replace(',', '.'))) || parseFloat(x.replace(',', '.')) < 0))) { err('Nutrition values must be numbers, zero or more.'); return; }
     if (!(kcal > 0) && !(pro > 0) && !(carb > 0) && !(fat > 0)) { err('Enter at least the calories or one nutrient.'); $('#fk').focus(); return; }
@@ -988,7 +989,7 @@ function pricesView() {
   for (const r of S.ranges) offerList.push({ k: r.from, r, n: r.name, v: r.price });
   offerList.sort((a, b) => b.k.localeCompare(a.k) || a.n.localeCompare(b.n));
   return `
-  <div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Your prices</h1><button class="btn primary sm" data-act="add-food">New food</button></div>
+  <div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Foods and prices</h1><button class="btn primary sm" data-act="add-food">New food</button></div>
   <p class="lede">Set a price once and it applies to every day you logged that food. Use an offer when a price was different on one day.</p>
   <div class="notice" id="unp" role="status"${c.un ? '' : ' hidden'}>${IC.info}<div id="unp-t">${unpText(c.un)}</div></div>
   <datalist id="catlist">${[...new Set([...DEFAULT_CATS, ...[...IDX.meta.keys()].map(catOf)])].filter(k => k !== 'Uncategorized').sort().map(k => `<option value="${esc(k)}"></option>`).join('')}</datalist>
@@ -1180,7 +1181,7 @@ function priceHistoryCard(from, last) {
     chart = chartFrame('Price per kg over time for ' + plot.map(x => x.n).join(', '), inner, ymax, xl);
   }
   const chips = data.map(x => `<span class="phchip"><i style="background:${x.col}" aria-hidden="true"></i><span class="phn">${esc(x.n)}${x.pts.length ? `<small>${esc(money(x.pts[x.pts.length - 1].v))} per kg now</small>` : ''}</span><button type="button" class="phx" data-act="ph-del" data-name="${esc(x.n)}" aria-label="Remove ${esc(x.n)} from the chart" title="Remove">${TOOLIC.close}</button></span>`).join('');
-  const notes = data.map(x => x.nopk ? `<p class="muted" style="font-size:13px;margin-top:6px">${esc(x.n)} is priced per item. Add its grams per item on the Prices tab to chart it per kg.</p>` : !x.pts.length ? `<p class="muted" style="font-size:13px;margin-top:6px">${esc(x.n)} has no price in this period.</p>` : '').join('');
+  const notes = data.map(x => x.nopk ? `<p class="muted" style="font-size:13px;margin-top:6px">${esc(x.n)} is priced per item. Add its grams per item on the Foods tab to chart it per kg.</p>` : !x.pts.length ? `<p class="muted" style="font-size:13px;margin-top:6px">${esc(x.n)} has no price in this period.</p>` : '').join('');
   const list = plot.map(x => `<h3 style="font-size:16px;margin-top:12px">${esc(x.n)}</h3><ul style="margin:4px 0 0 18px;font-size:14px">${x.pts.map(p => `<li>${esc(dMed(p.d))}: ${esc(money(p.v))} per kg${p.was != null ? `, from ${esc(money(p.was))}` : ''}${p.offer ? ', offer' : ''}</li>`).join('')}</ul>`).join('');
   return `<div class="card tcard" id="phist" style="margin-top:24px"><h2>Price history</h2>
     <p class="muted" style="margin-top:4px;font-size:14px">Each dot is a day the price changed, for the period chosen above. Prices are shown per kg so foods share one chart. Add up to 6 foods.</p>
@@ -1206,7 +1207,7 @@ function trendsCost() {
     <label class="muted" style="display:flex;align-items:center;gap:8px;font-size:14px">Show <select class="field" id="tgrain"><option value="day"${S.grain === 'day' ? ' selected' : ''}>Each day</option><option value="week"${S.grain === 'week' ? ' selected' : ''}>Each week</option></select></label>
     ${periodHtml('trange', S.trange, [[30, 'Last 30 days'], [90, 'Last 90 days'], [180, 'Last 6 months'], [0, 'All days']])}
   </div>`;
-  if (!days.length) return `${head}${ph}<div class="notice" style="margin-top:24px">${IC.info}<div>No priced days in this period yet. Add prices on the Prices tab and the charts appear here.</div></div>`;
+  if (!days.length) return `${head}${ph}<div class="notice" style="margin-top:24px">${IC.info}<div>No priced days in this period yet. Add prices on the Foods tab and the charts appear here.</div></div>`;
   const wk = new Map();
   for (const s of days) { const w = wkStart(s.d); wk.set(w, addTo(wk.get(w) || zero(w), s)); }
   const weeks = [...wk.values()].filter(w => w.days >= 3 && covered(w)).sort((a, b) => a.d.localeCompare(b.d));
@@ -1249,10 +1250,10 @@ function trendsCost() {
   const catRows = [...byCat].sort((a, b) => b[1] - a[1]), catTotal = catRows.reduce((a, r) => a + r[1], 0);
   const catCard = catRows.length ? `<div class="card tcard"><h2>Where the money goes, by category</h2>
     <div style="margin-top:12px">${catRows.slice(0, 12).map(([k, v]) => `<div class="catrow"><div class="catname">${esc(k)}</div><div class="catbar" role="img" aria-label="${esc(k)}: ${esc(money(v))}, ${Math.round(v / catTotal * 100)} percent"><i style="width:${(v / catRows[0][1] * 100).toFixed(1)}%"></i></div><div class="catval">${money(v)} <span class="muted">${Math.round(v / catTotal * 100)}%</span></div></div>`).join('')}</div>
-    ${catRows.length === 1 && catRows[0][0] === 'Uncategorized' ? `<p class="muted" style="font-size:13px;margin-top:8px">Every food is uncategorized. Import your Cronometer export again to bring in its categories, or assign them on the Prices tab.</p>` : ''}${catRows.length > 12 ? `<p class="muted" style="font-size:13px;margin-top:8px">Plus ${catRows.length - 12} smaller categories.</p>` : ''}</div>` : '';
+    ${catRows.length === 1 && catRows[0][0] === 'Uncategorized' ? `<p class="muted" style="font-size:13px;margin-top:8px">Every food is uncategorized. Import your Cronometer export again to bring in its categories, or assign them on the Foods tab.</p>` : ''}${catRows.length > 12 ? `<p class="muted" style="font-size:13px;margin-top:8px">Plus ${catRows.length - 12} smaller categories.</p>` : ''}</div>` : '';
   const allKcal = dates.filter(x => x >= from).reduce((a, d) => a + IDX.byDate.get(d).reduce((b, e) => b + e.kcal, 0), 0);
   const pctAll = allKcal > 0 ? Math.round(total.kcal / allKcal * 100) : 0;
-  const cov = pctAll < 95 ? `<div class="notice" style="margin-top:24px">${IC.info}<div><strong>Prices cover ${pctAll}% of the calories you logged in this period.</strong> Days and weeks with fewer than half their calories priced are left out of the charts. Price more foods on the Prices tab to fill them in.</div></div>` : '';
+  const cov = pctAll < 95 ? `<div class="notice" style="margin-top:24px">${IC.info}<div><strong>Prices cover ${pctAll}% of the calories you logged in this period.</strong> Days and weeks with fewer than half their calories priced are left out of the charts. Price more foods on the Foods tab to fill them in.</div></div>` : '';
   return `${head}${cov}${ph}<div class="trendgrid" style="margin-top:24px">${cards}${weekCard}${catCard}</div>`;
 }
 
@@ -1297,7 +1298,7 @@ function valueCard() {
   const body = rows.length ? `<table class="vtab bvtab"><thead><tr><th scope="col">Food</th><th scope="col" class="r">${esc(unit === 'kcal' ? 'kcal' : 'g')} per ${esc(sym)}1</th></tr></thead><tbody>${shown.map(r => `<tr${r.what ? ' class="wi"' : ''}><td><div class="bvn"><span class="rk">${rows.indexOf(r) + 1}</span><span class="bvt"><span>${esc(r.name)}${r.what ? ' <span class="tag">what if</span>' : ''}</span><span class="note muted">${esc(r.price)}</span></span></div><div class="bvbar" aria-hidden="true"><i style="width:${(r.v / rows[0].v * 100).toFixed(1)}%"></i></div></td><td class="r"><b>${r.v >= 100 ? Math.round(r.v) : r.v.toFixed(1)}</b></td></tr>`).join('')}</tbody></table>
     ${rows.length > 10 ? `<button class="btn link" data-act="vall">${S.vall ? 'Show the top 10' : `Show all ${rows.length}`}</button>` : ''}
     <p class="muted" style="font-size:13px;margin-top:8px">Higher is better value. Uses each food's current price and nutrition. Foods without a price or nutrition are left out.</p>`
-    : `<div class="notice" style="margin-top:16px">${IC.info}<div>Nothing to rank yet. Add a food with its nutrition and price, or set prices on the Prices tab.</div></div><p style="margin-top:12px"><button class="btn primary" data-act="add-food">Add a food</button></p>`;
+    : `<div class="notice" style="margin-top:16px">${IC.info}<div>Nothing to rank yet. Add a food with its nutrition and price, or set prices on the Foods tab.</div></div><p style="margin-top:12px"><button class="btn primary" data-act="add-food">Add a food</button></p>`;
   return `<div class="card pad" style="margin-top:16px"><h2 style="font-size:17px">${esc(unit === 'kcal' ? 'Calories' : 'Grams of ' + VM[m][0].toLowerCase())} per ${esc(sym)}1 spent</h2><div style="margin-top:12px">${seg}</div>${whatIfCard(m, base, rows)}<div style="margin-top:12px">${body}</div></div>`;
 }
 function nutritionRows() {
@@ -1349,7 +1350,7 @@ function proteinRank(es) {
 }
 function weekView() {
   const dates = IDX.dates, last = dates[dates.length - 1];
-  if (!dates.length) return emptyDiary('Summary');
+  if (!dates.length) return emptyDiary('Spending');
   const W = winOf(S.range), first = W.from, end = W.to, spec = S.range === 'week' || S.range === 'custom';
   const rangeSel = periodHtml('range', S.range, [[7, 'Last 7 days'], [14, 'Last 14 days'], [30, 'Last 30 days'], [0, 'Everything imported']]);
   const inWin = dates.filter(d => d >= first && d <= end);
@@ -1388,7 +1389,7 @@ function weekView() {
 
   let sub = '';
   if (budget) sub = over.length === 0 ? `Every day came in under your ${money(budget)} budget.` : over.length === 1 ? `${dFmt(over[0], { weekday: 'long' })} ran ${money(r2(vals[cdays.indexOf(over[0])] - budget))} over your ${money(budget)} budget.` : `${over.length} days ran over your ${money(budget)} budget.`;
-  else sub = 'Set a daily budget on the Day screen to mark the days that go over.';
+  else sub = 'Set a daily budget in the Diary to mark the days that go over.';
 
   return `
   <div class="pagehead">
@@ -1691,7 +1692,7 @@ function previewRecipe() {
   const rc = recipeCostOf(r, IDX.dates[IDX.dates.length - 1]);
   el.textContent = rc.cost != null
     ? `The whole recipe costs ${money(rc.cost)} at your latest prices, ${money(rc.cost / r.servings)} per serving.`
-    : `${rc.missing} ${rc.missing === 1 ? 'ingredient needs' : 'ingredients need'} a price. After saving, add ${rc.missing === 1 ? 'it' : 'them'} on the Prices tab.`;
+    : `${rc.missing} ${rc.missing === 1 ? 'ingredient needs' : 'ingredients need'} a price. After saving, add ${rc.missing === 1 ? 'it' : 'them'} on the Foods tab.`;
 }
 function saveRecipe() {
   syncRecipe();
@@ -1766,7 +1767,7 @@ function mealFromDraft() {
   const d = MB.draft;
   return { servings: num(d.servings) > 0 ? num(d.servings) : 1, items: d.items.map(i => ({ name: canon(i.name.trim()), qty: num(i.qty), unit: i.unit })).filter(i => i.name && i.qty > 0 && IDX.meta.has(i.name)) };
 }
-const WHY = { noprice: 'No price yet.', needgpu: 'Needs grams per item on the Prices tab.', recipe: 'A recipe ingredient has no price.', needyield: 'The recipe needs a total weight.' };
+const WHY = { noprice: 'No price yet.', needgpu: 'Needs grams per item on the Foods tab.', recipe: 'A recipe ingredient has no price.', needyield: 'The recipe needs a total weight.' };
 function rowInfo(it, date) {
   const name = canon(String(it.name || '').trim()), q = num(it.qty);
   if (!name && !q) return '';
@@ -1898,7 +1899,7 @@ function openDiary(name) {
   const dlg = $('#dlg'); dlg.classList.remove('wide');
   dlg.innerHTML = `<form id="dform" method="dialog">
     <h2 id="dlg-title" style="font-size:20px">Add to diary</h2>
-    <p class="muted" style="font-size:14px">Adds each ingredient of ${esc(name)} to the day you choose, so it counts in Day, Summary and Trends. A later Cronometer export that covers that day replaces these lines.</p>
+    <p class="muted" style="font-size:14px">Adds each ingredient of ${esc(name)} to the day you choose, so it counts in the Diary and Progress. A later Cronometer export that covers that day replaces these lines.</p>
     <div><label for="dd">Day</label><input class="field" style="width:100%" type="date" id="dd" value="${esc(mealToday())}"></div>
     <div><label for="dg">Meal</label><select class="field" style="width:100%" id="dg">${['Breakfast', 'Lunch', 'Dinner', 'Snacks'].map(g => `<option>${g}</option>`).join('')}</select></div>
     <div><label for="dsv">Servings eaten</label><input class="field" style="width:100%" id="dsv" inputmode="decimal" value="1"></div>
@@ -1927,6 +1928,11 @@ function addToDiary(name, date, group, eaten) {
   S.day = date; $('#dlg').close(); go('day'); toast(`Added to ${dMed(date)}`);
 }
 
+function recentChips() {
+  const seen = new Set(), out = [];
+  for (let i = S.entries.length - 1; i >= 0 && out.length < 8; i--) { const e = S.entries[i]; if (e.q || seen.has(e.name) || !IDX.meta.has(e.name)) continue; seen.add(e.name); out.push(e.name); }
+  return out.length ? `<div class="recent"><span class="muted" style="font-size:13px">Recent</span><div class="chips">${out.map(n => `<button type="button" class="chip" data-recent="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>` : '';
+}
 function openEntry(i, date, group) {
   const cur = i >= 0 ? S.entries[i] : null;
   const dlg = $('#dlg'); dlg.classList.remove('wide');
@@ -1942,10 +1948,23 @@ function openEntry(i, date, group) {
     <div><label for="en">Food</label><input class="field" style="width:100%" id="en" list="elist" autocomplete="off" placeholder="Start typing a food name" value="${esc(cur ? cur.name : '')}"><datalist id="elist">${names.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist></div>
     <div style="display:flex;gap:10px"><div style="flex:1"><label for="eq">Amount</label><input class="field" style="width:100%" id="eq" inputmode="decimal" value="${cur ? esc(String(cur.qty)) : ''}"></div>
     <div style="flex:1"><label for="eu">Unit</label><select class="field" style="width:100%" id="eu">${[['g', 'grams'], ['ml', 'millilitres'], ['item', 'items']].map(([v, t]) => `<option value="${v}"${v === u0 ? ' selected' : ''}>${t}</option>`).join('')}</select></div></div>
+    <div id="eprev" class="eprev" aria-live="polite"></div>
+    ${cur ? '' : recentChips()}
     <p class="muted" style="font-size:13px">New foods go in with Add a food first, so their nutrition and price are known. A later Cronometer export that covers this day replaces your manual changes.</p>
     <div id="eerr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">${cur ? 'Save changes' : 'Add to diary'}</button><button type="button" class="btn" data-act="close-dlg">Cancel</button>${cur ? '<button type="button" class="btn" id="edel">Delete</button>' : ''}</div>
   </form>`;
+  const preview = () => {
+    const n = canon($('#en').value.trim()), qty = num($('#eq').value), unit = $('#eu').value, box = $('#eprev');
+    if (!IDX.meta.has(n) || !(qty > 0)) { box.textContent = ''; return; }
+    const o = perUnit(n, unit === 'item' ? 'item' : 'g'); if (!o) { box.textContent = ''; return; }
+    const e = { date: $('#ed').value || d0, name: n, src: n, qty, unit, type: unit === 'item' ? 'count' : unit === 'ml' ? 'volume' : 'mass', kcal: o.k * qty, pro: o.p * qty, carb: o.c * qty, fat: o.f * qty, fiber: o.b * qty };
+    const c = costOf(e), gk = goalFor('kcal');
+    box.innerHTML = `<b>${n0(e.kcal)} kcal</b> <span class="muted">P ${n0(e.pro)} g, C ${n0(e.carb)} g, F ${n0(e.fat)} g${c.cost != null ? ', ' + money(c.cost) : ''}${gk ? ', ' + n0(e.kcal / gk * 100) + '% of your day' : ''}</span>`;
+  };
+  ['#en', '#eq', '#eu', '#ed'].forEach(id => { $(id).addEventListener('input', preview); $(id).addEventListener('change', preview); });
+  dlg.querySelectorAll('[data-recent]').forEach(b => b.addEventListener('click', () => { $('#en').value = b.dataset.recent; $('#en').dispatchEvent(new Event('change')); $('#eq').focus(); preview(); }));
+  preview();
   if (!cur) $('#en').addEventListener('change', () => { const m = IDX.meta.get(canon($('#en').value.trim())); if (m) $('#eu').value = m.countFirst ? 'item' : m.vol > m.mass ? 'ml' : 'g'; });
   if (cur) $('#edel').addEventListener('click', () => {
     S.entries.splice(i, 1); reindex(); ensurePrices(); saveEntries(); saveAll(); $('#dlg').close(); if (!IDX.byDate.has(S.day)) S.day = null; render(); toast('Entry deleted');
@@ -1976,7 +1995,7 @@ function openBudget() {
   const dlg = $('#dlg'); dlg.classList.remove('wide');
   dlg.innerHTML = `<form id="bform" method="dialog">
     <h2 id="dlg-title" style="font-size:20px">Daily budget</h2>
-    <p class="muted" style="font-size:14px">Set what you want to spend on food each day. It shows on the Day and Summary screens. Leave it empty to remove it.</p>
+    <p class="muted" style="font-size:14px">Set what you want to spend on food each day. It shows in the Diary and in Progress. Leave it empty to remove it.</p>
     <div><label for="bv">Budget per day</label><div class="money-in wide"><span>${esc(currencySymbol())}</span><input id="bv" type="text" inputmode="decimal" placeholder="0.00" value="${S.budget ? esc(S.budget) : ''}" autocomplete="off"></div></div>
     <div id="berr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
     <div style="display:flex;gap:10px"><button type="submit" class="btn primary" style="flex:1">Save budget</button><button type="button" class="btn" data-act="close-dlg">Cancel</button></div>

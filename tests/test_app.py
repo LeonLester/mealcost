@@ -409,14 +409,14 @@ try:
         pt = fresh(); pt.click('text=Try it with sample data'); pt.wait_for_selector('.pricetag .n')
         check('tour card is offered to new users', pt.locator('[aria-label="Quick tour"]').count() == 1)
         pt.click('main [data-act=tour]'); pt.wait_for_selector('#dlg[open] #tourform')
-        check('tour opens on step 1', 'Step 1 of 6' in pt.inner_text('#tourform'))
-        for k in range(5): pt.click('#tourform [data-act=tour-go]:has-text("Next")'); pt.wait_for_timeout(80)
-        check('tour reaches the last step', 'Step 6 of 6' in pt.inner_text('#tourform') and pt.locator('#tourform button:has-text("Done")').count() == 1)
+        check('tour opens on step 1', 'Step 1 of 7' in pt.inner_text('#tourform'))
+        for k in range(6): pt.click('#tourform [data-act=tour-go]:has-text("Next")'); pt.wait_for_timeout(80)
+        check('tour reaches the last step', 'Step 7 of 7' in pt.inner_text('#tourform') and pt.locator('#tourform button:has-text("Done")').count() == 1)
         pt.click('#tourform [data-act=tour-open]'); pt.wait_for_selector('#dlg:not([open])', state='attached')
         check('a step can open its screen', pt.url.endswith('#account'))
         check('tour card is gone once seen', pt.locator('[aria-label="Quick tour"]').count() == 0)
         pt.evaluate("document.querySelector('#drawer [data-act=tour]').click()"); pt.wait_for_selector('#dlg[open] #tourform')
-        check('tour can be reopened from the menu', 'Step 1 of 6' in pt.inner_text('#tourform'))
+        check('tour can be reopened from the menu', 'Step 1 of 7' in pt.inner_text('#tourform'))
         pt.close()
 
         # app banner that matches the phone

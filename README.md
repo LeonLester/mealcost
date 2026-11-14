@@ -1,23 +1,28 @@
 # Meal cost
 
-Free meal cost calculator for Cronometer exports. Import your Food & Recipe Entries CSV, set prices once, and see what each meal and each day costs.
+Free, private food diary with macro tracking and meal costs. Log food, set daily goals, track weight, and see what each meal and day costs. Imports Cronometer exports, including their vitamin and mineral columns.
 
 Live at https://mealcost.coachleonidas.com
 
 ## How it works
 
+- Diary: calories, protein, carbs, fat and fiber per food, per meal and per day against your goals. Move to any day, quick add calories, copy a meal or day from earlier, and see a live nutrition and cost preview while logging.
+- Daily goals: type your own or use the built-in estimate (Mifflin-St Jeor, activity level, lose, maintain or build). Optional limits for sugar, sodium and more, and targets for vitamins and minerals.
+- Nutrients: Cronometer exports carry 16 more nutrients, shown under All nutrients in the Diary and averaged in Progress.
+- Progress: daily averages against goals, a weight log in kg or lb with a trend chart, spending, and trends.
+
 - Everything runs in the browser. Without signing in, your data stays in your browser's localStorage and is never sent anywhere.
 - Optional Google sign-in syncs prices, logs, offers, recipes, meals and categories across devices. The Worker stores one gzipped snapshot per user in D1. Conflicts between devices ask which copy to keep. CSP is `connect-src 'self'`, so the page can only talk to its own origin.
 - Prices can be per kg or litre, per 100 g or ml, or per item. Add grams per item to bridge a mismatch between a price and a logged amount.
 - Offers: override a price for one day without changing the price book.
-- Day and week views, daily budget, cost per 100 g protein and per 1,000 kcal, cheaper protein swaps.
-- Prices tab: sort by times logged or total amount logged, merge duplicate foods (with suggestions), search across merged names.
+- Daily budget, cost per 100 g protein and per 1,000 kcal, cheaper protein swaps.
+- Foods tab: sort by times logged or total amount logged, merge duplicate foods (with suggestions), search across merged names.
 - Price periods: a standard price on all dates, plus optional changes for a single day, a date range or from a date on (for example each shopping trip).
-- Recipes: build a recipe from ingredients, see its cost, expand it on the Day view to see each ingredient's price. Cronometer exports a recipe as one row, so ingredients are entered in the app.
+- Recipes: build a recipe from ingredients, see its cost, expand it in the Diary to see each ingredient's price. Cronometer exports a recipe as one row, so ingredients are entered in the app.
 - Serving sizes without grams are estimated from calories when the same food was logged in grams.
-- Categories come from the Cronometer Category column. Assign them to uncategorized foods on the Prices tab.
+- Categories come from the Cronometer Category column. Assign them to uncategorized foods on the Foods tab.
 - Sort foods by protein, carbs, fat or fiber per 100 g or per 100 kcal.
-- Trends tab: cost per 100 g protein, carbs, fat, per 10 g fiber and per 1,000 kcal by day or week, plus spend by category.
+- Trends: cost per 100 g protein, carbs, fat, per 10 g fiber and per 1,000 kcal by day or week, plus spend by category.
 - Meal builder tab: combine foods and recipes, see cost (always from current prices) and nutrition, save, edit, duplicate, compare two meals, add to the diary.
 - Backup and restore as JSON (prices, offers, merges, periods, recipes, meals, categories), CSV export, copy as text, 1080x1350 share image.
 

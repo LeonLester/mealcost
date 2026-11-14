@@ -770,3 +770,14 @@ dialog{max-height:calc(100dvh - 24px);overflow-y:auto}
 .pricetag.xs span.l{font-size:14px}
 .dz-cost .pricetag{margin-bottom:6px}
 .dz-empty{margin:0 0 14px;font-size:15px}
+.eprev{min-height:22px;font-size:14px}
+.eprev b{font-size:16px}
+.recent{display:flex;flex-direction:column;gap:6px}
+.recent .chips{display:flex;flex-wrap:wrap;gap:6px}
+@media (max-width:800px){
+  .dz-cols .dz-side{display:contents}
+  .dz-cols>.main2,.dz-cols .dz-side>*{flex:1 1 100%;max-width:none;width:100%}
+  .dz-cols .dz-side>.dz-sum{order:-1}.dz-cols>.main2{order:1}.dz-cols .dz-side>.dz-cost{order:2}.dz-cols .dz-side>.dz-nut{order:3}
+  .dz-cols{gap:18px}
+  .dz-sum{padding:16px}
+}
