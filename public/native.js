@@ -18,7 +18,24 @@
     await P().Share.share({ title: name, url: file.uri, dialogTitle: `Save or send ${name}` });
   }
   const openUrl = url => P().Browser.open({ url });
-  window.MealNative = { isNative, save, openUrl, home: HOME };
+  // Update check: the release notes carry "Build N". A newer N than the installed build means an update.
+  const REL = 'https://api.github.com/repos/LeonLester/mealcost/releases/tags/android-latest';
+  const APK = 'https://github.com/LeonLester/mealcost/releases/download/android-latest/mealcost.apk';
+  const get = k => { try { return localStorage.getItem('mcc.' + k); } catch (e) { return null; } };
+  const put = (k, v) => { try { localStorage.setItem('mcc.' + k, v); } catch (e) { /* storage blocked */ } };
+  async function checkUpdate(force) {
+    if (!isNative || !P().App || !P().App.getInfo) return null;
+    if (!force && Date.now() - Number(get('upd.at') || 0) < 6 * 3600e3) return null;
+    const cur = Number((await P().App.getInfo()).build) || 0;
+    const res = await fetch(REL, { headers: { accept: 'application/vnd.github+json' } });
+    if (!res.ok) throw new Error('release');
+    const m = /Build (\d+)/.exec((await res.json()).body || ''); if (!m) throw new Error('notes');
+    put('upd.at', String(Date.now()));
+    const latest = Number(m[1]);
+    return { current: cur, latest, available: latest > cur, skipped: !force && String(latest) === get('upd.skip'), url: APK };
+  }
+  const skipUpdate = n => put('upd.skip', String(n));
+  window.MealNative = { isNative, save, openUrl, home: HOME, checkUpdate, skipUpdate };
   if (!isNative) return;
 
   document.documentElement.classList.add('native');

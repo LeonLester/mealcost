@@ -430,6 +430,10 @@ function openTheme() {
 function toolBtn(act, label, cls = '') {
   return `<button class="btn sm tb ${cls}" data-act="${act}" aria-label="${esc(label)}" title="${esc(label)}">${TOOLIC[act]}<span class="lbl">${esc(label)}</span></button>`;
 }
+function updateBanner() {
+  const u = S.update; if (!u || !u.available || u.skipped) return '';
+  return `<div class="notice" role="status">${IC.info}<div style="flex:1"><b>Update available</b><div class="muted" style="font-size:14px">Build ${u.latest} is ready, you have ${u.current}. Your data stays.</div><div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap"><button class="btn sm primary" data-act="update-get">Download update</button><button class="btn link" data-act="update-skip">Not now</button></div></div></div>`;
+}
 function appView() {
   const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? weekView() : S.tab === 'trends' ? trendsView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : dayView();
   return `
@@ -443,6 +447,7 @@ function appView() {
   <div class="scrim" data-act="drawer-close"></div>
   <aside class="drawer" id="drawer" aria-label="Menu">
     <div class="dhead"><b class="dlogo">${LOGO}Meal cost</b><button class="burger" data-act="drawer-close" aria-label="Close menu"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    ${window.MealNative && MealNative.isNative ? `<button class="ditem" data-act="update-check"><span>Check for updates</span>${S.update && S.update.available ? '<em>New</em>' : ''}</button>` : ''}
     <a class="ditem" href="#account">${TOOLIC.account}<span>Account and data</span></a>
     <button class="ditem" data-act="log-food">${TOOLIC['log-food']}<span>Log a food to your diary</span></button>
     <button class="ditem" data-act="add-food">${TOOLIC['add-food']}<span>Create a custom food</span></button>
@@ -454,7 +459,7 @@ function appView() {
     <div class="dlinks"><a href="/android">Get the Android app</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="https://coachleonidas.com">coachleonidas.com</a></div>
   </aside>
   <div class="scroll" id="scroller">
-  <main class="wrap">${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
+  <main class="wrap">${updateBanner()}${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
   ${siteFooter()}
   </div>
   </div>`;
@@ -2029,6 +2034,9 @@ document.addEventListener('click', e => {
     case 'wi-add': (S.whatif = S.whatif || []).push({ name: '', price: '' }); render(); break;
     case 'wi-del': S.whatif.splice(Number(d.i), 1); render(); break;
     case 'drawer': document.body.classList.toggle('drawer-open'); t.setAttribute('aria-expanded', document.body.classList.contains('drawer-open')); break;
+    case 'update-get': window.MealNative.openUrl(S.update.url).catch(() => {}); toast('Open the downloaded file to install'); break;
+    case 'update-skip': MealNative.skipUpdate(S.update.latest); S.update.skipped = true; render(); break;
+    case 'update-check': document.body.classList.remove('drawer-open'); MealNative.checkUpdate(true).then(u => { S.update = u; render(); toast(u && u.available ? `Build ${u.latest} is available` : `You have the latest version (build ${u ? u.current : '?'})`); }).catch(() => toast('Could not check for updates. Try again when online.')); break;
     case 'drawer-close': document.body.classList.remove('drawer-open'); break;
     case 'sample': loadSample(); break;
     case 'pick-day': S.day = d.date; render(); break;
@@ -2197,6 +2205,7 @@ if (store.get('parser', 1) < 2) {
 indexRanges(); reindex(); ensurePrices();
 route();
 if (window.MealSync) { MealSync.onchange = () => render(); MealSync.init(); }
+if (window.MealNative && MealNative.isNative) MealNative.checkUpdate().then(u => { if (u) { S.update = u; render(); } }).catch(() => {});
 window.__mealcost = { S, parseCronometer, costOf, summarize, macros, catOf, recipeCostOf, IDX: () => IDX };
 
 if ('serviceWorker' in navigator && !(window.MealNative && MealNative.isNative) && location.protocol === 'https:') {

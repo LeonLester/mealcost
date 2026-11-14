@@ -400,11 +400,18 @@ try:
           window.__backCb = null;
           window.Capacitor = { isNativePlatform: () => true, Plugins: {
             Filesystem: { writeFile: rec('fs', 'writeFile') }, Share: { share: rec('share', 'share') }, Browser: { open: rec('browser', 'open') },
-            App: { addListener: (n, cb) => { if (n === 'backButton') window.__backCb = cb; else window.__urlCb = cb; }, getLaunchUrl: async () => ({}), exitApp: () => window.__calls.push(['app', 'exit']) } } };
+            App: { addListener: (n, cb) => { if (n === 'backButton') window.__backCb = cb; else window.__urlCb = cb; }, getLaunchUrl: async () => ({}), getInfo: async () => ({ build: '10', version: '1.0.10' }), exitApp: () => window.__calls.push(['app', 'exit']) } } };
         """)
         pn = cap.new_page(); pn.goto(BASE); pn.click('text=Try it with sample data'); pn.wait_for_selector('.pricetag .n')
         pn.route('https://mealcost.coachleonidas.com/**', lambda r: r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body='{"signed":false}'))
-        pn.reload(); pn.click('header .burger'); pn.click('#drawer a[href="#account"]'); pn.wait_for_selector('main [data-sync=signin]', timeout=8000)
+        pn.route('https://api.github.com/**', lambda r: r.fulfill(status=200, content_type='application/json', headers={'access-control-allow-origin': '*'}, body='{"body":"Build 12 from abc. Download mealcost.apk"}'))
+        pn.reload(); pn.wait_for_selector('main .notice:has-text("Update available")', timeout=8000)
+        check('app: shows an update banner for a newer build', 'Build 12' in pn.inner_text('main .notice'))
+        pn.click('[data-act=update-get]'); pn.wait_for_timeout(200)
+        check('app: Download update opens the APK link', pn.evaluate('window.__calls.at(-1)')[2]['url'].endswith('/android-latest/mealcost.apk'))
+        pn.click('[data-act=update-skip]'); pn.wait_for_timeout(200)
+        check('app: Not now hides the banner', pn.locator('main .notice:has-text("Update available")').count() == 0)
+        pn.click('header .burger'); pn.click('#drawer a[href="#account"]'); pn.wait_for_selector('main [data-sync=signin]', timeout=8000)
         check('app: Account page offers sign-in', pn.locator('main [data-sync=signin]').count() == 1)
         pn.click('main [data-sync=signin]'); pn.wait_for_timeout(400)
         lc = pn.evaluate('window.__calls.at(-1)')
