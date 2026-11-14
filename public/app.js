@@ -432,6 +432,38 @@ function toolBtn(act, label, cls = '') {
   return `<button class="btn sm tb ${cls}" data-act="${act}" aria-label="${esc(label)}" title="${esc(label)}">${TOOLIC[act]}<span class="lbl">${esc(label)}</span></button>`;
 }
 
+
+/* ============ tutorial ============ */
+const TOUR = [
+  { t: 'Log what you eat', b: 'Tap Log a food on the Day screen. Search your foods, scan a barcode, or create a food with its nutrition. You can also import a Cronometer export for months of history at once.', go: 'day', l: 'Open Day' },
+  { t: 'Set prices once', b: 'On the Prices screen, type what each food costs and whether that is per kg, per 100 g or per item. It then applies to every day you logged it. Use an offer when a price was different on one day or for a period.', go: 'prices', l: 'Open Prices' },
+  { t: 'See what each day costs', b: 'The Day screen shows the cost of every meal and food, and the protein, carbs and fat for the day. Tap any price to change it for that day only. Set a daily budget to see what is left.', go: 'day', l: 'Open Day' },
+  { t: 'Find the best value', b: 'The Summary screen ranks your foods by protein, carbs or fat per euro. Add a what if row to test a price, for example chicken at a lower price against pork loin. Typical prices on the Prices screen looks up what a food usually costs.', go: 'week', l: 'Open Summary' },
+  { t: 'Build and compare meals', b: 'On Meals, build a recipe from your foods and see its cost and nutrition per serving. Pick two saved meals to compare them side by side.', go: 'meals', l: 'Open Meals' },
+  { t: 'Keep your data safe', b: 'Everything stays on this device unless you sign in. Download a backup from Account and data, or sign in with Google to sync across your devices. You can reopen this tour any time from the menu.', go: 'account', l: 'Open Account' }
+];
+function tourSeen() { try { return localStorage.getItem('mcc.tour') === '1'; } catch (e) { return true; } }
+function tourMark() { try { localStorage.setItem('mcc.tour', '1'); } catch (e) { /* storage blocked */ } }
+function tourCard() {
+  if (tourSeen() || !hasData()) return '';
+  return `<div class="notice" role="region" aria-label="Quick tour" style="margin-bottom:24px">${IC.info}<div style="flex:1"><b>New here?</b><div class="muted" style="font-size:14px">A one minute tour of logging, prices and rankings.</div><div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;align-items:center"><button class="btn sm primary" data-act="tour">Take the tour</button><button class="btn link" data-act="tour-off">No thanks</button></div></div></div>`;
+}
+function openTour(i) {
+  tourMark(); i = Math.max(0, Math.min(TOUR.length - 1, i));
+  const s = TOUR[i], last = i === TOUR.length - 1, dlg = $('#dlg'); dlg.classList.remove('wide');
+  dlg.innerHTML = `<form method="dialog" id="tourform">
+    <p class="muted" style="font-size:13px">Step ${i + 1} of ${TOUR.length}</p>
+    <h2 id="dlg-title" style="font-size:20px">${esc(s.t)}</h2>
+    <p style="font-size:16px;line-height:1.55;margin-top:4px">${esc(s.b)}</p>
+    <div class="dots" style="display:flex;gap:6px;margin-top:14px" aria-hidden="true">${TOUR.map((_, k) => `<span style="width:8px;height:8px;border-radius:50%;background:${k === i ? 'var(--accent, currentColor)' : 'var(--line2, #ccc)'}"></span>`).join('')}</div>
+    <div class="dlg-actions" style="flex-wrap:wrap">
+      ${i > 0 ? `<button type="button" class="btn" data-act="tour-go" data-i="${i - 1}">Back</button>` : '<button type="button" class="btn" data-act="close-dlg">Skip</button>'}
+      <button type="button" class="btn link" data-act="tour-open" data-tab="${s.go}">${esc(s.l)}</button>
+      ${last ? '<button type="button" class="btn primary" data-act="close-dlg">Done</button>' : `<button type="button" class="btn primary" data-act="tour-go" data-i="${i + 1}">Next</button>`}
+    </div></form>`;
+  dlg.setAttribute('aria-labelledby', 'dlg-title'); if (!dlg.open) dlg.showModal();
+}
+
 // A small banner on phones that matches the phone: the APK on Android, the app options on iPhone. Web only.
 function appBanner() {
   if (window.MealNative && MealNative.isNative) return '';
@@ -462,6 +494,7 @@ function appView() {
   <aside class="drawer" id="drawer" aria-label="Menu">
     <div class="dhead"><b class="dlogo">${LOGO}Meal cost</b><button class="burger" data-act="drawer-close" aria-label="Close menu"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     ${window.MealNative && MealNative.canUpdate ? `<button class="ditem" data-act="update-check"><span>Check for updates</span>${S.update && S.update.available ? '<em>New</em>' : ''}</button>` : ''}
+    <button class="ditem" data-act="tour"><span>How it works</span></button>
     <a class="ditem" href="#account">${TOOLIC.account}<span>Account and data</span></a>
     <button class="ditem" data-act="log-food">${TOOLIC['log-food']}<span>Log a food to your diary</span></button>
     <button class="ditem" data-act="add-food">${TOOLIC['add-food']}<span>Create a custom food</span></button>
@@ -473,7 +506,7 @@ function appView() {
     <div class="dlinks"><a href="/android">Get the Android app</a><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="https://coachleonidas.com">coachleonidas.com</a></div>
   </aside>
   <div class="scroll" id="scroller">
-  <main class="wrap">${updateBanner()}${appBanner()}${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
+  <main class="wrap">${updateBanner()}${appBanner()}${tourCard()}${window.MealSync ? MealSync.bannerHtml() : ''}${S.error ? `<div class="notice error" role="alert">${IC.info}<div>${esc(S.error)}</div></div>` : ''}${body}</main>
   ${siteFooter()}
   </div>
   </div>`;
@@ -2096,6 +2129,10 @@ document.addEventListener('click', e => {
     case 'wi-add': (S.whatif = S.whatif || []).push({ name: '', price: '' }); render(); break;
     case 'wi-del': S.whatif.splice(Number(d.i), 1); render(); break;
     case 'drawer': document.body.classList.toggle('drawer-open'); t.setAttribute('aria-expanded', document.body.classList.contains('drawer-open')); break;
+    case 'tour': document.body.classList.remove('drawer-open'); openTour(0); render(); break;
+    case 'tour-off': tourMark(); render(); break;
+    case 'tour-go': openTour(Number(d.i)); break;
+    case 'tour-open': $('#dlg').close(); go(d.tab); break;
     case 'appban-off': try { localStorage.setItem('mcc.appban', '1'); } catch (e) { /* storage blocked */ } render(); break;
     case 'update-get': window.MealNative.openUrl(S.update.url).catch(() => {}); toast('Open the downloaded file to install'); break;
     case 'update-skip': MealNative.skipUpdate(S.update.latest); S.update.skipped = true; render(); break;

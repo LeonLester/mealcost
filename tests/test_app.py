@@ -405,6 +405,20 @@ try:
         check('chosen foods persist', ph.locator('#phist .phchip').count() == 2)
         ph.close()
 
+        # tutorial
+        pt = fresh(); pt.click('text=Try it with sample data'); pt.wait_for_selector('.pricetag .n')
+        check('tour card is offered to new users', pt.locator('[aria-label="Quick tour"]').count() == 1)
+        pt.click('main [data-act=tour]'); pt.wait_for_selector('#dlg[open] #tourform')
+        check('tour opens on step 1', 'Step 1 of 6' in pt.inner_text('#tourform'))
+        for k in range(5): pt.click('#tourform [data-act=tour-go]:has-text("Next")'); pt.wait_for_timeout(80)
+        check('tour reaches the last step', 'Step 6 of 6' in pt.inner_text('#tourform') and pt.locator('#tourform button:has-text("Done")').count() == 1)
+        pt.click('#tourform [data-act=tour-open]'); pt.wait_for_selector('#dlg:not([open])', state='attached')
+        check('a step can open its screen', pt.url.endswith('#account'))
+        check('tour card is gone once seen', pt.locator('[aria-label="Quick tour"]').count() == 0)
+        pt.evaluate("document.querySelector('#drawer [data-act=tour]').click()"); pt.wait_for_selector('#dlg[open] #tourform')
+        check('tour can be reopened from the menu', 'Step 1 of 6' in pt.inner_text('#tourform'))
+        pt.close()
+
         # app banner that matches the phone
         for ua, want, other in [('Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36', 'mealcost.apk', 'Show me how'), ('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1', '/android#iphone', 'mealcost.apk')]:
             ctx = b.new_context(viewport={'width': 400, 'height': 800}, user_agent=ua, locale='en-US', has_touch=True); pbn = ctx.new_page(); pbn.goto(BASE)
