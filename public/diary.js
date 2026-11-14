@@ -2,6 +2,7 @@
 'use strict';
 
 const MEAL_BASE = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
+const MEAL_SLOTS = ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Pre-workout', 'Post-workout'];
 const mkey = g => String(g).toLowerCase().replace(/^meal\s*\d+\s*[-:]\s*/, '').replace(/s$/, '');
 const todayIso = () => mealToday();
 const MC = { pro: 'm-pro', carb: 'm-carb', fat: 'm-fat', fiber: 'm-fib' };
@@ -87,11 +88,37 @@ function dzItem(e, day, g, li) {
   return `<div class="swipe"><button class="swipe-del" data-act="del-entry" data-i="${ei}" aria-label="Delete ${en}" tabindex="-1">${TOOLIC.trash}</button><div class="item dz-item"><div class="imain"><button class="iname" data-act="edit-entry" data-i="${ei}" aria-label="Edit ${en}"><span class="nm">${en}</span><span class="amt">${amt}<span class="dz-mac"> · ${mac}</span></span></button>${note}${rec ? `<button class="btn link" data-act="toggle-recipe" data-key="${esc(key)}" aria-expanded="${open}">${open ? 'Hide' : 'Show'} ingredients</button>` : ''}</div><div class="dz-r"><b class="dz-k">${n0(e.kcal)}<small> kcal</small></b>${cell}</div></div></div>${subs}`;
 }
 
+/* ---------- go-to meals: saved meals tagged for a slot, one tap to add ---------- */
+const gotoFor = g => Object.keys(S.meals).filter(n => S.meals[n].slot && mkey(S.meals[n].slot) === mkey(g)).sort((a, b) => a.localeCompare(b));
+function gotoChips(g, day) {
+  const names = gotoFor(g); if (!names.length) return '';
+  return `<div class="dz-goto" role="group" aria-label="Go-to meals for ${esc(g)}">${names.slice(0, 4).map(n => `<button type="button" class="chip" data-act="goto-add" data-name="${esc(n)}" data-date="${day}" data-group="${esc(g)}" aria-label="Add ${esc(n)} to ${esc(g)}">+ ${esc(n)}</button>`).join('')}${names.length > 4 ? `<button type="button" class="chip" data-act="goto-open" data-date="${day}" data-group="${esc(g)}">More</button>` : ''}</div>`;
+}
+function goAdd(name, day, group) {
+  const m = S.meals[name]; if (!m) return;
+  addToDiary(name, day, group || m.slot || 'Snacks', 1, true);
+  toast(`Added ${name} to ${group || m.slot || 'Snacks'}`);
+}
+function openGoto(day, group) {
+  const names = Object.keys(S.meals).sort((a, b) => (mkey(S.meals[b].slot || '') === mkey(group || '')) - (mkey(S.meals[a].slot || '') === mkey(group || '')) || a.localeCompare(b));
+  const dlg = $('#dlg'); dlg.classList.remove('wide');
+  const rows = names.map(n => {
+    const m = S.meals[n], t = mealStats(m, day), sv = t.sv;
+    return `<div class="gtrow"><div><b>${esc(n)}</b>${m.slot ? ` <span class="slottag">${esc(m.slot)}</span>` : ''}<div class="sub">${n0(t.k / sv)} kcal, ${nf1.format(t.p / sv)} g protein${t.noPrice ? '' : ', ' + money(t.cost / sv)}</div></div><button type="button" class="btn sm" data-act="goto-add" data-name="${esc(n)}" data-date="${day}" data-group="${esc(group || '')}">Add</button></div>`;
+  }).join('');
+  dlg.innerHTML = `<form method="dialog"><h2 id="dlg-title" style="font-size:20px">Go-to meals</h2>
+    <p class="muted" style="font-size:14px">${group ? `Adds one serving to ${esc(group)}` : 'Adds one serving to the meal it is tagged for'} on ${esc(dMed(day))}. Change the amount afterwards by tapping the food.</p>
+    ${names.length ? `<div class="gtlist">${rows}</div>` : `<p>No saved meals yet. Build one on the Meals tab and choose a "My go-to for" slot.</p>`}
+    <div class="dlg-actions" style="gap:8px"><a class="btn" href="#meals" data-act="close-dlg">Manage meals</a><button type="button" class="btn" data-act="close-dlg">Close</button></div></form>`;
+  dlg.setAttribute('aria-labelledby', 'dlg-title'); dlg.showModal();
+}
+
 function mealSection(g, list, day) {
   const t = nutTotals(list);
   const cost = r2(list.reduce((a, e) => a + (costOf(e).cost || 0), 0));
   return `<section class="meal dz-meal m-${mkey(g).slice(0,3)}"><div class="meal-head"><h2>${esc(g)}</h2><span class="kcal">${list.length ? `${n0(t.kcal)} kcal · ${macTxt(t)}` : ''}</span>${list.length && cost > 0 ? `<span class="cost">${money(cost)}</span>` : ''}</div>
     <div class="dz-list">${list.map((e, li) => dzItem(e, day, g, li)).join('')}</div>
+    ${gotoChips(g, day)}
     <div class="dz-actions"><button class="btn sm" data-act="log-food" data-date="${day}" data-group="${esc(g)}">${list.length ? 'Add food' : 'Add to ' + esc(g.toLowerCase())}</button><button class="btn link" data-act="copy-prev" data-group="${esc(g)}">Copy from earlier</button></div></section>`;
 }
 
@@ -113,6 +140,7 @@ function diaryView() {
   const day = S.day, es = IDX.byDate.get(day) || [], tot = nutTotals(es), sm = summarize(es);
   const names = [...new Set(es.map(e => e.name))], bad = names.filter(n => !es.find(e => e.name === n && e.q) && issue(n));
   const grouped = new Map(groupEntries(es).map(([g, l]) => [mkey(g), [g, l]]));
+  for (const n in S.meals) { const sl = S.meals[n].slot; if (sl && !MEAL_BASE.some(b => mkey(b) === mkey(sl)) && !grouped.has(mkey(sl))) grouped.set(mkey(sl), [sl, []]); }
   const sections = MEAL_BASE.map(b => { const hit = grouped.get(mkey(b)); grouped.delete(mkey(b)); return [hit ? hit[0] : b, hit ? hit[1] : []]; }).concat([...grouped.values()]);
   const rel = relDay(day), full = dLong(day);
   return `
@@ -127,6 +155,7 @@ function diaryView() {
     <div class="dz-top">
       <button class="btn primary" data-act="log-food" data-date="${day}">Add food</button>
       <details class="dz-menu"><summary class="btn" aria-label="More for this day">More</summary><div class="dz-pop">
+        <button data-act="goto-open" data-date="${day}" data-group="">Add a go-to meal</button>
         <button data-act="quick-add" data-date="${day}">Quick add calories</button>
         <button data-act="copy-prev" data-group="">Copy a day from earlier</button>
         <button data-act="goals">Daily goals</button>

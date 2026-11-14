@@ -70,6 +70,90 @@
     clearTimeout(timer); timer = setTimeout(() => push(), 1500);
   };
 
+
+  /* ---------- review the differences between this browser and the cloud copy, area by area ---------- */
+  const AREAS = [['entries', 'Food log'], ['prices', 'Prices'], ['overrides', 'One-day offers'], ['ranges', 'Price periods'], ['goals', 'Daily goals'], ['weights', 'Weight log'], ['foods', 'Custom foods'], ['recipes', 'Recipes'], ['meals', 'Saved meals'], ['cats', 'Categories'], ['merges', 'Merged foods'], ['nomerge', 'Kept separate'], ['currency', 'Currency'], ['budget', 'Budget'], ['wunit', 'Weight unit']];
+  const parseJ = v => { try { return v == null ? undefined : JSON.parse(v); } catch (e) { return undefined; } };
+  const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+  const clip = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
+  function brief(v) {
+    if (v === undefined) return 'nothing';
+    if (isObj(v) && 'price' in v) return (v.price === '' ? 'no price' : v.price) + (v.basis ? ' per ' + (v.basis === 'kg' ? 'kg or litre' : v.basis === '100' ? '100 g or ml' : 'item') : '');
+    return clip(typeof v === 'string' ? v : JSON.stringify(v), 60);
+  }
+  function diffArea(key, a, b) {
+    const L = [];
+    if (JSON.stringify(a) === JSON.stringify(b)) return L;
+    if (key === 'entries' && Array.isArray(a || []) && Array.isArray(b || [])) {
+      const by = list => { const m = new Map(); for (const e of list || []) { const d = String(e.date || e.day || '?'); if (!m.has(d)) m.set(d, []); m.get(d).push(JSON.stringify(e)); } for (const l of m.values()) l.sort(); return m; };
+      const ma = by(a), mb = by(b);
+      for (const d of [...new Set([...ma.keys(), ...mb.keys()])].sort().reverse()) {
+        const x = ma.get(d), y = mb.get(d), n = z => z.length + (z.length === 1 ? ' food' : ' foods');
+        if (x && !y) L.push(['+', `${d}: ${n(x)}, only on this browser`]);
+        else if (y && !x) L.push(['-', `${d}: ${n(y)}, only in the cloud`]);
+        else if (JSON.stringify(x) !== JSON.stringify(y)) L.push(['~', `${d}: ${n(x)} here, ${n(y)} in the cloud`]);
+      }
+    } else if (Array.isArray(a) || Array.isArray(b)) {
+      const sa = new Set((a || []).map(x => JSON.stringify(x))), sb = new Set((b || []).map(x => JSON.stringify(x)));
+      const nm = s => { const o = parseJ(s); return clip(isObj(o) ? String(o.name || o.date || o.from || s) + (o.price != null ? ' ' + o.price : '') : String(s), 70); };
+      for (const s of sa) if (!sb.has(s)) L.push(['+', nm(s) + ', only on this browser']);
+      for (const s of sb) if (!sa.has(s)) L.push(['-', nm(s) + ', only in the cloud']);
+    } else if (isObj(a) || isObj(b)) {
+      const oa = a || {}, ob = b || {};
+      for (const k of [...new Set([...Object.keys(oa), ...Object.keys(ob)])].sort()) {
+        if (!(k in ob)) L.push(['+', `${k}: ${brief(oa[k])}, only on this browser`]);
+        else if (!(k in oa)) L.push(['-', `${k}: ${brief(ob[k])}, only in the cloud`]);
+        else if (JSON.stringify(oa[k]) !== JSON.stringify(ob[k])) L.push(['~', `${k}: ${brief(oa[k])} here, ${brief(ob[k])} in the cloud`]);
+      }
+    } else L.push(['~', `${brief(a)} here, ${brief(b)} in the cloud`]);
+    return L;
+  }
+  async function fetchCloud() {
+    const res = await api('/api/sync');
+    if (res.status === 204) return { rev: 0, data: {} };
+    if (!res.ok) throw new Error('pull');
+    const rev = Number(res.headers.get('x-rev'));
+    return { rev, data: (JSON.parse(await gunzip(await res.arrayBuffer())).data) || {} };
+  }
+  M.review = async () => {
+    const dlg = document.getElementById('dlg'); if (!dlg) return;
+    let cloud;
+    try { cloud = await fetchCloud(); } catch (e) { if (window.toast) window.toast('Could not load the cloud copy. Try again when online.'); return; }
+    const areas = [];
+    for (const [k, label] of AREAS) {
+      const lines = diffArea(k, parseJ(LS.get(k)), parseJ(cloud.data[k]));
+      if (lines.length) areas.push({ k, label, lines });
+    }
+    const picks = {}; areas.forEach(a => { picks[a.k] = 'here'; });
+    const sign = { '+': 'p', '-': 'm', '~': 'c' };
+    const html = () => areas.map(a => `<section class="dfa"><div class="dfh"><b>${esc(a.label)}</b><span class="dfn">${a.lines.length} ${a.lines.length === 1 ? 'difference' : 'differences'}</span>
+      <span class="seg" role="group" aria-label="Keep for ${esc(a.label)}"><button type="button" data-df="${a.k}" data-v="here" aria-pressed="${picks[a.k] === 'here'}">This browser</button><button type="button" data-df="${a.k}" data-v="cloud" aria-pressed="${picks[a.k] === 'cloud'}">Cloud</button></span></div>
+      <ul class="dfl">${a.lines.slice(0, 10).map(([s, t]) => `<li><i class="df ${sign[s]}" aria-hidden="true">${s === '-' ? '−' : s}</i><span>${esc(t)}</span></li>`).join('')}${a.lines.length > 10 ? `<li class="dfmore">and ${a.lines.length - 10} more</li>` : ''}</ul></section>`).join('');
+    const draw = () => {
+      dlg.classList.add('wide');
+      dlg.innerHTML = `<form method="dialog" id="dfform"><h2 id="dlg-title" style="font-size:20px">Review differences</h2>
+        <p class="muted" style="font-size:14px">${areas.length ? 'For each area, choose which version to keep. Nothing changes until you tap Apply.' : 'The two copies hold the same data. Apply to finish.'}</p>
+        <div class="dflegend"><span><i class="df p">+</i>only on this browser</span><span><i class="df m">−</i>only in the cloud</span><span><i class="df c">~</i>different in both</span></div>
+        ${areas.length ? `<div class="dfall"><button type="button" class="btn sm" data-df-all="here">Keep all from this browser</button><button type="button" class="btn sm" data-df-all="cloud">Use all from the cloud</button></div>` : ''}
+        <div class="dfbody">${html()}</div>
+        <div class="dlg-actions" style="gap:8px"><button type="submit" class="btn primary">Apply choices</button><button type="button" class="btn" data-act="close-dlg">Cancel</button></div></form>`;
+      dlg.setAttribute('aria-labelledby', 'dlg-title');
+    };
+    draw(); dlg.showModal();
+    dlg.onclick = e => {
+      const b = e.target.closest('[data-df],[data-df-all]'); if (!b) return;
+      if (b.dataset.dfAll) areas.forEach(a => { picks[a.k] = b.dataset.dfAll; }); else picks[b.dataset.df] = b.dataset.v;
+      document.querySelector('#dfform .dfbody').innerHTML = html();
+    };
+    dlg.querySelector('#dfform').addEventListener('submit', async ev => {
+      ev.preventDefault();
+      for (const a of areas) if (picks[a.k] === 'cloud') { if (a.k in cloud.data) LS.set(a.k, cloud.data[a.k]); else LS.del(a.k); }
+      M.conflict = null; M.rev = cloud.rev; dlg.close(); dlg.onclick = null;
+      await push(true);
+      window.__mcNoSave = true; location.reload();
+    });
+  };
+
   M.useCloud = async () => { try { setStatus('syncing', true); if (await pull()) { window.__mcNoSave = true; location.reload(); } } catch (e) { setStatus('error', true); } };
   M.keepDevice = async () => { M.conflict = null; await push(true); M.onchange(); };
   M.syncNow = async () => { if (M.conflict) return; await push(); M.onchange(); };
@@ -143,7 +227,7 @@
     ? `<span class="muted syncpill" id="syncstat" aria-live="polite">${esc(M.statusText())}</span>`
     : M.ready ? `<a class="btn sm" href="/auth/google" data-sync="signin">Sign in</a>` : '';
   M.bannerHtml = () => M.conflict ? `<div class="notice" role="alert"><div><strong>Your saved data in the cloud is different from this browser.</strong> Use the cloud copy to replace what is here, or keep this browser and replace the cloud copy.
-    <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:10px"><button class="btn sm" data-sync="use-cloud">Use cloud data</button><button class="btn sm" data-sync="keep-device">Keep this browser</button></div></div></div>` : '';
+    <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:10px"><button class="btn sm primary" data-sync="review">Review differences</button><button class="btn sm" data-sync="use-cloud">Use cloud data</button><button class="btn sm" data-sync="keep-device">Keep this browser</button></div></div></div>` : '';
   M.cardHtml = () => {
     if (!M.available) return '';
     if (!M.signed) return `<div class="card" style="padding:24px"><h2 style="font-size:20px">Use it on every device</h2>
@@ -151,7 +235,7 @@
       <a class="btn primary" style="margin-top:14px;display:inline-flex" href="/auth/google" data-sync="signin">Sign in with Google</a></div>`;
     return `<div class="card" style="padding:24px"><h2 style="font-size:20px">Synced across devices</h2>
       <p class="muted" style="margin-top:8px;font-size:15px">Signed in as ${esc(M.email)}. Changes are saved to your account a moment after you make them. <span id="syncstat" aria-live="polite">${esc(M.statusText())}</span></p>
-      <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px"><button class="btn sm" data-sync="now">Sync now</button><button class="btn sm" data-sync="out">Sign out</button></div>
+      <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px">${M.conflict ? '<button class="btn sm primary" data-sync="review">Review differences</button>' : ''}<button class="btn sm" data-sync="now">Sync now</button><button class="btn sm" data-sync="out">Sign out</button></div>
       <button class="btn link" style="margin-top:8px" data-sync="delete">Delete my account and cloud data</button></div>`;
   };
 
@@ -159,7 +243,7 @@
     const b = e.target.closest('[data-sync]'); if (!b) return;
     const a = b.dataset.sync;
     if (a === 'signin') { if (NATIVE) { e.preventDefault(); M.signIn().catch(() => {}); } return; }
-    if (a === 'use-cloud') M.useCloud(); else if (a === 'keep-device') M.keepDevice(); else if (a === 'now') M.syncNow(); else if (a === 'out') M.signOut(); else if (a === 'switch') M.signOut(true).then(() => { if (!M.signed) M.signIn(); }); else if (a === 'delete') M.deleteCloud();
+    if (a === 'review') M.review(); else if (a === 'use-cloud') M.useCloud(); else if (a === 'keep-device') M.keepDevice(); else if (a === 'now') M.syncNow(); else if (a === 'out') M.signOut(); else if (a === 'switch') M.signOut(true).then(() => { if (!M.signed) M.signIn(); }); else if (a === 'delete') M.deleteCloud();
   });
   window.MealSync = M;
   M.api = api;

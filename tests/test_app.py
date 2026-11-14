@@ -674,6 +674,20 @@ try:
         fresh.goto(BASE); fresh.wait_for_selector('.hero')
         fresh.screenshot(path=os.path.join(here, 'out', 'landing.png'))
 
+        # go-to meals: a saved meal tagged for a slot is one tap away in the diary
+        gp = b.new_context(viewport={'width': 1360, 'height': 900}, locale='en-US').new_page()
+        gp.goto(BASE); gp.click('text=Try it with sample data'); gp.wait_for_selector('.dz-sum')
+        gp.evaluate("""() => { const S = window.__mealcost.S; S.meals['Oats bowl'] = { servings: 1, slot: 'Pre-workout', items: [{ name: 'Rolled oats', qty: 60, unit: 'g' }] }; S.meals['Egg breakfast'] = { servings: 1, slot: 'Breakfast', items: [{ name: 'Rolled oats', qty: 40, unit: 'g' }] }; localStorage.setItem('mcc.meals', JSON.stringify(S.meals)); }""")
+        gp.reload(); gp.wait_for_selector('.dz-sum')
+        check('go-to chip shows in its meal section', gp.locator('.dz-meal:has(h2:text-is("Breakfast")) .dz-goto .chip:has-text("Egg breakfast")').count() == 1)
+        check('a slot with a go-to meal gets its own section', gp.locator('.dz-meal h2:text-is("Pre-workout")').count() == 1)
+        n0_ = gp.evaluate("window.__mealcost.S.entries.length")
+        gp.click('.dz-goto .chip:has-text("Egg breakfast")'); gp.wait_for_timeout(400)
+        check('one tap adds the meal to that section', gp.evaluate("window.__mealcost.S.entries.length") == n0_ + 1)
+        gp.click('summary[aria-label="More for this day"]'); gp.click('text=Add a go-to meal'); gp.wait_for_selector('.gtlist')
+        check('go-to dialog lists saved meals', 'Oats bowl' in gp.inner_text('.gtlist'))
+        gp.click('.gtrow:has-text("Oats bowl") [data-act=goto-add]'); gp.wait_for_timeout(400)
+        check('go-to dialog adds to the meal slot', gp.evaluate("window.__mealcost.S.entries.filter(e => e.group === 'Pre-workout').length") == 1)
         check('no console errors or CSP violations', not errors and not errs2, errors + errs2)
         b.close()
 finally:

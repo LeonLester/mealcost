@@ -89,8 +89,14 @@ with sync_playwright() as pw:
     a.locator('#pbody tr[data-name="Quark"] [data-f="price"]').fill('15'); a.locator('#pbody tr[data-name="Quark"] [data-f="price"]').press('Tab')
     a.wait_for_selector('[data-sync="use-cloud"]', timeout=10000)
     check('stale device is asked to choose', True)
-    a.click('[data-sync="use-cloud"]'); a.wait_for_timeout(2000); a.wait_for_selector('#pbody')
-    check('choosing cloud data adopts the newer price', str(a.evaluate("JSON.parse(localStorage.getItem('mcc.prices')).Quark.price")) == '12')
+    a.click('[data-sync="review"]'); a.wait_for_selector('#dfform')
+    rv = a.inner_text('#dfform')
+    check('review lists the prices area and the differing food', 'Prices' in rv and 'Quark' in rv and '15' in rv and '12' in rv, rv[:300])
+    a.click('[data-df="prices"][data-v="cloud"]')
+    check('picking a side is shown', a.get_attribute('[data-df="prices"][data-v="cloud"]', 'aria-pressed') == 'true')
+    a.click('#dfform [type=submit]'); a.wait_for_timeout(2500); a.wait_for_selector('#pbody')
+    check('review: choosing cloud adopts the newer price', str(a.evaluate("JSON.parse(localStorage.getItem('mcc.prices')).Quark.price")) == '12')
+    check('review: conflict is cleared', a.evaluate("MealSync.conflict") is None)
 
 
     # receipt parsing: only allowed users, managed by the admin
@@ -103,6 +109,8 @@ with sync_playwright() as pw:
     check('admin is recognised', adm.evaluate("fetch('/api/me').then(r => r.json())")['admin'] is True)
     st, out = rec(adm)
     check('admin can parse a receipt', st == 200 and len(out['items']) == 2 and out['items'][0]['unit'] == 'g', out)
+    codes = [rec(adm)[0] for _ in range(9)]
+    check('receipt scans are rate limited per user', 429 in codes and codes[0] == 200, codes)
     users = adm.evaluate("fetch('/api/admin/users').then(r => r.json())")['users']
     ada = next((u for u in users if u['email'] == ADA), None)
     check('admin sees other users', ada is not None and ada['receipts'] is False)

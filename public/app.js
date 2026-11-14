@@ -1711,7 +1711,7 @@ function saveRecipe() {
 }
 /* ============ meal builder ============ */
 const MB = { draft: null, cmp: [], date: '' };
-const newDraft = () => ({ name: '', servings: '1', orig: '', items: [{ name: '', qty: '', unit: 'g' }] });
+const newDraft = () => ({ name: '', servings: '1', slot: '', orig: '', items: [{ name: '', qty: '', unit: 'g' }] });
 const mealDate = () => MB.date || IDX.dates[IDX.dates.length - 1] || mealToday();
 const mealToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 let _nc = { idx: null, m: new Map() };
@@ -1766,12 +1766,12 @@ function mealStats(m, date) {
 }
 function mealSync() {
   const f = $('#mform'); if (!f || !MB.draft) return;
-  MB.draft.name = $('#mn').value; MB.draft.servings = $('#ms').value;
+  MB.draft.name = $('#mn').value; MB.draft.servings = $('#ms').value; MB.draft.slot = $('#mslot') ? $('#mslot').value : '';
   MB.draft.items = [...f.querySelectorAll('.mrow')].map(r => ({ name: $('[data-m=name]', r).value, qty: $('[data-m=qty]', r).value, unit: $('[data-m=unit]', r).value }));
 }
 function mealFromDraft() {
   const d = MB.draft;
-  return { servings: num(d.servings) > 0 ? num(d.servings) : 1, items: d.items.map(i => ({ name: canon(i.name.trim()), qty: num(i.qty), unit: i.unit })).filter(i => i.name && i.qty > 0 && IDX.meta.has(i.name)) };
+  return { servings: num(d.servings) > 0 ? num(d.servings) : 1, slot: MEAL_SLOTS.includes(d.slot) ? d.slot : '', items: d.items.map(i => ({ name: canon(i.name.trim()), qty: num(i.qty), unit: i.unit })).filter(i => i.name && i.qty > 0 && IDX.meta.has(i.name)) };
 }
 const WHY = { noprice: 'No price yet.', needgpu: 'Needs grams per item on the Foods tab.', recipe: 'A recipe ingredient has no price.', needyield: 'The recipe needs a total weight.' };
 function rowInfo(it, date) {
@@ -1811,7 +1811,7 @@ function mealListHtml(date) {
   return names.map(n => {
     const m = S.meals[n], t = mealStats(m, date), sv = t.sv;
     return `<div class="card pad mcard" data-name="${esc(n)}">
-      <div class="mhead"><h3>${esc(n)}</h3><div class="mcost">${t.noPrice ? '<span>Needs prices</span>' : `${esc(money(t.cost / sv))} <span>per serving</span>`}</div></div>
+      <div class="mhead"><h3>${esc(n)}${m.slot ? ` <span class="slottag">${esc(m.slot)}</span>` : ''}</h3><div class="mcost">${t.noPrice ? '<span>Needs prices</span>' : `${esc(money(t.cost / sv))} <span>per serving</span>`}</div></div>
       <div class="sub">${n0(t.k / sv)} kcal, ${nf1.format(t.p / sv)} g protein, ${nf1.format(t.c / sv)} g carbs, ${nf1.format(t.f / sv)} g fat, ${nf1.format(t.b / sv)} g fiber per serving. ${m.items.length} ${m.items.length === 1 ? 'ingredient' : 'ingredients'}, ${nf1.format(sv)} ${sv === 1 ? 'serving' : 'servings'}.</div>
       ${t.noPrice ? `<div class="sub" style="color:var(--offer-ink)">${t.noPrice} ${t.noPrice === 1 ? 'ingredient needs' : 'ingredients need'} a price.</div>` : ''}
       <div class="macts"><button type="button" class="btn sm" data-act="meal-edit" data-name="${esc(n)}">Edit</button><button type="button" class="btn sm" data-act="meal-dup" data-name="${esc(n)}">Duplicate</button><button type="button" class="btn sm" data-act="meal-diary" data-name="${esc(n)}">Add to diary</button><button type="button" class="btn sm" data-act="meal-delete" data-name="${esc(n)}">Delete</button><label class="cmp"><input type="checkbox" data-cmp="${esc(n)}"${MB.cmp.includes(n) ? ' checked' : ''}> Compare</label></div>
@@ -1845,6 +1845,7 @@ function mealFormHtml(d, date) {
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
         <div style="flex:2 1 200px"><label for="mn">Meal name</label><input class="field" style="width:100%" id="mn" autocomplete="off" placeholder="For example, Chicken rice bowl" value="${esc(d.name)}"></div>
         <div style="flex:1 1 110px"><label for="ms">Servings</label><input class="field" style="width:100%" id="ms" inputmode="decimal" value="${esc(d.servings)}"></div>
+        <div style="flex:1 1 150px"><label for="mslot">My go-to for</label><select class="field" style="width:100%" id="mslot"><option value="">Not a go-to</option>${MEAL_SLOTS.map(x => `<option${d.slot === x ? ' selected' : ''}>${x}</option>`).join('')}</select></div>
         <div style="flex:1 1 150px"><label for="mdate">Prices as of</label><input class="field" style="width:100%" type="date" id="mdate" value="${esc(date)}"></div>
       </div>
       <div id="mrows" style="margin-top:16px">${d.items.map((it, i) => mealRowHtml(it, i, date)).join('')}</div>
@@ -1897,7 +1898,7 @@ function loadMeal(name, copy) {
   const m = S.meals[name]; if (!m) return;
   let nm = name;
   if (copy) { nm = `${name} copy`; for (let i = 2; S.meals[nm]; i++) nm = `${name} copy ${i}`; }
-  MB.draft = { name: nm, servings: String(m.servings), orig: copy ? '' : name, items: m.items.map(i => ({ name: i.name, qty: String(i.qty), unit: i.unit })) };
+  MB.draft = { name: nm, servings: String(m.servings), slot: m.slot || '', orig: copy ? '' : name, items: m.items.map(i => ({ name: i.name, qty: String(i.qty), unit: i.unit })) };
   render(); window.scrollTo(0, 0); { const sc = $('#scroller'); if (sc) sc.scrollTop = 0; } const f = $('#mn'); if (f) f.focus({ preventScroll: true });
 }
 function openDiary(name) {
@@ -1907,7 +1908,7 @@ function openDiary(name) {
     <h2 id="dlg-title" style="font-size:20px">Add to diary</h2>
     <p class="muted" style="font-size:14px">Adds each ingredient of ${esc(name)} to the day you choose, so it counts in the Diary and Progress. A later Cronometer export that covers that day replaces these lines.</p>
     <div><label for="dd">Day</label><input class="field" style="width:100%" type="date" id="dd" value="${esc(mealToday())}"></div>
-    <div><label for="dg">Meal</label><select class="field" style="width:100%" id="dg">${['Breakfast', 'Lunch', 'Dinner', 'Snacks'].map(g => `<option>${g}</option>`).join('')}</select></div>
+    <div><label for="dg">Meal</label><select class="field" style="width:100%" id="dg">${MEAL_SLOTS.map(g => `<option${g === (m.slot || '') ? ' selected' : ''}>${g}</option>`).join('')}</select></div>
     <div><label for="dsv">Servings eaten</label><input class="field" style="width:100%" id="dsv" inputmode="decimal" value="1"></div>
     <div id="derr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">Add to diary</button><button type="button" class="btn" data-act="close-dlg">Cancel</button></div>
@@ -1922,7 +1923,7 @@ function openDiary(name) {
   if (!dlg.open) dlg.showModal();
   $('#dd').focus();
 }
-function addToDiary(name, date, group, eaten) {
+function addToDiary(name, date, group, eaten, quiet) {
   const m = S.meals[name], k = eaten / (Number(m.servings) > 0 ? Number(m.servings) : 1), list = [];
   for (const it of m.items) {
     const n = canon(it.name), q = r2(it.qty * k), o = perUnit(n, it.unit === 'item' ? 'item' : 'g');
@@ -1931,7 +1932,7 @@ function addToDiary(name, date, group, eaten) {
   }
   S.entries = S.entries.concat(list).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
   reindex(); ensurePrices(); saveEntries(); saveAll();
-  S.day = date; $('#dlg').close(); go('day'); toast(`Added to ${dMed(date)}`);
+  S.day = date; if ($('#dlg').open) $('#dlg').close(); go('day'); if (!quiet) toast(`Added to ${dMed(date)}`);
 }
 
 function recentChips() {
@@ -2219,6 +2220,8 @@ document.addEventListener('click', e => {
     case 'meal-edit': loadMeal(d.name, false); break;
     case 'meal-dup': loadMeal(d.name, true); toast('Copy opened. Rename it and save.'); break;
     case 'meal-diary': openDiary(d.name); break;
+    case 'goto-add': goAdd(d.name, d.date, d.group); break;
+    case 'goto-open': openGoto(d.date, d.group); break;
     case 'meal-delete':
       if (confirm(`Delete the meal "${d.name}"?`)) {
         delete S.meals[d.name]; MB.cmp = MB.cmp.filter(n => n !== d.name);

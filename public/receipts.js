@@ -31,6 +31,8 @@ function rcBest(name) {
 // The price and "per" setting a food gets, from the unit printed on the receipt.
 function rcPrice(it) {
   const q = it.qty || 1;
+  // A tiny g or ml amount is a pack size read as a quantity (for example 55 ml), so price it per item.
+  if ((it.unit === 'g' || it.unit === 'ml') && q < 10) return { price: r2(it.total / q), basis: 'unit' };
   if (it.unit === 'kg' || it.unit === 'l') return { price: r2(it.total / q), basis: 'kg' };
   if (it.unit === 'g' || it.unit === 'ml') return { price: r2(it.total / q * 1000), basis: 'kg' };
   return { price: r2(it.total / q), basis: 'unit' };
@@ -39,9 +41,10 @@ function rcDialog(r) {
   const dlg = $('#dlg'); dlg.classList.add('wide');
   const foods = [...IDX.meta.keys()].sort((a, b) => a.localeCompare(b));
   const rows = r.items.map((it, i) => {
-    const g = rcBest(it.name);
-    return `<tr data-i="${i}"><td><input type="checkbox" data-rc="on" aria-label="Use ${esc(it.name)}"${g ? ' checked' : ''}></td>
-      <td>${esc(it.name)}<div class="sub">${qtyFmt(it.qty)} ${esc(it.unit)} for ${money(it.total)}</div></td>
+    const g = rcBest(it.name), old = g && S.prices[g] && Number(S.prices[g].price) > 0 ? Number(S.prices[g].price) : 0, np = g ? rcPrice(it).price : 0;
+    const odd = old > 0 && np > 0 && (np / old > 3 || np / old < 1 / 3);
+    return `<tr data-i="${i}"><td><input type="checkbox" data-rc="on" aria-label="Use ${esc(it.name)}"${g && !odd ? ' checked' : ''}></td>
+      <td>${esc(it.name)}<div class="sub">${qtyFmt(it.qty)} ${esc(it.unit)} for ${money(it.total)}</div>${odd ? `<div class="sub" style="color:var(--offer-ink)">Very different from your current price of ${money(old)}. Check it before applying.</div>` : ''}</td>
       <td><select class="field" data-rc="food" aria-label="Food for ${esc(it.name)}"><option value="">Skip</option>${foods.map(f => `<option${f === g ? ' selected' : ''}>${esc(f)}</option>`).join('')}</select></td></tr>`;
   }).join('');
   dlg.innerHTML = `<form method="dialog" id="rcform"><h2 id="dlg-title" style="font-size:20px">Receipt${r.store ? ' from ' + esc(r.store) : ''}</h2>
@@ -59,7 +62,7 @@ function rcDialog(r) {
     dlg.close(); saveAll(); render(); toast(n ? `Updated ${n} ${n === 1 ? 'price' : 'prices'}` : 'No prices changed');
   });
 }
-const RC_ERR = { no_access: 'Receipt scanning is not enabled for your account.', not_configured: 'Receipt scanning is not set up on the server.', model_unreachable: 'The receipt model is offline right now.', unreadable: 'The model could not read that receipt.', too_large: 'That photo is too large.' };
+const RC_ERR = { no_access: 'Receipt scanning is not enabled for your account.', not_configured: 'Receipt scanning is not set up on the server.', model_unreachable: 'The receipt model is offline right now.', unreadable: 'The model could not read that receipt.', too_large: 'That photo is too large.', rate_limited: 'You have scanned a lot of receipts lately. Try again later.' };
 async function rcScan(file) {
   if (RC.busy) return; RC.busy = true; toast('Reading the receipt. This can take a minute.');
   try {
