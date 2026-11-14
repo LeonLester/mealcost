@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<fdroid>
+	<repo icon="icon.png" name="Coach Leonidas apps" pubkey="3082052e30820316a003020102020900a4f7c32951dc2f67300d06092a864886f70d01010b05003044310b300906035504061302435a31173015060355040a130e436f616368204c656f6e69646173311c301a06035504031313436f616368204c656f6e6964617320617070733020170d3236313131333137353930335a180f32303534303333313137353930335a3044310b300906035504061302435a31173015060355040a130e436f616368204c656f6e69646173311c301a06035504031313436f616368204c656f6e69646173206170707330820222300d06092a864886f70d01010105000382020f003082020a0282020100e7073035da6f280fe2070de832888f3ac32db93719c154a893ad0cc246887b5085efa404a193b3b367408982bf12d0b51dc05c9febf716d9e9077bcda629d59c582d27db51688cdbd7a4e43ff48f674d8a899c5305e670fd6373bc747e41fa2fa27c5c7ce2af340f52b79c990167cdcb54be4212deec6ab4ee142a9bc2912300cf42b4b66532ea154d00eda91ff56d29cbce50fb588a77d5293e7ae1687a7c39ec2f7e6df05c5c0ddcb25e335fc8e31f13948104b81ac5519cf9739e303f354432e9dd65e523bb9a061884520e8c37ce6c2249cef3db4502fc7c7a5e517146945b3662b8803d1fc6dddc64f060573373b8ea2591220405cf20511ec2b103999ff3d04ea1d1875a85221e7d22235ee485c832acddd79835dd16e6fc39b23848f069f6e5da1a1d7173fb143e0dd2b2ff0b854238f16129bb420fff99752c0af8d8eaf8fa791ff885e9e35e97b8a548b8759646a234a5f8f7863b8388d6baeea0f1d38cfcd2e3c618e601851f4b67630fdd2f4ad3123306bc0665cb24bd9c2e86ea799db96175db05cc8bfde4b425f4e225a3b62ec7cb98f944dcaec6eae21d1d4edf9d0add8c171f67b2c03c7873dc26206dcd163a2e0f9533daeac7ac78a69caedb72510df02186b9e6ede69d9cac19a322d25ceeecfb753bf8816e0251f173df837549d1842d9cad87bf59ec9805ce982b42b3427e2ecde08dee1fb5583480ab0203010001a321301f301d0603551d0e04160414c0ffce2c27ff14268dc40ee9a29d5ca4468af346300d06092a864886f70d01010b050003820201001cc0832f60da31c1f590f771240d8ce699ba551fa7a5b9a16b3face8f886e0c3aed007a76b4a1a75058f39f4644f2e5cd2681e78c7476329f15101f75042a100e178014d00f8cfe14672aa20186b24add3e72ace890dd9a59cc668830928e416892b7f7bd9b7ba92ec7b26b7e05580fa241080974ffa9de2d4325dae10aeb069cbab8bbf55860323cce5992eb8e454623f9999eb9c8301e65befb85c5fcae430cb65a783b4b80063613b613c4b3d2b23e0712a67ed7354ebe63c55f1bffe1ff493e676b8609a1b30b061e69536a1374b82745af44ae79fe360b4f498de4148190eaebfb757cdd09abdb91abb2c3fe65c08ef6843263ca2ac6f5f4d5c2246ade71e7b2bd1bb6ef6083a99e5228fde595c5b6a03a44f0f37be4edbf4889b7c1d086153eba1d370bf9d6a74e68035ab5f279aab358c718b39ea9177e8fb5d85bd7e34fcea922db4c7b1aa7c20105b8c99577e766ac4f5eec18d2810e9107862745041ba881d055ad0e6eefb66fa58ab259097a9b7c29e1266d43f2a4862b9b40b334f68b88207006eb9bff2ee2742f0d000462cea5fa94087c14d5bbf248709dd580d363c23ea4ad63312b711da0d07f45679f704b0278f053ab26281d7b060f876eba6c1fe730228d8d49c7d143a1778b3df2fd6633e70d764d2fd6a1d293b213ec14bc2cb1dde7f7a84fccca77f18556544b571ccf52876f4cece7c1dfbb4a63c" timestamp="1794668823" url="https://leonlester.github.io/mealcost/fdroid/repo" version="20002">
+		<description>Apps by Coach Leonidas. Free and open source.</description>
+	</repo>
+	<application id="com.coachleonidas.mealcost">
+		<id>com.coachleonidas.mealcost</id>
+		<added>2026-11-14</added>
+		<lastupdated>2026-11-14</lastupdated>
+		<name>Meal cost</name>
+		<summary>Food diary that shows what your meals cost</summary>
+		<desc>Log what you eat, add your grocery prices once, and see what every meal,
+day and week costs, and which foods give the most protein per euro.
+
+* Track foods by hand or import a Cronometer export
+* Cost per meal, day and week, with offers and price changes
+* Best value ranking: grams of protein, carbs and fat per currency unit
+* Build meals and recipes and add them to your diary
+* Look up foods by barcode (Open Food Facts, USDA FoodData Central)
+* Light and dark theme, works offline
+* No account needed. Your data stays on your phone unless you sign in to sync.
+
+The barcode scan button uses Google's code scanner and needs Google Play
+services. Typing the barcode number works on every phone.</desc>
+		<license>MIT</license>
+		<categories>Sports &amp; Health</categories>
+		<category>Sports &amp; Health</category>
+		<web>https://mealcost.coachleonidas.com</web>
+		<source>https://github.com/LeonLester/mealcost</source>
+		<tracker>https://github.com/LeonLester/mealcost/issues</tracker>
+		<marketversion></marketversion>
+		<marketvercode>58</marketvercode>
+		<package>
+			<version>1.0.58</version>
+			<versioncode>58</versioncode>
+			<apkname>com.coachleonidas.mealcost_58.apk</apkname>
+			<hash type="sha256">b9a85c266e2ddddd6a33083ac9ed32afabae50792b8d818ab26528a465a3b689</hash>
+			<size>26870318</size>
+			<sdkver>24</sdkver>
+			<targetSdkVersion>36</targetSdkVersion>
+			<added>2026-11-14</added>
+			<sig>52d55d9865dc19b18623204a0a749c55</sig>
+			<permissions>ACCESS_NETWORK_STATE,INTERNET,com.coachleonidas.mealcost.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION</permissions>
+			<nativecode>arm64-v8a,armeabi-v7a,x86,x86_64</nativecode>
+		</package>
+		<package>
+			<version>1.0.56</version>
+			<versioncode>56</versioncode>
+			<apkname>com.coachleonidas.mealcost_56.apk</apkname>
+			<hash type="sha256">47edb14599404aeda84107e3eaca0448b3bef6c8dbeab83344d2894f84333254</hash>
+			<size>26869714</size>
+			<sdkver>24</sdkver>
+			<targetSdkVersion>36</targetSdkVersion>
+			<added>2026-11-14</added>
+			<sig>52d55d9865dc19b18623204a0a749c55</sig>
+			<permissions>ACCESS_NETWORK_STATE,INTERNET,com.coachleonidas.mealcost.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION</permissions>
+			<nativecode>arm64-v8a,armeabi-v7a,x86,x86_64</nativecode>
+		</package>
+		<package>
+			<version>1.0.52</version>
+			<versioncode>52</versioncode>
+			<apkname>com.coachleonidas.mealcost_52.apk</apkname>
+			<hash type="sha256">7162fa4aaec5c96bbd1abb82304f563fd7f23d71847029cdea17bb2f4ff1f747</hash>
+			<size>26852942</size>
+			<sdkver>24</sdkver>
+			<targetSdkVersion>36</targetSdkVersion>
+			<added>2026-11-14</added>
+			<sig>52d55d9865dc19b18623204a0a749c55</sig>
+			<permissions>ACCESS_NETWORK_STATE,INTERNET,com.coachleonidas.mealcost.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION</permissions>
+			<nativecode>arm64-v8a,armeabi-v7a,x86,x86_64</nativecode>
+		</package>
+	</application>
+</fdroid>

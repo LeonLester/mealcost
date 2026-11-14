@@ -1,0 +1,174 @@
+{
+  "repo": {
+    "name": {
+      "en-US": "Coach Leonidas apps"
+    },
+    "description": {
+      "en-US": "Apps by Coach Leonidas. Free and open source."
+    },
+    "icon": {
+      "en-US": {
+        "name": "/icons/icon.png",
+        "sha256": "1c7b9de545c00c4dca41abdb6eeddc4b1e544f7ca05c778c797db05551e30984",
+        "size": 16603
+      }
+    },
+    "address": "https://leonlester.github.io/mealcost/fdroid/repo",
+    "timestamp": 1794668823000,
+    "categories": {
+      "Sports & Health": {
+        "name": {
+          "en-US": "Sports & Health"
+        }
+      }
+    }
+  },
+  "packages": {
+    "com.coachleonidas.mealcost": {
+      "metadata": {
+        "added": 1794668823000,
+        "categories": [
+          "Sports & Health"
+        ],
+        "issueTracker": "https://github.com/LeonLester/mealcost/issues",
+        "lastUpdated": 1794668823000,
+        "license": "MIT",
+        "sourceCode": "https://github.com/LeonLester/mealcost",
+        "webSite": "https://mealcost.coachleonidas.com",
+        "name": {
+          "en-US": "Meal cost"
+        },
+        "summary": {
+          "en-US": "Food diary that shows what your meals cost"
+        },
+        "description": {
+          "en-US": "Log what you eat, add your grocery prices once, and see what every meal,\nday and week costs, and which foods give the most protein per euro.\n\n* Track foods by hand or import a Cronometer export\n* Cost per meal, day and week, with offers and price changes\n* Best value ranking: grams of protein, carbs and fat per currency unit\n* Build meals and recipes and add them to your diary\n* Look up foods by barcode (Open Food Facts, USDA FoodData Central)\n* Light and dark theme, works offline\n* No account needed. Your data stays on your phone unless you sign in to sync.\n\nThe barcode scan button uses Google's code scanner and needs Google Play\nservices. Typing the barcode number works on every phone."
+        },
+        "icon": {
+          "en-US": {
+            "name": "/com.coachleonidas.mealcost/en-US/icon_jLAj66aJ7QD-Kz7LxsbBkYSdKoBszqFNJSV4iPx1MpM=.png",
+            "sha256": "8cb023eba689ed00fe2b3ecbc6c6c191849d2a806ccea14d25257888fc753293",
+            "size": 2855
+          }
+        },
+        "preferredSigner": "ca784118ccb67cdd5e5e78d32a95e5e6e82f10c4685d9a75743b7312a26a7388"
+      },
+      "versions": {
+        "b9a85c266e2ddddd6a33083ac9ed32afabae50792b8d818ab26528a465a3b689": {
+          "added": 1794668823000,
+          "file": {
+            "name": "/com.coachleonidas.mealcost_58.apk",
+            "sha256": "b9a85c266e2ddddd6a33083ac9ed32afabae50792b8d818ab26528a465a3b689",
+            "size": 26870318
+          },
+          "manifest": {
+            "nativecode": [
+              "arm64-v8a",
+              "armeabi-v7a",
+              "x86",
+              "x86_64"
+            ],
+            "versionName": "1.0.58",
+            "versionCode": 58,
+            "usesSdk": {
+              "minSdkVersion": 24,
+              "targetSdkVersion": 36
+            },
+            "signer": {
+              "sha256": [
+                "ca784118ccb67cdd5e5e78d32a95e5e6e82f10c4685d9a75743b7312a26a7388"
+              ]
+            },
+            "usesPermission": [
+              {
+                "name": "android.permission.INTERNET"
+              },
+              {
+                "name": "com.coachleonidas.mealcost.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+              },
+              {
+                "name": "android.permission.ACCESS_NETWORK_STATE"
+              }
+            ]
+          }
+        },
+        "47edb14599404aeda84107e3eaca0448b3bef6c8dbeab83344d2894f84333254": {
+          "added": 1794668823000,
+          "file": {
+            "name": "/com.coachleonidas.mealcost_56.apk",
+            "sha256": "47edb14599404aeda84107e3eaca0448b3bef6c8dbeab83344d2894f84333254",
+            "size": 26869714
+          },
+          "manifest": {
+            "nativecode": [
+              "arm64-v8a",
+              "armeabi-v7a",
+              "x86",
+              "x86_64"
+            ],
+            "versionName": "1.0.56",
+            "versionCode": 56,
+            "usesSdk": {
+              "minSdkVersion": 24,
+              "targetSdkVersion": 36
+            },
+            "signer": {
+              "sha256": [
+                "ca784118ccb67cdd5e5e78d32a95e5e6e82f10c4685d9a75743b7312a26a7388"
+              ]
+            },
+            "usesPermission": [
+              {
+                "name": "android.permission.INTERNET"
+              },
+              {
+                "name": "com.coachleonidas.mealcost.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+              },
+              {
+                "name": "android.permission.ACCESS_NETWORK_STATE"
+              }
+            ]
+          }
+        },
+        "7162fa4aaec5c96bbd1abb82304f563fd7f23d71847029cdea17bb2f4ff1f747": {
+          "added": 1794668823000,
+          "file": {
+            "name": "/com.coachleonidas.mealcost_52.apk",
+            "sha256": "7162fa4aaec5c96bbd1abb82304f563fd7f23d71847029cdea17bb2f4ff1f747",
+            "size": 26852942
+          },
+          "manifest": {
+            "nativecode": [
+              "arm64-v8a",
+              "armeabi-v7a",
+              "x86",
+              "x86_64"
+            ],
+            "versionName": "1.0.52",
+            "versionCode": 52,
+            "usesSdk": {
+              "minSdkVersion": 24,
+              "targetSdkVersion": 36
+            },
+            "signer": {
+              "sha256": [
+                "ca784118ccb67cdd5e5e78d32a95e5e6e82f10c4685d9a75743b7312a26a7388"
+              ]
+            },
+            "usesPermission": [
+              {
+                "name": "android.permission.INTERNET"
+              },
+              {
+                "name": "com.coachleonidas.mealcost.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+              },
+              {
+                "name": "android.permission.ACCESS_NETWORK_STATE"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
