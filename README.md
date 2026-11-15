@@ -25,6 +25,10 @@ Live at https://mealcost.coachleonidas.com
 - Trends: cost per 100 g protein, carbs, fat, per 10 g fiber and per 1,000 kcal by day or week, plus spend by category.
 - Meal builder tab: combine foods and recipes, see cost (always from current prices) and nutrition, save, edit, duplicate, compare two meals, add to the diary.
 - Backup and restore as JSON (prices, offers, merges, periods, recipes, meals, categories), CSV export, copy as text, 1080x1350 share image.
+- Adaptive calorie target (Daily goals): estimates what you really burn from the last 4 weeks of intake and the weight trend (7,700 kcal per kg), then offers a target for your goal. Needs 7 logged days and 4 weigh-ins over 10 days.
+- Nested recipes: a recipe can be an ingredient of another, costed and counted through every level. A recipe cannot contain itself.
+- Import from MyFitnessPal (nutrition summary, one quick entry per meal), Lose It (per food) and Waistline (per food, columns matched by name). Drop the file anywhere like a Cronometer export.
+- API tokens (Account): read-only tokens with scopes (diary, prices, weights) and an expiry. `GET /api/v1/data` and `/api/v1/me` with `Authorization: Bearer mct_...`.
 - Export all my data (Account and data): one zip with `data.json` (restorable) and one CSV per table (diary, prices, price periods, offers, foods, recipes, meals, weights, goals).
 - Scan label (Add a food, + sheet): photograph the front of a pack and its nutrition table. The model reads name, per 100 g or per portion values and barcode, the worker converts to per 100 g and warns when energy and macros disagree. Same access as receipts (receipts flag, coach tools or admin).
 - Coach tools (users with the Coach flag, set by an admin under Access): a Clients desk with a read-only diary, macros, cost and trends per client, targets, private notes, and a weekly report (copy, CSV, print). A client is linked either by an invite link the client approves while signed in (scopes diary, prices, weights; revocable at any time; reads are logged and shown to the client), or kept as a profile where the coach imports the client's Cronometer exports.

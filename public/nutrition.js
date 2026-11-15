@@ -84,6 +84,27 @@ function energyPlan(p) {
   return { bmr: Math.round(bmr), tdee: Math.round(tdee), kcal, pro, carb, fat, fiber: Math.round(kcal / 1000 * 14) };
 }
 
+// Adaptive estimate: what you really burn, from what you ate and how your weight moved.
+// Energy balance = trend in kg per day x 7700 kcal per kg. Burn = average intake minus that balance.
+function adaptiveTdee(byDate, weights, endIso, days = 28) {
+  if (!endIso) return null;
+  const start = isoAdd(endIso, -(days - 1)), kc = [];
+  for (let i = 0; i < days; i++) { const es = byDate.get(isoAdd(start, i)); if (!es || !es.length) continue; const k = es.reduce((a, e) => a + (e.kcal || 0), 0); if (k >= 800) kc.push(k); }
+  const ws = (weights || []).filter(w => w.date >= start && w.date <= endIso && Number(w.kg) > 0);
+  const out = { logged: kc.length, weighIns: ws.length, window: days, ok: false, why: '' };
+  if (kc.length < 7) { out.why = 'Log at least 7 days of food in the last 4 weeks.'; return out; }
+  const span = ws.length ? (dObj(ws[ws.length - 1].date) - dObj(ws[0].date)) / 864e5 : 0;
+  if (ws.length < 4 || span < 10) { out.why = 'Weigh in at least 4 times over 10 or more days in the last 4 weeks.'; return out; }
+  const xs = ws.map(w => (dObj(w.date) - dObj(ws[0].date)) / 864e5), ys = ws.map(w => Number(w.kg)), n = xs.length;
+  const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+  const sxx = xs.reduce((a, x) => a + (x - mx) ** 2, 0), sxy = xs.reduce((a, x, i) => a + (x - mx) * (ys[i] - my), 0);
+  const slope = sxx > 0 ? sxy / sxx : 0;
+  const intake = kc.reduce((a, b) => a + b, 0) / kc.length, balance = Math.max(-1500, Math.min(1500, slope * 7700));
+  const tdee = Math.round(intake - balance);
+  if (!(tdee >= 1000 && tdee <= 6000)) { out.why = 'The numbers do not give a sensible result. Check that your logs and weigh-ins are complete.'; return out; }
+  return { ...out, ok: true, intake: Math.round(intake), tdee, kgPerWeek: Math.round(slope * 7 * 100) / 100, confidence: kc.length >= 21 && ws.length >= 8 ? 'good' : 'rough' };
+}
+
 // Weight is stored in kg. Pounds are only for display and entry.
 const KG_LB = 2.2046226;
 function wShow(kg) { return S.wunit === 'lb' ? Math.round(kg * KG_LB * 10) / 10 : Math.round(kg * 10) / 10; }

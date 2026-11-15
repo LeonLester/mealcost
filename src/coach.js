@@ -22,12 +22,23 @@ const SCOPE_KEYS = {
 };
 const DEFAULT_SCOPES = { diary: true, prices: true, weights: true };
 
+// The user's synced snapshot, parsed, limited to the keys the scopes allow. Used by coach reads and by personal API tokens.
+export async function readSnapshot(env, userId, scopes) {
+  const row = await env.DB.prepare('SELECT rev, data, updated_at FROM sync WHERE user_id = ?').bind(userId).first();
+  if (!row) return { rev: 0, updated: null, data: {} };
+  const snap = JSON.parse(await gunzipText(new Uint8Array(row.data)));
+  const src = snap && snap.data && typeof snap.data === 'object' ? snap.data : {};
+  const keys = Object.entries(SCOPE_KEYS).filter(([k]) => scopes[k]).flatMap(([, v]) => v), data = {};
+  for (const k of keys) if (typeof src[k] === 'string') { try { data[k] = JSON.parse(src[k]); } catch { /* skip a damaged key */ } }
+  return { rev: row.rev, updated: row.updated_at, data };
+}
+
 export const canCoach = (user, env, isAdmin) => !!user && (isAdmin(user, env) || user.coach === 1);
 
 const clean = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>`{}\\]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 const cleanEmail = (v) => { const s = clean(v, 120).toLowerCase(); return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s) ? s : ''; };
 
-function cleanScopes(s) {
+export function cleanScopes(s) {
   const o = s && typeof s === 'object' ? s : {};
   return { diary: o.diary !== false, prices: o.prices !== false, weights: o.weights !== false };
 }

@@ -1,6 +1,7 @@
 // Meal cost v2 backend: Google sign-in and one synced snapshot per user.
 // Static files are served by the assets binding; only /auth/* and /api/* reach this code.
 import { coachApi, canCoach } from './coach.js';
+import { tokenManage, tokenApi } from './tokens.js';
 import { readLabel } from './label.js';
 
 const SESSION_DAYS = 30;
@@ -289,6 +290,7 @@ async function parseReceipt(req, env) {
 
 async function api(req, env, url) {
   if (await ipLimited(req, env, 'api', 300, 60)) return tooMany(60);
+  if (url.pathname.startsWith('/api/v1/')) return tokenApi(req, env, url, { json, sha256, limited, tooMany });
   const user = await sessionUser(req, env);
   const path = url.pathname;
   if (path === '/api/me' && req.method === 'GET') {
@@ -298,6 +300,8 @@ async function api(req, env, url) {
   }
   if (!user) return json({ error: 'sign_in' }, 401);
 
+  const tokens = await tokenManage(req, env, url, user, { json, rand, sha256, limited, tooMany, sameSiteWrite });
+  if (tokens) return tokens;
   const coach = await coachApi(req, env, url, user, { json, rand, sha256, limited, tooMany, ipLimited, isAdmin, sameSiteWrite });
   if (coach) return coach;
 

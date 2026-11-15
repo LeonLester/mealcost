@@ -237,12 +237,21 @@ function goalsView() {
         <button class="btn" style="margin-top:16px;width:100%" data-act="goals-calc">Calculate</button>
         <div id="cresult" aria-live="polite"></div>
       </section>
+      ${adaptiveCard(p)}
       <section class="card pad">
         <h2 style="font-size:17px">Weight unit</h2>
         <div class="opts" role="radiogroup" aria-label="Weight unit" style="margin-top:10px">${['kg', 'lb'].map(u => `<button type="button" class="opt" role="radio" aria-checked="${wu === u}" data-act="wunit" data-v="${u}">${u === 'kg' ? 'Kilograms' : 'Pounds'}</button>`).join('')}</div>
       </section>
     </div>
   </div>`;
+}
+function adaptiveCard(p) {
+  const end = IDX.dates[IDX.dates.length - 1], a = adaptiveTdee(IDX.byDate, S.weights, end);
+  const head = `<h2 style="font-size:17px">Adaptive estimate</h2><p class="muted" style="font-size:14px;margin-top:6px">What you actually burn, worked out from your last 4 weeks of food and weigh-ins. It gets better the more you log.</p>`;
+  if (!a || !a.ok) return `<section class="card pad" id="adapt">${head}<p class="dz-small" style="margin-top:10px">${esc(a ? a.why : 'Log some food first.')}</p></section>`;
+  const g = GOAL_KIND.find(x => x[0] === (p.goal || 'maintain')) || GOAL_KIND[1], kcal = Math.round(a.tdee * (1 + g[2]) / 10) * 10;
+  const trend = a.kgPerWeek === 0 ? 'steady' : `${a.kgPerWeek > 0 ? 'up' : 'down'} ${Math.abs(a.kgPerWeek)} kg a week`;
+  return `<section class="card pad" id="adapt">${head}<div class="gl-res"><p class="muted dz-small">You ate ${n0(a.intake)} kcal a day on average over ${a.logged} logged days and your weight went ${trend}, so you burn about ${n0(a.tdee)} kcal a day. ${a.confidence === 'good' ? '' : 'This is a rough estimate until you log more days and weigh-ins.'}</p><p><b>${n0(kcal)} kcal</b> for "${esc(g[1])}"</p><button class="btn primary" style="width:100%" data-act="goals-adaptive" data-kcal="${kcal}">Use this energy target</button></div></section>`;
 }
 /* ---------- linked targets: energy and macros follow each other ---------- */
 const GL_CAL = { pro: 4, carb: 4, fat: 9 };
@@ -479,6 +488,7 @@ function diaryAct(a, d) {
       const p = JSON.parse(d.plan); const set = (id, v) => { $('#' + id).value = v; };
       glReset(); set('gk', p.kcal); set('gp', p.pro); set('gc', p.carb); set('gf', p.fat); set('gb', p.fiber); goalsCheck(); toast('Filled in. Press Save goals to keep them.'); return true;
     }
+    case 'goals-adaptive': { glReset(); $('#gk').value = d.kcal; goalsCheck(); toast('Filled in. Press Save goals to keep it.'); return true; }
     case 'wunit': S.wunit = d.v; saveAll(); render(); return true;
     case 'log-weight': openWeight(); return true;
     case 'quick-add': openQuick(d.date); return true;

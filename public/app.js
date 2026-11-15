@@ -156,6 +156,8 @@ function parseAmount(s) {
 }
 
 function parseCronometer(text) {
+  const other = typeof parseOtherDiary === 'function' ? parseOtherDiary(text) : null;
+  if (other) return other;
   const first = (text.split(/\r?\n/)[0] || '');
   const delim = first.split(';').length > first.split(',').length ? ';' : ',';
   const rows = parseCSV(text, delim);
@@ -283,16 +285,33 @@ function ingEntry(it, date) {
   const type = it.unit === 'item' ? 'count' : it.unit === 'ml' ? 'volume' : 'mass';
   return { name: canon(it.name), date, qty: Number(it.qty) || 0, unit: it.unit, type, kcal: 0, pro: 0, carb: 0, fat: 0, fiber: 0, group: '' };
 }
+let _rdepth = 0; // a recipe can be an ingredient of another; the depth cap also stops a loop in imported data
 function recipeCostOf(r, date, useOverride = true) {
   const parts = []; let cost = 0, missing = 0, offer = false;
   for (const it of r.items) {
-    const e = ingEntry(it, date), pi = priceInfo(e.name, date, useOverride);
+    const e = ingEntry(it, date);
     let c = null, why = 'noprice';
-    if (pi) { const v = calc(e, pi); if (v == null) why = 'needgpu'; else { c = r2(v); if (pi.offer) offer = true; } }
+    if (S.recipes[e.name]) {
+      why = 'recipe';
+      if (_rdepth < 6) {
+        _rdepth++;
+        try { const x = recipeEntryCost(e, useOverride); if (x.cost != null) { c = x.cost; if (x.offer) offer = true; } else why = x.why; } finally { _rdepth--; }
+      }
+    } else {
+      const pi = priceInfo(e.name, date, useOverride);
+      if (pi) { const v = calc(e, pi); if (v == null) why = 'needgpu'; else { c = r2(v); if (pi.offer) offer = true; } }
+    }
     if (c == null) missing++; else cost += c;
     parts.push({ it, e, cost: c, why });
   }
   return { cost: missing ? null : r2(cost), missing, offer, parts };
+}
+// True when recipe `name` is, or contains at any depth, the recipe `target`.
+function recipeHas(name, target, seen = new Set()) {
+  if (name === target) return true;
+  const r = S.recipes[name]; if (!r || seen.has(name)) return false;
+  seen.add(name);
+  return r.items.some(i => recipeHas(canon(i.name), target, seen));
 }
 function recipeFrac(r, e) {
   if (e.type === 'count') return e.qty / (Number(r.servings) > 0 ? Number(r.servings) : 1);
@@ -531,6 +550,7 @@ function accountView() {
   <div class="acct">
     <section class="card pad"><h2>Sign in and sync</h2>${signCard}</section>
     ${sharingCard()}
+    ${typeof tokensCard === 'function' ? tokensCard() : ''}
     <section class="card pad"><h2>Your data on this device</h2>
       <p class="muted" style="margin-top:8px">${nE} diary entries, ${nF} foods, ${nM} saved meals.</p>
       ${row('Export all my data', 'Everything in one zip: diary, prices, foods, recipes, meals, weights and goals, as JSON and as spreadsheets. You can restore it later.', '<button class="btn primary" data-act="export-all">Export all data</button>')}
@@ -1651,10 +1671,10 @@ function openRecipe(name) {
 }
 function drawRecipe() {
   const dlg = $('#dlg'); dlg.classList.add('wide');
-  const foods = [...IDX.meta.keys()].filter(n => n !== REC.name && !S.recipes[n]).sort((a, b) => a.localeCompare(b));
+  const foods = [...new Set([...IDX.meta.keys(), ...Object.keys(S.recipes)])].filter(n => n !== REC.name && !recipeHas(n, REC.name)).sort((a, b) => a.localeCompare(b));
   dlg.innerHTML = `<form id="rform" method="dialog">
     <h2 id="dlg-title" style="font-size:20px">Recipe: ${esc(REC.name)}</h2>
-    <p class="muted" style="font-size:14px">Cronometer exports a recipe as a single line, so list its ingredients here. Each logged serving is costed from your ingredient prices.</p>
+    <p class="muted" style="font-size:14px">Cronometer exports a recipe as a single line, so list its ingredients here. An ingredient can be another recipe. Each logged serving is costed from your ingredient prices.</p>
     <div style="display:flex;gap:12px;flex-wrap:wrap"><div style="flex:1 1 160px"><label for="rs">Servings it makes</label><input class="field" style="width:100%" id="rs" inputmode="decimal" value="${esc(REC.servings)}"></div><div style="flex:1 1 220px"><label for="ry">Total weight in grams (needed if you log it in grams)</label><input class="field" style="width:100%" id="ry" inputmode="decimal" placeholder="optional" value="${esc(REC.yieldG)}"></div></div>
     <div id="rrows">${REC.items.map((it, i) => `<div class="rrow"><input class="field" data-r="name" list="rlist" aria-label="Ingredient ${i + 1}" placeholder="Ingredient" autocomplete="off" value="${esc(it.name)}"><input class="field" data-r="qty" inputmode="decimal" aria-label="Amount" placeholder="Amount" value="${esc(it.qty)}"><select class="field" data-r="unit" aria-label="Unit">${['g', 'ml', 'item'].map(u => `<option value="${u}"${it.unit === u ? ' selected' : ''}>${u}</option>`).join('')}</select><button type="button" class="btn link" data-act="rec-del" data-i="${i}" aria-label="Remove ingredient ${i + 1}">Remove</button></div>`).join('')}</div>
     <datalist id="rlist">${foods.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
@@ -1691,7 +1711,7 @@ function saveRecipe() {
   const r = recipeFromDraft(), err = m => { $('#rerr').textContent = m; };
   if (!r.items.length) return err('Add at least one ingredient with a name and an amount.');
   if (r.items.some(i => i.name === REC.name)) return err('A recipe cannot contain itself.');
-  if (r.items.some(i => S.recipes[i.name])) return err('An ingredient cannot be another recipe.');
+  if (r.items.some(i => S.recipes[i.name] && recipeHas(i.name, REC.name))) return err('That would make the recipe contain itself.');
   S.recipes[REC.name] = r;
   reindex(); ensurePrices(); saveAll(); $('#dlg').close(); render(); toast('Recipe saved');
 }
@@ -1707,6 +1727,12 @@ function perUnit(name, unit, noCross) {
   if (_nc.idx !== IDX) _nc = { idx: IDX, m: new Map() };
   const key = `${name}|${u}|${noCross ? 1 : 0}`;
   if (_nc.m.has(key)) return _nc.m.get(key);
+  if (_puBusy.has(key)) return null;
+  _puBusy.add(key);
+  try { return perUnitCalc(name, u, noCross, key); } finally { _puBusy.delete(key); }
+}
+const _puBusy = new Set();
+function perUnitCalc(name, u, noCross, key) {
   let out = null, q = 0, k = 0, p = 0, c = 0, f = 0, b = 0, xt = {}, xq = 0;
   for (const e of IDX.byName.get(name) || []) {
     if ((u === 'item') !== (e.type === 'count')) continue;

@@ -10,7 +10,7 @@ function dropzone(kind = 'any') {
     weight: ['Drop your weigh-ins here', 'Cronometer’s biometrics.csv, or choose a file.', '.csv,text/csv'],
     backup: ['Drop a backup here', 'A backup or export you saved earlier, or choose one.', '.json,.zip,application/json,application/zip'],
     receipt: ['Drop a receipt photo here', 'or choose a picture of the receipt.', 'image/*'],
-    any: ['Drop a file here', 'A Cronometer export, biometrics, a Meal cost export or a receipt photo.', '.csv,.json,.zip,text/csv,application/json,application/zip,image/*'],
+    any: ['Drop a file here', 'A Cronometer, MyFitnessPal, Lose It or Waistline export, biometrics, a Meal cost export or a receipt photo.', '.csv,.json,.zip,text/csv,application/json,application/zip,image/*'],
   }[kind] || [];
   return `<label class="dropz" data-dz="${kind}"><input type="file" class="dz-in" accept="${T[2]}" hidden><span class="dz-ic">${UP_IC}</span><span class="dz-t"><b>${T[0]}</b><small>${T[1]}</small></span><span class="dz-pick">Choose file</span></label>`;
 }
@@ -69,7 +69,7 @@ let _dragDepth = 0;
 const hasFiles = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
 function veil(on) {
   let v = document.getElementById('dropveil');
-  if (!v && on) { v = document.createElement('div'); v.id = 'dropveil'; v.setAttribute('aria-hidden', 'true'); v.innerHTML = `<div>${UP_IC}<b>Drop to import</b><span>Cronometer export, biometrics, a backup or a receipt photo</span></div>`; document.body.appendChild(v); }
+  if (!v && on) { v = document.createElement('div'); v.id = 'dropveil'; v.setAttribute('aria-hidden', 'true'); v.innerHTML = `<div>${UP_IC}<b>Drop to import</b><span>Cronometer, MyFitnessPal, Lose It or Waistline export, biometrics, a backup or a receipt photo</span></div>`; document.body.appendChild(v); }
   if (v) v.classList.toggle('on', on);
 }
 window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); _dragDepth++; veil(true); });

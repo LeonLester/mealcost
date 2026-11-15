@@ -841,6 +841,40 @@ try:
         check('export has one file per table and a readme', all(n in ex['names'] for n in ['data.json', 'diary.csv', 'prices.csv', 'foods.csv', 'recipes.csv', 'meals.csv', 'weights.csv', 'goals.csv', 'README.txt']))
         check('zip checksum is the standard CRC-32', ex['crc'] == 0xCBF43926)
         check('spreadsheet cells cannot run formulas', pl.evaluate("csvQ('=1+1')") == "\"'=1+1\"")
+        oi = pl.evaluate("""() => {
+          const lose = 'Date,Name,Type,Quantity,Units,Calories,Fat (g),Protein (g),Carbohydrates (g),Fiber (g)\\n11/9/2026,Greek yogurt,Breakfast,170,Gram,100,0.5,17,6,0\\n11/9/2026,Banana,Snacks,1,Each,105,0.4,1.3,27,3.1\\n';
+          const mfp = 'Date,Meal,Calories,Fat (g),Carbohydrates (g),Fiber,Protein (g)\\n2026-11-09,Breakfast,450,12,60,6,25\\n2026-11-09,Dinner,700,30,70,8,40\\n';
+          const wl = 'Date;Meal;Name;Brand;Amount;Unit;Calories;Protein;Carbs;Fat\\n2026-11-10;Lunch;Skyr;Milko;150;g;95;16;6;0.3\\n';
+          const crono = 'Day,Group,Food Name,Amount,Energy (kcal),Protein (g),Carbs (g),Fat (g)\\n2026-11-01,Meal 1,Quark,200.00 g,200,24,8,4\\n';
+          return { lose: parseOtherDiary(lose), mfp: parseOtherDiary(mfp), wl: parseOtherDiary(wl), crono: parseOtherDiary(crono) };
+        }""")
+        check('Lose It export is read per food', len(oi['lose']) == 2 and oi['lose'][0]['unit'] == 'g' and oi['lose'][0]['qty'] == 170 and oi['lose'][1]['type'] == 'count' and oi['lose'][0]['pro'] == 17 and oi['lose'][0]['date'] == '2026-11-09', oi['lose'])
+        check('MyFitnessPal summary becomes one quick entry per meal', len(oi['mfp']) == 2 and oi['mfp'][0]['q'] is True and oi['mfp'][1]['kcal'] == 700 and oi['mfp'][0]['group'] == 'Breakfast', oi['mfp'])
+        check('Waistline style export keeps brand and grams', oi['wl'] and oi['wl'][0]['name'] == 'Skyr (Milko)' and oi['wl'][0]['unit'] == 'g' and oi['wl'][0]['qty'] == 150, oi['wl'])
+        check('a Cronometer file is left to its own parser', oi['crono'] is None)
+        nest = pl.evaluate("""() => {
+          const A = window.__mealcost, S = A.S;
+          const keep = { r: S.recipes, p: S.prices, e: S.entries };
+          S.prices = { Flour: { price: 2, basis: 'kg', gpu: '' } }; S.recipes = {};
+          S.recipes.Dough = { servings: 1, yieldG: 1000, items: [{ name: 'Flour', qty: 1000, unit: 'g' }] };
+          S.recipes.Pizza = { servings: 2, yieldG: '', items: [{ name: 'Dough', qty: 500, unit: 'g' }] };
+          const d = '2026-11-10', pc = A.recipeCostOf(S.recipes.Pizza, d);
+          S.recipes.Dough.items.push({ name: 'Pizza', qty: 10, unit: 'g' });
+          const loop = A.recipeCostOf(S.recipes.Pizza, d);
+          const has = recipeHas('Pizza', 'Dough'), selfHas = recipeHas('Dough', 'Pizza');
+          S.recipes = keep.r; S.prices = keep.p; S.entries = keep.e;
+          return { cost: pc.cost, missing: pc.missing, loopCost: loop.cost, has, selfHas };
+        }""")
+        check('a recipe can be an ingredient of another and is costed', nest['cost'] == 1.0 and nest['missing'] == 0, nest)
+        check('a recipe loop is stopped instead of hanging', nest['loopCost'] is None and nest['has'] is True, nest)
+        ad = pl.evaluate("""() => {
+          const by = new Map(), ws = [];
+          for (let i = 0; i < 28; i++) { const d = isoAdd('2026-11-28', -27 + i); by.set(d, [{ kcal: 2000 }]); if (i % 3 === 0) ws.push({ date: d, kg: 80 - i * 0.05 }); }
+          const loss = adaptiveTdee(by, ws, '2026-11-28'), few = adaptiveTdee(by, ws.slice(0, 2), '2026-11-28'), none = adaptiveTdee(new Map(), [], '2026-11-28');
+          return { loss, few: few.ok, none: none.ok };
+        }""")
+        check('adaptive estimate adds back the deficit seen in the weight trend', ad['loss']['ok'] and 2300 < ad['loss']['tdee'] < 2700 and ad['loss']['kgPerWeek'] < 0, ad)
+        check('adaptive estimate refuses to guess from thin data', ad['few'] is False and ad['none'] is False, ad)
         check('no console errors or CSP violations', not errors and not errs2, errors + errs2)
         b.close()
 finally:

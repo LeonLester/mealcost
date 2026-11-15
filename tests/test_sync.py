@@ -172,6 +172,24 @@ with sync_playwright() as pw:
     check('coach removes the client', api(bob, 'DELETE', '/api/coach/clients/' + cid)[0] == 200 and api(bob, 'GET', '/api/coach/clients')[1]['clients'] == [])
     check('removing a coach flag closes the tools', api(adm, 'PUT', '/api/admin/users/' + bid, {'coach': False})[0] == 200 and api(bob, 'GET', '/api/coach/clients')[0] == 403)
 
+    # personal API tokens
+    st, tk = api(a, 'POST', '/api/tokens', {'name': 'Home dashboard', 'scopes': {'diary': True, 'prices': False, 'weights': True}, 'days': 30})
+    ttok = tk.get('token'); check('user creates an API token', st == 200 and str(ttok).startswith('mct_'), tk)
+    check('token list never shows the secret', ttok not in json.dumps(api(a, 'GET', '/api/tokens')[1]))
+    def tget(path, tok=ttok, method='GET'):
+        return anon.evaluate("([p, t, m]) => fetch(p, {method: m, headers: {authorization: 'Bearer ' + t}}).then(async r => [r.status, await r.json().catch(() => ({}))])", [path, tok, method])
+    st, td = tget('/api/v1/data')
+    check('token reads scoped data', st == 200 and 'entries' in td['data'] and isinstance(td['data']['entries'], list) and 'prices' not in td['data'], td.get('scopes'))
+    check('token data holds the diary', len(td['data'].get('entries', [])) >= 2)
+    check('token cannot write', tget('/api/v1/data', method='PUT')[0] == 405)
+    check('token cannot manage tokens', tget('/api/tokens')[0] == 401)
+    check('bad token is refused', tget('/api/v1/data', 'mct_' + 'x' * 40)[0] == 401)
+    check('a session cookie alone does not open the token routes', a.evaluate("fetch('/api/v1/data').then(r => r.status)") == 401)
+    tid = api(a, 'GET', '/api/tokens')[1]['tokens'][0]['id']
+    check('another user cannot revoke it', api(adm, 'DELETE', '/api/tokens/' + tid)[0] == 404)
+    check('owner revokes the token', api(a, 'DELETE', '/api/tokens/' + tid)[0] == 200 and tget('/api/v1/data')[0] == 401)
+    check('token needs a name', api(a, 'POST', '/api/tokens', {'name': ' '})[0] == 400)
+
     # sign out clears this browser, the cloud copy stays
     a.on('dialog', lambda d: d.accept())
     a.goto(BASE + '#prices'); a.wait_for_selector('[data-sync="out"] >> visible=true'); a.click('[data-sync="out"] >> visible=true'); a.wait_for_selector('a[href="/auth/google"] >> visible=true')
