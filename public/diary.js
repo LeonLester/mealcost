@@ -245,14 +245,23 @@ function goalsView() {
     </div>
   </div>`;
 }
-function adaptiveCard(p) {
-  const end = IDX.dates[IDX.dates.length - 1], a = adaptiveTdee(IDX.byDate, S.weights, end);
-  const head = `<h2 style="font-size:17px">Adaptive estimate</h2><p class="muted" style="font-size:14px;margin-top:6px">What you actually burn, worked out from your last 4 weeks of food and weigh-ins. It gets better the more you log.</p>`;
-  if (!a || !a.ok) return `<section class="card pad" id="adapt">${head}<p class="dz-small" style="margin-top:10px">${esc(a ? a.why : 'Log some food first.')}</p></section>`;
-  const g = GOAL_KIND.find(x => x[0] === (p.goal || 'maintain')) || GOAL_KIND[1], kcal = Math.round(a.tdee * (1 + g[2]) / 10) * 10;
-  const trend = a.kgPerWeek === 0 ? 'steady' : `${a.kgPerWeek > 0 ? 'up' : 'down'} ${Math.abs(a.kgPerWeek)} kg a week`;
-  return `<section class="card pad" id="adapt">${head}<div class="gl-res"><p class="muted dz-small">You ate ${n0(a.intake)} kcal a day on average over ${a.logged} logged days and your weight went ${trend}, so you burn about ${n0(a.tdee)} kcal a day. ${a.confidence === 'good' ? '' : 'This is a rough estimate until you log more days and weigh-ins.'}</p><p><b>${n0(kcal)} kcal</b> for "${esc(g[1])}"</p><button class="btn primary" style="width:100%" data-act="goals-adaptive" data-kcal="${kcal}">Use this energy target</button></div></section>`;
+const GOAL_RATE = { lose: -0.5, maintain: 0, gain: 0.25 }; // kg a week, used until you set your own
+function adaptiveRate(p) { return p && Number.isFinite(Number(p.rate)) && p.rate !== null ? Number(p.rate) : GOAL_RATE[(p && p.goal) || 'maintain']; }
+function adaptiveCard(p, live) {
+  const end = IDX.dates[IDX.dates.length - 1], g = S.goals, rate = live != null ? live : adaptiveRate(p), a = courseCorrection(IDX.byDate, S.weights, end, rate, g && g.kcal);
+  const head = `<h2 style="font-size:17px">Weekly course correction</h2><p class="muted" style="font-size:14px;margin-top:6px">Checks your last 7 days against the rate you want, using 7,500 kcal per kg of body weight. It only suggests. Nothing changes unless you apply it.</p>
+    <div class="gl-f" style="margin-top:10px"><label for="arate">Wanted change in weight, ${esc(S.wunit)} a week (minus to lose)</label><div class="gl-in"><input class="field" id="arate" inputmode="decimal" value="${esc(wShowRate(rate))}" autocomplete="off"><span>${esc(S.wunit)}/wk</span></div></div>`;
+  const body = !a || !a.ok ? `<p class="dz-small" style="margin-top:10px">${esc(a ? a.why : 'Log some food first.')}</p>` : (() => {
+    const mv = a.observed === 0 ? 'stayed level' : `${a.observed > 0 ? 'rose' : 'fell'} ${wShowRate(Math.abs(a.observed))} ${S.wunit}`;
+    const need = a.perDay === 0 ? 'hold your weight' : `${a.perDay < 0 ? 'a deficit' : 'a surplus'} of ${n0(Math.abs(a.perDay))} kcal a day`;
+    return `<div class="gl-res"><p class="muted dz-small">Last 7 days: you ate ${n0(a.intake)} kcal a day and your weight ${mv}, so you burn about ${n0(a.maint)} kcal a day. Your aim needs ${need}. A single week is noisy, so treat this as a nudge.</p>
+      ${a.onTrack ? `<p><b>On track.</b> Keep ${n0(a.base)} kcal a day.</p>` : `<p><b>${a.delta > 0 ? 'Add' : 'Cut'} about ${n0(Math.abs(a.delta))} kcal a day</b>, to ${n0(a.aim)} kcal${g && g.kcal ? ` (now ${n0(a.base)})` : ''}.</p><button class="btn" style="width:100%" data-act="goals-adaptive" data-kcal="${a.aim}">Fill ${n0(a.aim)} kcal into the form</button>`}</div>`;
+  })();
+  return `<section class="card pad" id="adapt">${head}${body}</section>`;
 }
+// Rates are kept in kg a week. This shows and reads them in the chosen weight unit.
+function wShowRate(kg) { return String(Math.round((S.wunit === 'lb' ? kg * KG_LB : kg) * 100) / 100); }
+function wParseRate(v) { const n = Number(String(v).replace(',', '.')); return Number.isFinite(n) ? (S.wunit === 'lb' ? n / KG_LB : n) : null; }
 /* ---------- linked targets: energy and macros follow each other ---------- */
 const GL_CAL = { pro: 4, carb: 4, fat: 9 };
 const GL_MODES = {
@@ -352,14 +361,15 @@ function glScale() {
 function glReset() { for (const k of ['pro', 'carb', 'fat', 'fiber']) { const m = $('#' + GL_IDS[k] + '-m'); if (m) { m.value = 'g'; m.dataset.prev = 'g'; } } const s = $('#gk-sum'); if (s) s.checked = false; }
 function readProfile() {
   const v = id => ($('#' + id) || {}).value;
-  return { sex: v('cs'), age: num(v('ca')), cm: num(v('ch')), kg: wParse(v('cw')), act: v('cact'), goal: v('cgoal') };
+  const ar = $('#arate'), pr = (S.goals && S.goals.profile) || {};
+  return { sex: v('cs'), age: num(v('ca')), cm: num(v('ch')), kg: wParse(v('cw')), act: v('cact'), goal: v('cgoal'), rate: ar ? wParseRate(ar.value) : (pr.rate ?? null) };
 }
 function saveGoals() {
   const c = glCompute(), v = id => num(($('#' + id) || {}).value), modes = {}, vals = {};
   for (const k of ['pro', 'carb', 'fat', 'fiber']) { modes[k] = (($('#' + GL_IDS[k] + '-m') || {}).value) || 'g'; vals[k] = modes[k] === 'rest' ? '' : v(GL_IDS[k]); }
   const g = { kcal: Math.round(c.kcal), pro: Math.round(c.pro), carb: Math.round(c.carb), fat: Math.round(c.fat), fiber: Math.round(c.fiber), kmode: c.sum ? 'sum' : 'set', m: modes, v: vals, x: {}, profile: (S.goals && S.goals.profile) || null };
   for (const n of NUT_X) { const x = v('gx-' + n.k); if (x > 0) g.x[n.k] = x; }
-  const pr = readProfile(); if (pr.age > 0 || pr.cm > 0 || pr.kg > 0) g.profile = pr;
+  const pr = readProfile(); if (pr.age > 0 || pr.cm > 0 || pr.kg > 0 || pr.rate != null) g.profile = pr;
   if (!(g.kcal > 0)) { toast('Enter an energy target first'); return; }
   S.goals = g; saveAll(); go('day'); toast('Goals saved');
 }
@@ -503,6 +513,11 @@ function diaryAct(a, d) {
   }
   return false;
 }
+document.addEventListener('change', e => {
+  if (!e.target || e.target.id !== 'arate') return;
+  const r = wParseRate(e.target.value), card = $('#adapt'); if (!card || r === null || Math.abs(r) > 2) return;
+  card.outerHTML = adaptiveCard(readProfile(), r); const f = $('#arate'); if (f) f.focus();
+});
 document.addEventListener('input', e => { const t = e.target; if (!t.closest || !t.closest('#goalform, #calc') || t.tagName === 'SELECT' || t.type === 'checkbox') return; goalsCheck(); });
 document.addEventListener('change', e => { const t = e.target; if (!t || !t.closest || !t.closest('#goalform')) return; if (t.id === 'gk-sum') glSumToggle(); else if (/^g[pcfb]-m$/.test(t.id)) glModeChange(t); });
 document.addEventListener('submit', e => { if (e.target.id === 'goalform') { e.preventDefault(); saveGoals(); } });

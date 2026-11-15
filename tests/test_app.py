@@ -868,13 +868,19 @@ try:
         check('a recipe can be an ingredient of another and is costed', nest['cost'] == 1.0 and nest['missing'] == 0, nest)
         check('a recipe loop is stopped instead of hanging', nest['loopCost'] is None and nest['has'] is True, nest)
         ad = pl.evaluate("""() => {
-          const by = new Map(), ws = [];
-          for (let i = 0; i < 28; i++) { const d = isoAdd('2026-11-28', -27 + i); by.set(d, [{ kcal: 2000 }]); if (i % 3 === 0) ws.push({ date: d, kg: 80 - i * 0.05 }); }
-          const loss = adaptiveTdee(by, ws, '2026-11-28'), few = adaptiveTdee(by, ws.slice(0, 2), '2026-11-28'), none = adaptiveTdee(new Map(), [], '2026-11-28');
-          return { loss, few: few.ok, none: none.ok };
+          const mk = (kcal, wf) => { const by = new Map(), ws = []; for (let i = 0; i < 7; i++) { const d = isoAdd('2026-11-28', -6 + i); by.set(d, [{ kcal }]); if (i % 2 === 0) ws.push({ date: d, kg: 80 + wf(i) }); } return { by, ws }; };
+          const flat = mk(2500, () => 0), drop = mk(2000, i => -i * 0.1);
+          return {
+            onTrack: courseCorrection(flat.by, flat.ws, '2026-11-28', 0, 2500),
+            cut: courseCorrection(flat.by, flat.ws, '2026-11-28', -0.5, 2500),
+            lossAlready: courseCorrection(drop.by, drop.ws, '2026-11-28', -0.5, 2000),
+            thin: courseCorrection(flat.by, flat.ws.slice(0, 2), '2026-11-28', 0, 2500), none: courseCorrection(new Map(), [], '2026-11-28', 0, 2000)
+          };
         }""")
-        check('adaptive estimate adds back the deficit seen in the weight trend', ad['loss']['ok'] and 2300 < ad['loss']['tdee'] < 2700 and ad['loss']['kgPerWeek'] < 0, ad)
-        check('adaptive estimate refuses to guess from thin data', ad['few'] is False and ad['none'] is False, ad)
+        check('holding weight at the same intake is on track', ad['onTrack']['ok'] and ad['onTrack']['onTrack'] and ad['onTrack']['maint'] == 2500, ad['onTrack'])
+        check('1 kg a week loss means a 1071 kcal deficit, so 0.5 kg a week asks for about 536 less', ad['cut']['perDay'] == -536 and ad['cut']['delta'] == -540 and ad['cut']['aim'] == 1960, ad['cut'])
+        check('a loss already under way is credited before correcting', ad['lossAlready']['maint'] > 2000 and ad['lossAlready']['observed'] < 0, ad['lossAlready'])
+        check('course correction refuses to guess from thin data', ad['thin']['ok'] is False and ad['none']['ok'] is False, ad)
         check('no console errors or CSP violations', not errors and not errs2, errors + errs2)
         b.close()
 finally:

@@ -25,7 +25,7 @@ Live at https://mealcost.coachleonidas.com
 - Trends: cost per 100 g protein, carbs, fat, per 10 g fiber and per 1,000 kcal by day or week, plus spend by category.
 - Meal builder tab: combine foods and recipes, see cost (always from current prices) and nutrition, save, edit, duplicate, compare two meals, add to the diary.
 - Backup and restore as JSON (prices, offers, merges, periods, recipes, meals, categories), CSV export, copy as text, 1080x1350 share image.
-- Adaptive calorie target (Daily goals): estimates what you really burn from the last 4 weeks of intake and the weight trend (7,700 kcal per kg), then offers a target for your goal. Needs 7 logged days and 4 weigh-ins over 10 days.
+- Weekly course correction (Daily goals): checks the last 7 days of intake and weight against the weekly rate you want, at 7,500 kcal per kg. It suggests how many kcal a day to add or cut, and only fills the form when you press the button. Needs 5 logged days and 3 weigh-ins over 4 days.
 - Nested recipes: a recipe can be an ingredient of another, costed and counted through every level. A recipe cannot contain itself.
 - Import from MyFitnessPal (nutrition summary, one quick entry per meal), Lose It (per food) and Waistline (per food, columns matched by name). Drop the file anywhere like a Cronometer export.
 - API tokens (Account): read-only tokens with scopes (diary, prices, weights) and an expiry. `GET /api/v1/data` and `/api/v1/me` with `Authorization: Bearer mct_...`.
