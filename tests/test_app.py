@@ -1004,6 +1004,14 @@ try:
         pl.evaluate("""() => { importBiometrics('Day,Metric,Unit,Amount\\n2026-01-03,Weight,kg,80\\n2026-01-03,Heart Rate,bpm,58\\n2026-01-04,Heart Rate,bpm,60\\n'); }""")
         hr = pl.evaluate("[S.bio['Heart Rate'] && S.bio['Heart Rate'].pts.length, S.weights.some(w => w.date === '2026-01-03')]")
         check('biometrics import keeps other metrics as well as weight', hr == [2, True], hr)
+        # ---- receipt currency ----
+        pl.evaluate("""() => { S.currency = 'EUR'; S.prices['Oats'] = S.prices['Oats'] || { price: '', basis: 'kg', gpu: '' }; S.prices['Oats'].price = 3; rcDialog({ store: 'Albert', date: '2026-11-15', currency: 'CZK', items: [{ name: 'Oats', qty: 1, unit: 'kg', total: 50 }] }); }""")
+        rt = pl.inner_text('#rcform')
+        check('a receipt in another currency shows its own currency and asks for a rate', 'CZK' in rt and '50' in rt and '€50' not in rt and pl.locator('#rcrate').count() == 1, rt[:300])
+        pl.click('#rcform [type=submit]'); pl.wait_for_timeout(150)
+        check('applying without a rate is refused', pl.evaluate("S.prices['Oats'].price") == 3)
+        pl.fill('#rcrate', '0.04'); pl.select_option('#rcform [data-rc=food]', 'Oats'); pl.check('#rcform [data-rc=on]'); pl.click('#rcform [type=submit]'); pl.wait_for_timeout(200)
+        check('the rate converts the price into the app currency', pl.evaluate("S.prices['Oats'].price") == 2, pl.evaluate("S.prices['Oats'].price"))
         check('no console errors or CSP violations', not errors and not errs2, errors + errs2)
         b.close()
 finally:

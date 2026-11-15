@@ -53,28 +53,33 @@ function rcPantryAmount(it, food) {
   if (!m.countFirst && gpu > 0) return { qty: it.qty * gpu, unit: m.vol > m.mass ? 'ml' : 'g' };
   return { qty: it.qty, unit: 'item' };
 }
+const rcMoney = (v, c) => { try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: c }).format(v); } catch (e) { return c + ' ' + v; } };
 function rcDialog(r) {
   const dlg = $('#dlg'); dlg.classList.add('wide');
+  // The receipt's own currency is shown as printed. Prices are stored in the app currency, so a different one needs a rate.
+  const rcur = CURRENCIES.includes(r.currency) ? r.currency : null, foreign = !!rcur && rcur !== S.currency, mny = v => foreign ? rcMoney(v, rcur) : money(v);
   const foods = [...IDX.meta.keys()].sort((a, b) => a.localeCompare(b));
   const rows = r.items.map((it, i) => {
     const g = rcBest(it.name), old = g && S.prices[g] && Number(S.prices[g].price) > 0 ? Number(S.prices[g].price) : 0, np = g ? rcPrice(it).price : 0;
-    const odd = old > 0 && np > 0 && (np / old > 3 || np / old < 1 / 3);
+    const odd = !foreign && old > 0 && np > 0 && (np / old > 3 || np / old < 1 / 3);
     return `<tr data-i="${i}"><td><input type="checkbox" data-rc="on" aria-label="Use ${esc(it.name)}"${g && !odd ? ' checked' : ''}></td>
-      <td>${esc(it.name)}<div class="sub">${qtyFmt(it.qty)} ${esc(it.unit)} for ${money(it.total)}</div>${odd ? `<div class="sub" style="color:var(--offer-ink)">Very different from your current price of ${money(old)}. Check it before applying.</div>` : ''}</td>
+      <td>${esc(it.name)}<div class="sub">${qtyFmt(it.qty)} ${esc(it.unit)} for ${mny(it.total)}</div>${odd ? `<div class="sub" style="color:var(--offer-ink)">Very different from your current price of ${money(old)}. Check it before applying.</div>` : ''}</td>
       <td><select class="field" data-rc="food" aria-label="Food for ${esc(it.name)}"><option value="">Skip</option>${foods.map(f => `<option${f === g ? ' selected' : ''}>${esc(f)}</option>`).join('')}</select></td></tr>`;
   }).join('');
   dlg.innerHTML = `<form method="dialog" id="rcform"><h2 id="dlg-title" style="font-size:20px">Receipt${r.store ? ' from ' + esc(r.store) : ''}</h2>
     <p class="muted" style="font-size:14px">${r.items.length ? 'Check each line, pick the food it belongs to, then tap Apply prices. This sets the standard price of those foods.' : 'No items were found. Try a flatter, brighter photo.'}</p>
+    ${foreign ? `<div class="notice error" role="alert" style="margin-top:10px">${IC.info}<div>This receipt is in ${esc(rcur)}, but your app is set to ${esc(S.currency)}. Enter the exchange rate so prices are saved in ${esc(S.currency)}.<div class="gl-f" style="margin-top:8px"><label for="rcrate">1 ${esc(rcur)} equals how many ${esc(S.currency)}?</label><input class="field" id="rcrate" inputmode="decimal" autocomplete="off"></div></div></div>` : r.items.length && !rcur ? `<p class="muted" style="font-size:14px;margin-top:8px">No currency was printed on this receipt, so amounts are read as ${esc(S.currency)}.</p>` : ''}
     ${r.items.length ? `<div class="tablewrap" style="max-height:50vh;overflow:auto"><table style="min-width:0"><tbody>${rows}</tbody></table></div>` : ''}
     ${r.items.length ? '<label class="cmp" style="margin:10px 0 0"><input type="checkbox" id="rcpantry" checked><span>Also add these to my pantry</span></label>' : ''}
     <div class="dlg-actions" style="gap:8px">${r.items.length ? '<button type="submit" class="btn primary">Apply</button>' : ''}<button type="button" class="btn" data-act="close-dlg">Close</button></div></form>`;
   dlg.setAttribute('aria-labelledby', 'dlg-title'); dlg.showModal();
   $('#rcform').addEventListener('submit', ev => {
-    ev.preventDefault(); let n = 0;
+    ev.preventDefault(); let n = 0, rate = 1;
+    if (foreign) { rate = parseFloat(($('#rcrate').value || '').replace(',', '.')); if (!(rate > 0 && rate < 1e6)) { toast(`Enter the ${rcur} to ${S.currency} rate first.`); $('#rcrate').focus(); return; } }
     $$('#rcform tbody tr').forEach(tr => {
       const food = $('[data-rc=food]', tr).value, it = r.items[Number(tr.dataset.i)];
       if (!food || !$('[data-rc=on]', tr).checked || !S.prices[food]) return;
-      const p = rcPrice(it); S.prices[food].price = p.price; S.prices[food].basis = p.basis; n++;
+      const p = rcPrice(it); p.price = r2(p.price * rate); S.prices[food].price = p.price; S.prices[food].basis = p.basis; n++;
       if ($('#rcpantry') && $('#rcpantry').checked) { const a = rcPantryAmount(it, food); if (a) pantryAdd(food, a.qty, a.unit); }
     });
     store.set('pantry', S.pantry); dlg.close(); saveAll(); render(); toast(n ? `Updated ${n} ${n === 1 ? 'price' : 'prices'}` : 'No prices changed');
