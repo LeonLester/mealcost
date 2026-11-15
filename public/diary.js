@@ -246,15 +246,21 @@ function goalsView() {
   </div>`;
 }
 const GOAL_RATE = { lose: -0.5, maintain: 0, gain: 0.25 }; // kg a week, used until you set your own
-function adaptiveRate(p) { return p && Number.isFinite(Number(p.rate)) && p.rate !== null ? Number(p.rate) : GOAL_RATE[(p && p.goal) || 'maintain']; }
+function adaptiveRate(p) { return S.plan ? S.plan.rate : p && Number.isFinite(Number(p.rate)) && p.rate !== null ? Number(p.rate) : GOAL_RATE[(p && p.goal) || 'maintain']; }
+let ADAPT_WIN = 0; // 7, 14 or 28 days; read from storage on first use because app.js defines store after this file
+const adaptWin = () => { if (!ADAPT_WIN) { const v = Number(store.get('awin', 7)); ADAPT_WIN = [7, 14, 28].includes(v) ? v : 7; } return ADAPT_WIN; };
 function adaptiveCard(p, live) {
-  const end = IDX.dates[IDX.dates.length - 1], g = S.goals, rate = live != null ? live : adaptiveRate(p), a = courseCorrection(IDX.byDate, S.weights, end, rate, g && g.kcal);
-  const head = `<h2 style="font-size:17px">Weekly course correction</h2><p class="muted" style="font-size:14px;margin-top:6px">Checks your last 7 days against the rate you want, using 7,500 kcal per kg of body weight. It only suggests. Nothing changes unless you apply it.</p>
-    <div class="gl-f" style="margin-top:10px"><label for="arate">Wanted change in weight, ${esc(S.wunit)} a week (minus to lose)</label><div class="gl-in"><input class="field" id="arate" inputmode="decimal" value="${esc(wShowRate(rate))}" autocomplete="off"><span>${esc(S.wunit)}/wk</span></div></div>`;
+  const end = IDX.dates[IDX.dates.length - 1], g = S.goals, rate = S.plan ? S.plan.rate : live != null ? live : adaptiveRate(p), a = courseCorrection(IDX.byDate, S.weights, end, rate, g && g.kcal, adaptWin());
+  const rateField = S.plan
+    ? `<p class="muted dz-small" style="margin-top:10px">Wanted change: <b>${wShowRate(rate)} ${esc(S.wunit)} a week</b>, from your weight plan. Change it on the <a href="#weight">Weight tab</a>.</p>`
+    : `<div class="gl-f" style="margin-top:10px"><label for="arate">Wanted change in weight, ${esc(S.wunit)} a week (minus to lose)</label><div class="gl-in"><input class="field" id="arate" inputmode="decimal" value="${esc(wShowRate(rate))}" autocomplete="off"><span>${esc(S.wunit)}/wk</span></div></div>`;
+  const head = `<h2 style="font-size:17px">Course correction</h2><p class="muted" style="font-size:14px;margin-top:6px">Checks your recent intake and weight against the rate you want, using 7,500 kcal per kg of body weight. It only suggests. Nothing changes unless you apply it.</p>
+    <div class="opts" role="radiogroup" aria-label="Look back over" style="margin-top:10px">${[7, 14, 28].map(n => `<button type="button" class="opt" role="radio" aria-checked="${adaptWin() === n}" data-act="awin" data-v="${n}">${n === 7 ? 'Last week' : n === 14 ? '2 weeks' : '4 weeks'}</button>`).join('')}</div>${rateField}`;
   const body = !a || !a.ok ? `<p class="dz-small" style="margin-top:10px">${esc(a ? a.why : 'Log some food first.')}</p>` : (() => {
-    const mv = a.observed === 0 ? 'stayed level' : `${a.observed > 0 ? 'rose' : 'fell'} ${wShowRate(Math.abs(a.observed))} ${S.wunit}`;
+    const mv = a.observed === 0 ? 'stayed level' : `${a.observed > 0 ? 'rose' : 'fell'} ${wShowRate(Math.abs(a.observed))} ${S.wunit} a week`;
     const need = a.perDay === 0 ? 'hold your weight' : `${a.perDay < 0 ? 'a deficit' : 'a surplus'} of ${n0(Math.abs(a.perDay))} kcal a day`;
-    return `<div class="gl-res"><p class="muted dz-small">Last 7 days: you ate ${n0(a.intake)} kcal a day and your weight ${mv}, so you burn about ${n0(a.maint)} kcal a day. Your aim needs ${need}. A single week is noisy, so treat this as a nudge.</p>
+    const when = a.days === 7 ? 'the last 7 days' : `the last ${a.days} days`;
+    return `<div class="gl-res"><p class="muted dz-small">Over ${when} you ate ${n0(a.intake)} kcal a day and your weight ${mv}, so you burn about ${n0(a.maint)} kcal a day. Your aim needs ${need}. ${a.days === 7 ? 'A single week is noisy, so treat this as a nudge. Use a longer look back for a steadier estimate.' : 'A longer look back smooths out water weight but reacts more slowly to changes.'}</p>
       ${a.onTrack ? `<p><b>On track.</b> Keep ${n0(a.base)} kcal a day.</p>` : `<p><b>${a.delta > 0 ? 'Add' : 'Cut'} about ${n0(Math.abs(a.delta))} kcal a day</b>, to ${n0(a.aim)} kcal${g && g.kcal ? ` (now ${n0(a.base)})` : ''}.</p><button class="btn" style="width:100%" data-act="goals-adaptive" data-kcal="${a.aim}">Fill ${n0(a.aim)} kcal into the form</button>`}</div>`;
   })();
   return `<section class="card pad" id="adapt">${head}${body}</section>`;
@@ -499,6 +505,9 @@ function diaryAct(a, d) {
       glReset(); set('gk', p.kcal); set('gp', p.pro); set('gc', p.carb); set('gf', p.fat); set('gb', p.fiber); goalsCheck(); toast('Filled in. Press Save goals to keep them.'); return true;
     }
     case 'goals-adaptive': { glReset(); $('#gk').value = d.kcal; goalsCheck(); toast('Filled in. Press Save goals to keep it.'); return true; }
+    case 'awin': { ADAPT_WIN = Number(d.v); store.set('awin', ADAPT_WIN); const card = $('#adapt'); if (card) card.outerHTML = adaptiveCard(readProfile()); return true; }
+    case 'plan-edit': openPlan(); return true;
+    case 'plan-remove': S.plan = null; saveAll(); $('#dlg').close(); render(); toast('Weight plan removed'); return true;
     case 'wunit': S.wunit = d.v; saveAll(); render(); return true;
     case 'log-weight': openWeight(); return true;
     case 'quick-add': openQuick(d.date); return true;
@@ -568,20 +577,56 @@ function progressView() {
 }
 
 function weightView() {
-  const ws = S.weights, wu = S.wunit;
-  const head = `<div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Weight</h1><button class="btn primary" data-act="log-weight">Log weight</button></div><div style="margin-top:14px;max-width:640px">${dropzone('weight')}</div>`;
+  const ws = S.weights, wu = S.wunit, plan = S.plan;
+  const head = `<div class="titlerow"><h1 class="h1" id="h1" tabindex="-1">Weight</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="plan-edit">${plan ? 'Edit plan' : 'Set a plan'}</button><button class="btn primary" data-act="log-weight">Log weight</button></div></div><div style="margin-top:14px;max-width:640px">${dropzone('weight')}</div>`;
   if (!ws.length) return head + `<div class="card pad" style="margin-top:18px;max-width:560px"><h2 style="font-size:17px">No weigh-ins yet</h2><p class="muted" style="margin-top:8px">Log your weight to see the trend next to what you eat. It stays on this device unless you sign in to sync.</p></div>`;
   const first = ws[0], last = ws[ws.length - 1], ch = last.kg - first.kg;
-  const W = 640, H = 210, pl = 40, pr = 10, pt = 12, pb = 26, t0 = dObj(first.date).getTime(), t1 = Math.max(dObj(last.date).getTime(), t0 + 864e5 * 6);
-  const vs = ws.map(w => w.kg), lo = Math.min(...vs), hi = Math.max(...vs), pad_ = Math.max(.5, (hi - lo) * .15), a = lo - pad_, b = hi + pad_;
+  const today = todayIso(), startD = plan && plan.start < first.date ? plan.start : first.date;
+  const pend = plan ? (planEnd(plan) || isoAdd(today > last.date ? today : last.date, 28)) : last.date;
+  const endD = pend > last.date ? pend : last.date;
+  const W = 640, H = 230, pl = 40, pr = 10, pt = 12, pb = 26, t0 = dObj(startD).getTime(), t1 = Math.max(dObj(endD).getTime(), t0 + 864e5 * 6);
+  const planPts = plan ? [plan.start, endD].filter((d, i, a) => a.indexOf(d) === i).map(d => ({ date: d, kg: planKg(plan, d) })) : [];
+  if (plan && plan.goalKg != null && planEnd(plan) && planEnd(plan) > plan.start && !planPts.some(q => q.date === planEnd(plan))) planPts.splice(1, 0, { date: planEnd(plan), kg: plan.goalKg });
+  const vs = ws.map(w => w.kg).concat(planPts.map(q => q.kg)), lo = Math.min(...vs), hi = Math.max(...vs), pad_ = Math.max(.5, (hi - lo) * .15), a = lo - pad_, b = hi + pad_;
   const X = d => pl + (dObj(d).getTime() - t0) / (t1 - t0) * (W - pl - pr), Y = v => pt + (H - pt - pb) * (1 - (v - a) / (b - a));
   const pts = ws.map(w => `${X(w.date).toFixed(1)},${Y(w.kg).toFixed(1)}`).join(' ');
+  const ppts = planPts.map(q => `${X(q.date).toFixed(1)},${Y(q.kg).toFixed(1)}`).join(' ');
   const yt = [a + pad_, (a + b) / 2, b - pad_].map(v => `<line x1="${pl}" x2="${W - pr}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" class="grid"/><text x="${pl - 6}" y="${(Y(v) + 4).toFixed(1)}" text-anchor="end" class="tick">${wShow(v)}</text>`).join('');
-  const dots = ws.map(w => `<circle cx="${X(w.date).toFixed(1)}" cy="${Y(w.kg).toFixed(1)}" r="${ws.length > 40 ? 2 : 3.5}" class="dot"><title>${esc(dMed(w.date))}: ${wShow(w.kg)} ${wu}</title></circle>`).join('');
+  const dots = ws.map(w => `<circle cx="${X(w.date).toFixed(1)}" cy="${Y(w.kg).toFixed(1)}" r="${ws.length > 40 ? 2 : 3.5}" class="dot"><title>${esc(dMed(w.date))}: ${wShow(w.kg)} ${wu}${plan && planKg(plan, w.date) != null ? `, plan ${wShow(planKg(plan, w.date))} ${wu}` : ''}</title></circle>`).join('');
+  const tx = plan && today >= startD && today <= endD ? `<line x1="${X(today).toFixed(1)}" x2="${X(today).toFixed(1)}" y1="${pt}" y2="${H - pb}" class="grid" stroke-dasharray="2 4"/>` : '';
   const sh = (v, p) => (v > 0 ? '+' : v < 0 ? '-' : '') + Math.abs(wShow(Math.abs(v))).toFixed(1) + ' ' + wu;
   const wk = ws.filter(w => w.date >= isoAdd(todayIso(), -30)), wch = wk.length > 1 ? wk[wk.length - 1].kg - wk[0].kg : null;
   const list = ws.slice().reverse().slice(0, 30).map(w => `<div class="wrow"><span>${esc(dMed(w.date))}</span><b>${wShow(w.kg)} ${wu}</b><button class="btn link" data-act="del-weight" data-date="${w.date}" aria-label="Delete the weigh-in from ${esc(dMed(w.date))}">Delete</button></div>`).join('');
+  const pk = plan ? planKg(plan, last.date) : null, gap = pk != null ? last.kg - pk : null;
+  const legend = plan ? `<div class="wlegend"><span><i class="lg-act"></i>Actual</span><span><i class="lg-plan"></i>Plan, ${wShowRate(plan.rate)} ${esc(wu)} a week${plan.goalKg != null ? ` to ${wShow(plan.goalKg)} ${esc(wu)}` : ''}</span></div>` : '';
+  const planCard = plan ? `<section class="card dz-sum"><div class="dz-costhead"><span>Against plan</span><b>${gap == null ? 'Not started' : Math.abs(gap) < 0.15 ? 'On plan' : `${sh(gap)} ${gap > 0 ? 'above' : 'below'}`}</b></div>${pk != null ? `<div class="dz-costline"><span>Plan on ${esc(dMed(last.date))}</span><span>${wShow(pk)} ${esc(wu)}</span></div>` : ''}${planEnd(plan) ? `<div class="dz-costline"><span>Plan reaches ${wShow(plan.goalKg)} ${esc(wu)}</span><span>${esc(dMed(planEnd(plan)))}</span></div>` : ''}</section>` : '';
   return head + `<div class="cols dz-cols"><div class="main2"><section class="card dz-sum"><div class="dz-energy"><div><span class="dz-num">${wShow(last.kg)}</span><span class="dz-unit"> ${wu}, ${esc(dMed(last.date))}</span></div></div>
-    <svg class="pchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weight over time">${yt}<polyline points="${pts}" class="line"/>${dots}<text x="${pl}" y="${H - 6}" class="tick">${esc(dMed(first.date))}</text><text x="${W - pr}" y="${H - 6}" text-anchor="end" class="tick">${esc(dMed(last.date))}</text></svg></section></div>
-    <aside class="side"><section class="card dz-sum"><div class="dz-costhead"><span>Since ${esc(dMed(first.date))}</span><b>${sh(ch)}</b></div>${wch != null ? `<div class="dz-costline"><span>Last 30 days</span><span>${sh(wch)}</span></div>` : ''}</section><section class="card dz-sum"><h2 style="font-size:17px">History</h2><div style="margin-top:8px">${list}</div></section></aside></div>`;
+    <svg class="pchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${plan ? 'Actual weight and planned weight over time' : 'Weight over time'}">${yt}${tx}${plan ? `<polyline points="${ppts}" class="line plan"/>` : ''}<polyline points="${pts}" class="line"/>${dots}<text x="${pl}" y="${H - 6}" class="tick">${esc(dMed(startD))}</text><text x="${W - pr}" y="${H - 6}" text-anchor="end" class="tick">${esc(dMed(endD))}</text></svg>${legend}</section></div>
+    <aside class="side">${planCard}<section class="card dz-sum"><div class="dz-costhead"><span>Since ${esc(dMed(first.date))}</span><b>${sh(ch)}</b></div>${wch != null ? `<div class="dz-costline"><span>Last 30 days</span><span>${sh(wch)}</span></div>` : ''}</section><section class="card dz-sum"><h2 style="font-size:17px">History</h2><div style="margin-top:8px">${list}</div></section></aside></div>`;
 }
+function openPlan() {
+  const dlg = $('#dlg'); dlg.classList.remove('wide');
+  const last = S.weights.length ? S.weights[S.weights.length - 1] : null, pr = (S.goals && S.goals.profile) || {}, pn = S.plan;
+  const start = pn ? pn.start : (last ? last.date : todayIso()), kg = pn ? pn.kg : last ? last.kg : '', rate = pn ? pn.rate : adaptiveRate(pr);
+  dlg.innerHTML = `<form id="planform" method="dialog" novalidate><h2 id="dlg-title" style="font-size:20px">Weight plan</h2>
+    <p class="muted" style="font-size:14px">A straight line from where you start at the change per week you want. The Weight chart draws it next to your actual weigh-ins.</p>
+    <div class="gl-f" style="margin-top:12px"><label for="pls">Start date</label><input class="field" id="pls" type="date" value="${esc(start)}"></div>
+    <div class="gl-f" style="margin-top:10px"><label for="plw">Start weight (${esc(S.wunit)})</label><input class="field" id="plw" inputmode="decimal" autocomplete="off" value="${kg === '' ? '' : esc(wShow(kg))}"></div>
+    <div class="gl-f" style="margin-top:10px"><label for="plr">Change per week (${esc(S.wunit)}, minus to lose)</label><input class="field" id="plr" inputmode="decimal" autocomplete="off" value="${esc(wShowRate(rate))}"></div>
+    <div class="gl-f" style="margin-top:10px"><label for="plg">Goal weight (${esc(S.wunit)}, optional)</label><input class="field" id="plg" inputmode="decimal" autocomplete="off" value="${pn && pn.goalKg != null ? esc(wShow(pn.goalKg)) : ''}"></div>
+    <div id="plerr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
+    <div class="dlg-actions" style="gap:8px"><button type="submit" class="btn primary">Save plan</button><button type="button" class="btn" data-act="close-dlg">Cancel</button>${pn ? '<button type="button" class="btn link" data-act="plan-remove">Remove plan</button>' : ''}</div></form>`;
+  dlg.setAttribute('aria-labelledby', 'dlg-title'); if (!dlg.open) dlg.showModal();
+}
+document.addEventListener('submit', e => {
+  if (e.target.id !== 'planform') return;
+  e.preventDefault();
+  const err = m => { $('#plerr').textContent = m; };
+  const kg = wParse($('#plw').value), rate = wParseRate($('#plr').value), gRaw = $('#plg').value.trim(), goal = gRaw ? wParse(gRaw) : null, start = $('#pls').value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return err('Choose a start date.');
+  if (!(kg >= 20 && kg <= 400)) return err('Enter your start weight.');
+  if (rate === null || Math.abs(rate) > 2) return err('Change per week must be between -2 and 2 kg (about 4.4 lb).');
+  if (goal !== null && !(goal >= 20 && goal <= 400)) return err('Enter a goal weight or leave it empty.');
+  if (goal !== null && rate !== 0 && (rate < 0) !== (goal < kg)) return err('The goal is in the opposite direction to the weekly change.');
+  S.plan = cleanPlan({ start, kg, rate, goalKg: goal }); saveAll(); $('#dlg').close(); render(); toast('Weight plan saved');
+});

@@ -55,7 +55,7 @@ function exportData() {
     app: 'mealcost', version: 2, exported: new Date().toISOString(), currency: S.currency, budget: S.budget,
     entries: S.entries.map(({ src, ...r }) => ({ ...r, name: src !== undefined ? src : r.name })),
     prices: S.prices, overrides: S.overrides, merges: S.merges, nomerge: S.nomerge, ranges: S.ranges, recipes: S.recipes, meals: S.meals, foods: S.foods, cats: S.cats, pantry: S.pantry,
-    goals: S.goals, weights: S.weights, wunit: S.wunit
+    goals: S.goals, plan: S.plan, weights: S.weights, wunit: S.wunit
   };
 }
 function exportFiles() {

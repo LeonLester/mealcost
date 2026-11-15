@@ -84,19 +84,21 @@ function energyPlan(p) {
   return { bmr: Math.round(bmr), tdee: Math.round(tdee), kcal, pro, carb, fat, fiber: Math.round(kcal / 1000 * 14) };
 }
 
-// Course correction from the last 7 days, using the rule of thumb that 1 kg of body weight is 7,500 kcal.
+// Course correction from the last 7, 14 or 28 days, using the rule of thumb that 1 kg of body weight is 7,500 kcal.
 // Burn = average intake minus the balance the weight trend shows. The suggestion is burn plus the balance your target rate needs.
-// It only advises. Nothing is changed unless the user applies it.
+// It only advises. Nothing is changed unless the user applies it. Longer windows smooth out water weight but react more slowly.
 const KCAL_PER_KG = 7500;
-function courseCorrection(byDate, weights, endIso, rateKgWk, currentKcal) {
+const CC_NEED = { 7: [5, 3, 4], 14: [10, 4, 8], 28: [20, 6, 15] }; // logged days, weigh-ins, days between first and last weigh-in
+function courseCorrection(byDate, weights, endIso, rateKgWk, currentKcal, days = 7) {
   if (!endIso) return null;
-  const days = 7, start = isoAdd(endIso, -(days - 1)), kc = [];
+  days = CC_NEED[days] ? days : 7;
+  const need = CC_NEED[days], start = isoAdd(endIso, -(days - 1)), kc = [];
   for (let i = 0; i < days; i++) { const es = byDate.get(isoAdd(start, i)); if (!es || !es.length) continue; const k = es.reduce((a, e) => a + (e.kcal || 0), 0); if (k >= 800) kc.push(k); }
   const ws = (weights || []).filter(w => w.date >= start && w.date <= endIso && Number(w.kg) > 0);
-  const out = { logged: kc.length, weighIns: ws.length, ok: false, why: '' };
-  if (kc.length < 5) { out.why = 'Log at least 5 of the last 7 days of food.'; return out; }
+  const out = { days, logged: kc.length, weighIns: ws.length, ok: false, why: '' };
+  if (kc.length < need[0]) { out.why = `Log at least ${need[0]} of the last ${days} days of food.`; return out; }
   const span = ws.length ? (dObj(ws[ws.length - 1].date) - dObj(ws[0].date)) / 864e5 : 0;
-  if (ws.length < 3 || span < 4) { out.why = 'Weigh in at least 3 times, over 4 or more days, in the last week.'; return out; }
+  if (ws.length < need[1] || span < need[2]) { out.why = `Weigh in at least ${need[1]} times, over ${need[2]} or more days, in the last ${days} days.`; return out; }
   const xs = ws.map(w => (dObj(w.date) - dObj(ws[0].date)) / 864e5), ys = ws.map(w => Number(w.kg)), n = xs.length;
   const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
   const sxx = xs.reduce((a, x) => a + (x - mx) ** 2, 0), sxy = xs.reduce((a, x, i) => a + (x - mx) * (ys[i] - my), 0);
@@ -106,6 +108,27 @@ function courseCorrection(byDate, weights, endIso, rateKgWk, currentKcal) {
   const rate = Number.isFinite(Number(rateKgWk)) ? Number(rateKgWk) : 0, aim = Math.round((maint + rate * KCAL_PER_KG / 7) / 10) * 10;
   const base = Number(currentKcal) > 0 ? Number(currentKcal) : Math.round(intake / 10) * 10, delta = Math.round((aim - base) / 10) * 10;
   return { ...out, ok: true, intake: Math.round(intake), maint: Math.round(maint), observed: Math.round(kgDay * 7 * 100) / 100, rate, aim, base, delta, onTrack: Math.abs(delta) < 75, perDay: Math.round(rate * KCAL_PER_KG / 7) };
+}
+
+// A weight plan: where you want to be, and when. Stored in kg. rate is kg a week, minus to lose. goalKg is optional and stops the line.
+function cleanPlan(p) {
+  if (!p || typeof p !== 'object') return null;
+  const kg = Number(p.kg), rate = Number(p.rate), goal = Number(p.goalKg);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(p.start)) || !(kg >= 20 && kg <= 400) || !Number.isFinite(rate) || Math.abs(rate) > 2) return null;
+  return { start: p.start, kg, rate, goalKg: goal >= 20 && goal <= 400 ? goal : null };
+}
+// Planned weight on a date: a straight line from the start at the wanted rate, held at the goal weight once it is reached.
+function planKg(plan, iso) {
+  if (!plan || iso < plan.start) return null;
+  const days = (dObj(iso) - dObj(plan.start)) / 864e5; let v = plan.kg + plan.rate * days / 7;
+  if (plan.goalKg != null && plan.rate !== 0 && ((plan.rate < 0 && v < plan.goalKg) || (plan.rate > 0 && v > plan.goalKg))) v = plan.goalKg;
+  return v;
+}
+// The date the plan reaches its goal weight, or null.
+function planEnd(plan) {
+  if (!plan || plan.goalKg == null || plan.rate === 0) return null;
+  const weeks = (plan.goalKg - plan.kg) / plan.rate; if (!(weeks > 0) || weeks > 520) return null;
+  return isoAdd(plan.start, Math.ceil(weeks * 7));
 }
 
 // Weight is stored in kg. Pounds are only for display and entry.

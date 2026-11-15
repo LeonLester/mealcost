@@ -14,11 +14,11 @@ const MAX_JSON = 40_000_000;
 const KEEP_AUDIT_DAYS = 400;
 
 // Keys of the sync snapshot that a profile can hold, and which scope each live key belongs to.
-const ALL_KEYS = ['entries', 'prices', 'overrides', 'currency', 'budget', 'merges', 'nomerge', 'ranges', 'cats', 'recipes', 'foods', 'goals', 'weights', 'wunit'];
+const ALL_KEYS = ['entries', 'prices', 'overrides', 'currency', 'budget', 'merges', 'nomerge', 'ranges', 'cats', 'recipes', 'foods', 'goals', 'plan', 'weights', 'wunit'];
 const SCOPE_KEYS = {
   diary: ['entries', 'goals', 'foods', 'recipes', 'merges', 'nomerge', 'cats', 'currency'],
   prices: ['prices', 'overrides', 'ranges', 'budget'],
-  weights: ['weights', 'wunit'],
+  weights: ['weights', 'wunit', 'plan'],
 };
 const DEFAULT_SCOPES = { diary: true, prices: true, weights: true };
 

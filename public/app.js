@@ -29,7 +29,7 @@ const S = {
   sort: store.get('sort', 'freq'), flip: store.get('flip', false),
   pantry: NP(store.get('pantry', {})), pantryAuto: store.get('pantryAuto', true), sug: store.get('sug', null),
   cats: NP(store.get('cats', {})), ranges: store.get('ranges', []), recipes: NP(store.get('recipes', {})), meals: NP(store.get('meals', {})), foods: NP(store.get('foods', {})), started: store.get('started', false), tview: store.get('tview', 'cost'), vmacro: store.get('vmacro', 'pro'), vall: false, open: new Set(), grain: store.get('grain', 'week'), trange: store.get('trange', 90),
-  goals: cleanGoals(store.get('goals', null)), weights: store.get('weights', []), wunit: store.get('wunit', 'kg'),
+  goals: cleanGoals(store.get('goals', null)), plan: cleanPlan(store.get('plan', null)), weights: store.get('weights', []), wunit: store.get('wunit', 'kg'),
   pa: null, cfrom: '', cto: '', tab: 'day', day: null, cat: '', range: 7, filter: '', chip: 'all', showAll: false, error: ''
 };
 if (!CURRENCIES.includes(S.currency)) S.currency = 'EUR';
@@ -1498,7 +1498,7 @@ function toast(msg) {
 /* ============ persistence ============ */
 let _save;
 function saveSoon() { clearTimeout(_save); _save = setTimeout(saveAll, 250); }
-function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('meals', S.meals); store.set('pantry', S.pantry); store.set('pantryAuto', S.pantryAuto); store.set('foods', S.foods); store.set('started', S.started); store.set('tview', S.tview); store.set('vmacro', S.vmacro); store.set('grain', S.grain); store.set('trange', S.trange); store.set('goals', S.goals); store.set('weights', S.weights); store.set('wunit', S.wunit); }
+function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('meals', S.meals); store.set('pantry', S.pantry); store.set('pantryAuto', S.pantryAuto); store.set('foods', S.foods); store.set('started', S.started); store.set('tview', S.tview); store.set('vmacro', S.vmacro); store.set('grain', S.grain); store.set('trange', S.trange); store.set('goals', S.goals); store.set('plan', S.plan); store.set('weights', S.weights); store.set('wunit', S.wunit); }
 function saveEntries() { store.set('entries', S.entries.map(({ src, ...r }) => ({ ...r, name: src !== undefined ? src : r.name }))); }
 
 /* ============ import ============ */
@@ -2050,7 +2050,7 @@ function exportCsv() {
   toast('CSV downloaded');
 }
 function backup() {
-  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges, ranges: S.ranges, recipes: S.recipes, meals: S.meals, foods: S.foods, cats: S.cats, goals: S.goals, weights: S.weights, wunit: S.wunit };
+  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges, ranges: S.ranges, recipes: S.recipes, meals: S.meals, foods: S.foods, cats: S.cats, goals: S.goals, plan: S.plan, weights: S.weights, wunit: S.wunit };
   download('meal-cost-prices.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   toast('Backup downloaded');
 }
@@ -2094,6 +2094,7 @@ async function restore(file) {
     for (const [a, b] of Object.entries(d.merges || {})) if (typeof b === 'string' && a !== b && b) S.merges[a] = b;
     { const cg = cleanGoals(d.goals); if (cg) S.goals = cg; }
     if (Array.isArray(d.weights)) { const m = new Map(S.weights.map(w => [w.date, w])); for (const w of d.weights) if (w && /^\d{4}-\d{2}-\d{2}$/.test(w.date) && Number(w.kg) > 0) m.set(w.date, { date: w.date, kg: Number(w.kg) }); S.weights = [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1); }
+    if (d.plan) { const pl = cleanPlan(d.plan); if (pl) S.plan = pl; }
     if (d.wunit === 'lb' || d.wunit === 'kg') S.wunit = d.wunit;
     if (CURRENCIES.includes(d.currency)) S.currency = d.currency;
     if (d.budget > 0) S.budget = Number(d.budget);
@@ -2277,7 +2278,7 @@ document.addEventListener('click', e => {
     case 'restore': $('#pfile').click(); break;
     case 'reset':
       if (confirm('Delete all entries, prices, foods and meals from this device? This cannot be undone.')) {
-        store.clear(); S.entries = []; S.prices = NP(); S.overrides = NP(); S.merges = NP(); S.nomerge = []; S.ranges = []; S.recipes = NP(); S.meals = NP(); S.foods = NP(); S.started = false; MB.draft = null; MB.cmp = []; S.cats = {}; S.goals = null; S.weights = []; S.wunit = 'kg'; S.prange = 7; indexRanges(); S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
+        store.clear(); S.entries = []; S.prices = NP(); S.overrides = NP(); S.merges = NP(); S.nomerge = []; S.ranges = []; S.recipes = NP(); S.meals = NP(); S.foods = NP(); S.started = false; MB.draft = null; MB.cmp = []; S.cats = {}; S.goals = null; S.plan = null; S.weights = []; S.wunit = 'kg'; S.prange = 7; indexRanges(); S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
         history.replaceState(null, '', location.pathname); S.tab = 'day'; render(); toast('All data deleted');
       }
       break;

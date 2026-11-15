@@ -881,6 +881,29 @@ try:
         check('1 kg a week loss means a 1071 kcal deficit, so 0.5 kg a week asks for about 536 less', ad['cut']['perDay'] == -536 and ad['cut']['delta'] == -540 and ad['cut']['aim'] == 1960, ad['cut'])
         check('a loss already under way is credited before correcting', ad['lossAlready']['maint'] > 2000 and ad['lossAlready']['observed'] < 0, ad['lossAlready'])
         check('course correction refuses to guess from thin data', ad['thin']['ok'] is False and ad['none']['ok'] is False, ad)
+        lw = pl.evaluate("""() => {
+          const by = new Map(), ws = [];
+          for (let i = 0; i < 28; i++) { const d = isoAdd('2026-11-28', -27 + i); by.set(d, [{ kcal: 2200 }]); if (i % 3 === 0) ws.push({ date: d, kg: 80 - i * 0.05 }); }
+          const w28 = courseCorrection(by, ws, '2026-11-28', -0.5, 2200, 28), w14 = courseCorrection(by, ws, '2026-11-28', -0.5, 2200, 14), w7 = courseCorrection(by, ws, '2026-11-28', -0.5, 2200, 7), bad = courseCorrection(by, ws.slice(0, 3), '2026-11-28', -0.5, 2200, 28);
+          return { w28, w14, w7, bad };
+        }""")
+        check('longer look backs read the same trend over more days', lw['w28']['ok'] and lw['w28']['days'] == 28 and lw['w14']['days'] == 14 and lw['w28']['logged'] == 28 and lw['w14']['logged'] == 14 and abs(lw['w28']['observed'] + 0.35) < 0.02, lw['w28'])
+        check('a longer look back needs more weigh-ins', lw['bad']['ok'] is False and 'at least 6' in lw['bad']['why'], lw['bad'])
+        pn = pl.evaluate("""() => {
+          const plan = cleanPlan({ start: '2026-11-01', kg: 90, rate: -0.5, goalKg: 88 });
+          return { p: plan, d0: planKg(plan, '2026-11-01'), d14: planKg(plan, '2026-11-15'), past: planKg(plan, '2027-03-01'), before: planKg(plan, '2026-10-01'), end: planEnd(plan), bad: cleanPlan({ start: 'x', kg: 90, rate: 0 }), gain: planKg(cleanPlan({ start: '2026-11-01', kg: 70, rate: 0.25, goalKg: 71 }), '2027-06-01') };
+        }""")
+        check('plan line drops at the wanted rate and holds at the goal', pn['d0'] == 90 and abs(pn['d14'] - 89) < 1e-9 and pn['past'] == 88 and pn['before'] is None and pn['end'] == '2026-11-29' and pn['gain'] == 71, pn)
+        check('a plan with a bad date is rejected', pn['bad'] is None)
+        pl.evaluate("window.__mealcost.S.weights = [82.6, 82.2, 82.0, 81.7].map((kg, i) => ({ date: isoAdd(todayIso(), -21 + i * 7), kg }))")
+        pl.goto(BASE + '#day'); pl.evaluate("location.hash = '#weight'"); pl.wait_for_selector('.pchart')
+        pl.click('[data-act="plan-edit"]'); pl.wait_for_selector('#planform')
+        pl.fill('#plr', '-0.5'); pl.fill('#plg', '70'); pl.click('#planform [type=submit]'); pl.wait_for_selector('.pchart .line.plan')
+        check('the weight chart draws the plan next to the actual line', pl.locator('.pchart .line').count() == 2 and pl.locator('.wlegend').count() == 1 and pl.evaluate("window.__mealcost.S.plan !== null"))
+        pl.click('[data-act="plan-edit"]'); pl.wait_for_selector('#planform'); pl.fill('#plg', '95'); pl.click('#planform [type=submit]')
+        check('a goal in the wrong direction is refused', 'opposite' in pl.inner_text('#plerr') and pl.evaluate("window.__mealcost.S.plan.goalKg") == 70 or pl.evaluate("window.__mealcost.S.plan.goalKg !== 95"))
+        pl.click('[data-act="plan-remove"]'); pl.wait_for_selector('.pchart')
+        check('removing the plan removes the line', pl.locator('.pchart .line.plan').count() == 0 and pl.evaluate("window.__mealcost.S.plan === null"))
         check('no console errors or CSP violations', not errors and not errs2, errors + errs2)
         b.close()
 finally:

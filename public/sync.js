@@ -1,7 +1,7 @@
 /* Optional sign-in and sync. Without signing in, nothing here talks to a server. */
 (() => {
   'use strict';
-  const KEYS = ['goals', 'weights', 'wunit', 'entries', 'prices', 'overrides', 'currency', 'budget', 'merges', 'nomerge', 'ranges', 'cats', 'pantry', 'pantryAuto', 'recipes', 'meals', 'foods'];
+  const KEYS = ['goals', 'plan', 'weights', 'wunit', 'entries', 'prices', 'overrides', 'currency', 'budget', 'merges', 'nomerge', 'ranges', 'cats', 'pantry', 'pantryAuto', 'recipes', 'meals', 'foods'];
   const LS = {
     get(k) { try { return localStorage.getItem('mcc.' + k); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem('mcc.' + k, v); } catch (e) { /* ignore */ } },
@@ -72,7 +72,7 @@
 
 
   /* ---------- review the differences between this browser and the cloud copy, area by area ---------- */
-  const AREAS = [['entries', 'Food log'], ['prices', 'Prices'], ['overrides', 'One-day offers'], ['ranges', 'Price periods'], ['goals', 'Daily goals'], ['weights', 'Weight log'], ['foods', 'Custom foods'], ['recipes', 'Recipes'], ['meals', 'Saved meals'], ['pantry', 'Pantry'], ['cats', 'Categories'], ['merges', 'Merged foods'], ['nomerge', 'Kept separate'], ['currency', 'Currency'], ['budget', 'Budget'], ['wunit', 'Weight unit']];
+  const AREAS = [['entries', 'Food log'], ['prices', 'Prices'], ['overrides', 'One-day offers'], ['ranges', 'Price periods'], ['goals', 'Daily goals'], ['weights', 'Weight log'], ['plan', 'Weight plan'], ['foods', 'Custom foods'], ['recipes', 'Recipes'], ['meals', 'Saved meals'], ['pantry', 'Pantry'], ['cats', 'Categories'], ['merges', 'Merged foods'], ['nomerge', 'Kept separate'], ['currency', 'Currency'], ['budget', 'Budget'], ['wunit', 'Weight unit']];
   const parseJ = v => { try { return v == null ? undefined : JSON.parse(v); } catch (e) { return undefined; } };
   const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
   const clip = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;

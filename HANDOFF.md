@@ -37,7 +37,7 @@ Owner: Leonidas (GitHub LeonLester, personal email leonidask914@gmail.com for co
 - `public/export.js` builds the export zip (stored entries, no compression) and reads zips back for restore.
 
 ## Adaptive target, nested recipes, importers, API tokens
-- `courseCorrection` is in `public/nutrition.js` and shown by `adaptiveCard` in `public/diary.js`. It uses the last 7 days (days with at least 800 kcal), a least squares weight slope and 7,500 kcal per kg. The wanted weekly rate is `goals.profile.rate` in kg a week. It is advice only.
+- `courseCorrection` is in `public/nutrition.js` and shown by `adaptiveCard` in `public/diary.js`. It looks back 7, 14 or 28 days (days with at least 800 kcal, the choice is kept in localStorage `mcc.awin`), a least squares weight slope and 7,500 kcal per kg. The wanted weekly rate is the weight plan's rate when a plan exists, else `goals.profile.rate` (kg a week). It is advice only. The weight plan is the synced key `plan` ({start, kg, rate, goalKg}, kg), shared with a coach under the weights scope; helpers `cleanPlan`, `planKg`, `planEnd` are in `public/nutrition.js`.
 - Recipes can contain recipes. `recipeCostOf` recurses (depth cap 6), `perUnit` guards against loops, `recipeHas` blocks a cycle when saving.
 - `public/otherimport.js` is tried first by `parseCronometer` and returns null for Cronometer files. The Waistline mapping is by column names and was only tested on a synthetic file. Check it against a real export.
 - Migration `0005_tokens.sql`: `api_tokens` (hash only). `src/tokens.js`: `/api/tokens` needs a session, `/api/v1/*` needs a token and is read-only, 60 per minute per token. Run `npm run migrate` before deploying.

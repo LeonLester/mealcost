@@ -1183,3 +1183,9 @@ body.viewing .plus,body.viewing .tab.plus,body.viewing .dz-top,body.viewing .swi
   dialog .dlg-actions,dialog label,dialog textarea{display:none!important}
   dialog::backdrop{display:none}
 }
+
+.pchart .line.plan{stroke:var(--muted);stroke-dasharray:6 5}
+.wlegend{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:14px;color:var(--muted)}
+.wlegend i{display:inline-block;width:22px;height:0;border-top:3px solid currentColor;margin-right:6px;vertical-align:middle}
+.wlegend .lg-act{color:var(--m-pro)}
+.wlegend .lg-plan{border-top-style:dashed}
