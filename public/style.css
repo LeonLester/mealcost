@@ -1133,3 +1133,31 @@ summary.dz-dots::-webkit-details-marker{display:none}
 .dz-day.has{background:color-mix(in srgb,var(--brand) 18%,var(--card));border-color:color-mix(in srgb,var(--brand) 55%,var(--line))}
 .dz-day[aria-pressed=true]{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
 .dz-head{min-height:46px}.dz-nav .btn.sm{min-height:38px;height:38px;padding-top:0;padding-bottom:0}
+
+/* meal rows as a table on wide screens: name, P C F, kcal, cost */
+.dz-mcs,.dz-ht{display:none}
+@media (min-width:641px){
+  .dz-meal{--cm:52px;--ck:78px;--cc:74px}
+  .dz-item .dz-mac,.dz-meal .meal-head .kcal,.dz-meal .meal-head .cost{display:none}
+  .dz-item{gap:6px;padding:6px 8px 6px 10px}
+  .dz-item .dz-mcs,.dz-meal .meal-head .dz-ht .dz-mcs{display:flex;flex:none;width:calc(var(--cm) * 3);font-size:13px;color:var(--muted)}
+  .dz-mcs>span{flex:1 1 0;white-space:nowrap}
+  .dz-item .dz-r{flex-direction:row;align-items:center;gap:0;flex:none}
+  .dz-item .dz-k{width:var(--ck);text-align:right;font-size:15px}
+  .dz-item .dz-cell{width:var(--cc);display:flex;justify-content:flex-end}
+  .dz-item .dz-r .costbtn,.dz-item .dz-r .setprice{font-size:14px;color:var(--ink)}
+  .dz-meal .meal-head .dz-ht{display:flex;align-items:center;margin-left:auto;padding:0 8px 0 10px;font-size:13px}
+  .dz-meal .meal-head .dz-ht .dz-mcs{color:var(--muted)}
+  .dz-hk{width:var(--ck);text-align:right;font-weight:600}
+  .dz-hc{width:var(--cc);text-align:right;font:700 15px var(--display);color:var(--brand-ink)}
+  .dz-hk small{font-weight:400;color:var(--muted);font-size:12px}
+  .dz-meal .meal-head{gap:8px}
+}
+@media (min-width:641px){
+  .dz-meal{--cm:62px;--ck:92px;--cc:84px}
+  .dz-item .dz-r .costbtn{flex-direction:column;align-items:flex-end;gap:2px;padding:2px 4px}
+  .dz-item .dz-mcs{font-size:14px}
+  .dz-item .dz-mcs>span{text-align:left}
+}
+@media (min-width:1500px){.shell .dz-cols>.main2{flex:3 1 560px}}
+@media (min-width:641px){.dz-meal .meal-head .dz-ht{gap:6px;padding:0 8px 0 0}.dz-meal .meal-head .dz-ht .dz-mcs>span{text-align:left}}
