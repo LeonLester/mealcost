@@ -89,7 +89,7 @@ function energyPlan(p) {
 // It only advises. Nothing is changed unless the user applies it. Longer windows smooth out water weight but react more slowly.
 const KCAL_PER_KG = 7500;
 const CC_NEED = { 7: [5, 3, 4], 14: [10, 4, 8], 28: [20, 6, 15] }; // logged days, weigh-ins, days between first and last weigh-in
-function courseCorrection(byDate, weights, endIso, rateKgWk, currentKcal, days = 7) {
+function courseCorrection(byDate, weights, endIso, rateKgWk, currentKcal, days = 7, opts = {}) {
   if (!endIso) return null;
   days = CC_NEED[days] ? days : 7;
   const need = CC_NEED[days], start = isoAdd(endIso, -(days - 1)), kc = [];
@@ -105,22 +105,98 @@ function courseCorrection(byDate, weights, endIso, rateKgWk, currentKcal, days =
   const kgDay = sxx > 0 ? sxy / sxx : 0, intake = kc.reduce((a, b) => a + b, 0) / kc.length;
   const maint = intake - Math.max(-2000, Math.min(2000, kgDay * KCAL_PER_KG));
   if (!(maint >= 1000 && maint <= 6000)) { out.why = 'The numbers do not give a sensible result. Check that your logs and weigh-ins are complete.'; return out; }
-  const rate = Number.isFinite(Number(rateKgWk)) ? Number(rateKgWk) : 0, aim = Math.round((maint + rate * KCAL_PER_KG / 7) / 10) * 10;
+  let rate = Number.isFinite(Number(rateKgWk)) ? Number(rateKgWk) : 0;
+  const notes = [], bw = Number(opts.bw) > 0 ? Number(opts.bw) : ys[ys.length - 1];
+  // Guardrails taken from RP's published rules: loss is capped at 1% of body weight a week, and loss advice stops below BMI 17.
+  let capped = false, bmiBlock = false;
+  if (rate < -MAX_LOSS_PCT * bw / 100) { rate = -Math.round(MAX_LOSS_PCT * bw) / 100; capped = true; notes.push(`The wanted loss was above ${MAX_LOSS_PCT}% of body weight a week, which is the safe cap. The advice uses ${Math.abs(rate)} kg a week.`); }
+  if (rate < 0 && Number(opts.cm) > 0 && bw / ((Number(opts.cm) / 100) ** 2) < MIN_BMI) { rate = 0; bmiBlock = true; notes.push(`Your BMI is below ${MIN_BMI}, so there is no advice to lose weight. The numbers below aim to hold your weight.`); }
+  let aim = Math.round((maint + rate * KCAL_PER_KG / 7) / 10) * 10, macros = null, floorHit = false;
+  const meals = Math.min(6, Math.max(4, Math.round(Number(opts.meals)) || 4));
+  if (opts.macros && Number(opts.macros.kcal) > 0) {
+    macros = macroPlan(aim, opts.macros, meals); floorHit = macros.floorHit;
+    if (floorHit) { aim = Math.round(macros.kcal / 10) * 10; notes.push(`Fat and carbs cannot go lower without breaking the minimums (fat at least 15% of calories, and at least 5 g of fat and 5 g of carbs in each of ${meals} meals). Calories stay at ${aim}. Raise your intake or add activity before cutting further.`); }
+  }
   const base = Number(currentKcal) > 0 ? Number(currentKcal) : Math.round(intake / 10) * 10, delta = Math.round((aim - base) / 10) * 10;
-  return { ...out, ok: true, intake: Math.round(intake), maint: Math.round(maint), observed: Math.round(kgDay * 7 * 100) / 100, rate, aim, base, delta, onTrack: Math.abs(delta) < 75, perDay: Math.round(rate * KCAL_PER_KG / 7) };
+  return { ...out, ok: true, intake: Math.round(intake), maint: Math.round(maint), observed: Math.round(kgDay * 7 * 100) / 100, rate, aim, base, delta, onTrack: Math.abs(delta) < 75, perDay: Math.round(rate * KCAL_PER_KG / 7), macros, floorHit, capped, bmiBlock, notes };
 }
+const MAX_LOSS_PCT = 1, MIN_BMI = 17;
+
+// Move a calorie target to a new level the way RP describes it: protein is never touched, the change is shared between carbs and fat
+// in proportion to what they supply now, fat stays at or above 15% of calories, and every meal keeps at least 5 g of fat and 5 g of carbs.
+function macroPlan(aim, cur, meals = 4) {
+  const pro = Math.round(cur.pro), fatMin = Math.max(Math.ceil(0.15 * aim / 9), 5 * meals), carbMin = 5 * meals;
+  const cK = Math.max(0, cur.carb) * 4, fK = Math.max(0, cur.fat) * 9, tot = cK + fK || 1, need = aim - pro * 4;
+  let fat = Math.round(Math.max(0, need * fK / tot) / 9), carb = Math.round(Math.max(0, need * cK / tot) / 4), floorHit = false;
+  if (fat < fatMin) { fat = fatMin; carb = Math.round((aim - pro * 4 - fat * 9) / 4); }
+  if (carb < carbMin) { carb = carbMin; fat = Math.max(fatMin, Math.round((aim - pro * 4 - carb * 4) / 9)); floorHit = true; }
+  const kcal = pro * 4 + carb * 4 + fat * 9;
+  return { kcal: Math.round(kcal), pro, carb, fat, floorHit: floorHit && kcal > aim + 20 };
+}
+
+// Suggested weekly loss as a share of body weight, from RP's analysis of 10,000 diets: about 0.7% for a 6 week diet down to 0.5% for 12 weeks or more.
+function suggestPct(weeks) { const w = Math.min(12, Math.max(6, Number(weeks) || 8)); return Math.round((0.7 - (w - 6) * (0.2 / 6)) * 100) / 100; }
+const MAX_PHASE_WEEKS = 16;
+// Phases: fat loss and muscle gain run at most 16 weeks. After a fat loss, maintenance must last at least two thirds as long before the next one.
+function phaseWarnings(next, prev) {
+  const w = [];
+  if (next.phase !== 'maintain' && next.weeks > MAX_PHASE_WEEKS) w.push(`Fat loss and muscle gain phases should not run longer than ${MAX_PHASE_WEEKS} weeks.`);
+  if (next.phase === 'cut' && prev && prev.phase === 'cut' && prev.end) {
+    const gap = (dObj(next.start) - dObj(prev.end)) / 864e5, need = Math.ceil(prev.weeks * 7 * 2 / 3);
+    if (gap < need) w.push(`Two fat loss phases need maintenance in between, at least two thirds as long as the first (${Math.ceil(need / 7)} weeks for a ${prev.weeks} week diet). There are ${Math.max(0, Math.floor(gap / 7))} weeks between them.`);
+  }
+  return w;
+}
+
+// Split the day over 4 to 6 meals, spaced from waking. Protein is even. Carbs are weighted toward the meals just before and after training and fat is
+// kept low in those two. The last meal is the largest. Every meal keeps at least 5 g of fat and 5 g of carbs, and totals match the daily target.
+// The spacing and weights are a plain reading of RP's published principles. RP does not publish its exact split.
+function mealSplit(t, n = 4, wake = '07:00', train = '') {
+  n = Math.min(6, Math.max(4, Math.round(n) || 4));
+  const hm = (v) => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(v || '')); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+  const w0 = hm(wake) ?? 420, tr = hm(train), span = 14 * 60, times = [];
+  for (let i = 0; i < n; i++) times.push(Math.round((w0 + span * i / (n - 1)) / 5) * 5);
+  let pre = -1, post = -1;
+  if (tr != null) {
+    const t0 = ((tr - w0) % 1440 + 1440) % 1440 + w0;
+    let bp = 1e9, bq = 1e9;
+    times.forEach((m, i) => { const before = t0 - m, after = m - (t0 + 60); if (before >= 0 && before < bp) { bp = before; pre = i; } if (after >= 0 && after < bq) { bq = after; post = i; } });
+    if (pre === post) post = -1;
+  }
+  const wC = times.map((_, i) => (i === pre || i === post ? 1.6 : 1) * (i === n - 1 ? 1.25 : 1));
+  const wF = times.map((_, i) => (i === pre || i === post ? 0.5 : 1) * (i === n - 1 ? 1.25 : 1));
+  const part = (total, wts, min) => {
+    const sw = wts.reduce((a, b) => a + b, 0), raw = wts.map(x => total * x / sw);
+    const out = raw.map(x => Math.max(min, Math.round(x)));
+    let diff = Math.round(total) - out.reduce((a, b) => a + b, 0);
+    const big = out.indexOf(Math.max(...out)); out[big] = Math.max(min, out[big] + diff);
+    return out;
+  };
+  const pro = part(t.pro, times.map((_, i) => i === n - 1 ? 1.15 : 1), 0), carb = part(t.carb, wC, 5), fat = part(t.fat, wF, 5);
+  const fmt = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  return times.map((m, i) => ({ time: fmt(m), pro: pro[i], carb: carb[i], fat: fat[i], kcal: pro[i] * 4 + carb[i] * 4 + fat[i] * 9, tag: i === pre ? 'before training' : i === post ? 'after training' : i === n - 1 ? 'largest meal' : '' }));
+}
+
 
 // A weight plan: where you want to be, and when. Stored in kg. rate is kg a week, minus to lose. goalKg is optional and stops the line.
 function cleanPlan(p) {
   if (!p || typeof p !== 'object') return null;
-  const kg = Number(p.kg), rate = Number(p.rate), goal = Number(p.goalKg);
+  const kg = Number(p.kg), rate = Number(p.rate), goal = Number(p.goalKg), weeks = Math.round(Number(p.weeks));
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(p.start)) || !(kg >= 20 && kg <= 400) || !Number.isFinite(rate) || Math.abs(rate) > 2) return null;
-  return { start: p.start, kg, rate, goalKg: goal >= 20 && goal <= 400 ? goal : null };
+  const phase = ['cut', 'maintain', 'gain'].includes(p.phase) ? p.phase : rate < 0 ? 'cut' : rate > 0 ? 'gain' : 'maintain';
+  const out = { start: p.start, kg, rate, goalKg: goal >= 20 && goal <= 400 ? goal : null, phase, weeks: weeks >= 1 && weeks <= 104 ? weeks : null };
+  const pv = p.prev;
+  if (pv && typeof pv === 'object' && ['cut', 'maintain', 'gain'].includes(pv.phase) && /^\d{4}-\d{2}-\d{2}$/.test(String(pv.end)) && Number(pv.weeks) >= 1) out.prev = { phase: pv.phase, weeks: Math.round(Number(pv.weeks)), end: pv.end };
+  return out;
 }
-// Planned weight on a date: a straight line from the start at the wanted rate, held at the goal weight once it is reached.
+// The date the phase ends, from its length, or null.
+function planFinish(plan) { return plan && plan.weeks ? isoAdd(plan.start, plan.weeks * 7) : null; }
+// Planned weight on a date: a straight line from the start at the wanted rate. It holds at the goal weight once reached and at the end of the phase.
 function planKg(plan, iso) {
   if (!plan || iso < plan.start) return null;
-  const days = (dObj(iso) - dObj(plan.start)) / 864e5; let v = plan.kg + plan.rate * days / 7;
+  let days = (dObj(iso) - dObj(plan.start)) / 864e5;
+  if (plan.weeks) days = Math.min(days, plan.weeks * 7);
+  let v = plan.kg + plan.rate * days / 7;
   if (plan.goalKg != null && plan.rate !== 0 && ((plan.rate < 0 && v < plan.goalKg) || (plan.rate > 0 && v > plan.goalKg))) v = plan.goalKg;
   return v;
 }
@@ -128,6 +204,7 @@ function planKg(plan, iso) {
 function planEnd(plan) {
   if (!plan || plan.goalKg == null || plan.rate === 0) return null;
   const weeks = (plan.goalKg - plan.kg) / plan.rate; if (!(weeks > 0) || weeks > 520) return null;
+  if (plan.weeks && weeks > plan.weeks) return null;
   return isoAdd(plan.start, Math.ceil(weeks * 7));
 }
 
@@ -145,6 +222,6 @@ function cleanGoals(g) {
   const gx = g.x && typeof g.x === 'object' ? g.x : {};
   for (const m of NUT_X) { const v = Object.prototype.hasOwnProperty.call(gx, m.k) ? n(gx[m.k], 1e6) : 0; if (v > 0) out.x[m.k] = v; }
   const p = g.profile;
-  if (p && typeof p === 'object') out.profile = { sex: p.sex === 'f' ? 'f' : 'm', age: n(p.age, 120), cm: n(p.cm, 260), kg: n(p.kg, 500), act: ACTIVITY.some(a => a[0] === String(p.act)) ? String(p.act) : '1.375', goal: GOAL_KIND.some(a => a[0] === p.goal) ? p.goal : 'maintain', rate: Number.isFinite(Number(p.rate)) && Math.abs(Number(p.rate)) <= 2 ? Number(p.rate) : null };
+  if (p && typeof p === 'object') out.profile = { sex: p.sex === 'f' ? 'f' : 'm', age: n(p.age, 120), cm: n(p.cm, 260), kg: n(p.kg, 500), act: ACTIVITY.some(a => a[0] === String(p.act)) ? String(p.act) : '1.375', goal: GOAL_KIND.some(a => a[0] === p.goal) ? p.goal : 'maintain', rate: Number.isFinite(Number(p.rate)) && Math.abs(Number(p.rate)) <= 2 ? Number(p.rate) : null, meals: [4, 5, 6].includes(Number(p.meals)) ? Number(p.meals) : 4, wake: /^\d{2}:\d{2}$/.test(String(p.wake)) ? p.wake : '07:00', train: /^\d{2}:\d{2}$/.test(String(p.train)) ? p.train : '' };
   return out;
 }

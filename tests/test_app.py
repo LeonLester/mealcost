@@ -898,9 +898,9 @@ try:
         pl.evaluate("window.__mealcost.S.weights = [82.6, 82.2, 82.0, 81.7].map((kg, i) => ({ date: isoAdd(todayIso(), -21 + i * 7), kg }))")
         pl.goto(BASE + '#day'); pl.evaluate("location.hash = '#weight'"); pl.wait_for_selector('.pchart')
         pl.click('[data-act="plan-edit"]'); pl.wait_for_selector('#planform')
-        pl.fill('#plr', '-0.5'); pl.fill('#plg', '70'); pl.click('#planform [type=submit]'); pl.wait_for_selector('.pchart .line.plan')
+        pl.select_option('#plp', 'cut'); pl.fill('#pln', '8'); pl.fill('#plr', '-0.5'); pl.fill('#plg', '70'); pl.click('#planform [type=submit]'); pl.wait_for_selector('.pchart .line.plan')
         check('the weight chart draws the plan next to the actual line', pl.locator('.pchart .line').count() == 2 and pl.locator('.wlegend').count() == 1 and pl.evaluate("window.__mealcost.S.plan !== null"))
-        pl.click('[data-act="plan-edit"]'); pl.wait_for_selector('#planform'); pl.fill('#plg', '95'); pl.click('#planform [type=submit]')
+        pl.click('[data-act="plan-edit"]'); pl.wait_for_selector('#planform'); pl.fill('#plg', '95'); pl.click('#planform [type=submit]'); pl.wait_for_timeout(200)
         check('a goal in the wrong direction is refused', 'opposite' in pl.inner_text('#plerr') and pl.evaluate("window.__mealcost.S.plan.goalKg") == 70 or pl.evaluate("window.__mealcost.S.plan.goalKg !== 95"))
         pl.click('[data-act="plan-remove"]'); pl.wait_for_selector('.pchart')
         check('removing the plan removes the line', pl.locator('.pchart .line.plan').count() == 0 and pl.evaluate("window.__mealcost.S.plan === null"))
@@ -915,6 +915,41 @@ try:
         check('and shown again when the food is edited', pl.input_value('#fing') == 'Skimmed milk, skyr cultures, rennet')
         pl.click('[data-act="close-dlg"]')
         pl.unroute('https://world.openfoodfacts.org/api/v2/product/**')
+        gr = pl.evaluate("""() => {
+          const by = new Map(), ws = [];
+          for (let i = 0; i < 7; i++) { const d = isoAdd('2026-11-28', -6 + i); by.set(d, [{ kcal: 2500 }]); if (i % 2 === 0) ws.push({ date: d, kg: 80 }); }
+          const cur = { kcal: 2500, pro: 180, carb: 280, fat: 70 }, by2 = new Map(); for (let i = 0; i < 7; i++) by2.set(isoAdd('2026-11-28', -6 + i), [{ kcal: 1500 }]);
+          return {
+            mp: macroPlan(2000, cur, 4), floor: macroPlan(900, cur, 4),
+            cap: courseCorrection(by, ws, '2026-11-28', -1.5, 2500, 7, { cm: 180, macros: cur, meals: 4 }),
+            bmi: courseCorrection(by, ws.map(w => ({ ...w, kg: 52 })), '2026-11-28', -0.5, 2500, 7, { cm: 190, macros: cur, meals: 4 }),
+            hit: courseCorrection(by2, ws, '2026-11-28', -1, 1500, 7, { cm: 180, macros: { kcal: 1500, pro: 200, carb: 60, fat: 30 }, meals: 6 }),
+            pct: [suggestPct(6), suggestPct(9), suggestPct(12), suggestPct(16)],
+            w1: phaseWarnings({ phase: 'cut', weeks: 8, start: '2027-01-10' }, { phase: 'cut', weeks: 9, end: '2027-01-03' }),
+            w2: phaseWarnings({ phase: 'cut', weeks: 8, start: '2027-03-15' }, { phase: 'cut', weeks: 9, end: '2027-01-03' }),
+            w3: phaseWarnings({ phase: 'gain', weeks: 20, start: '2027-01-10' }, null)
+          };
+        }""")
+        check('a calorie cut comes off carbs and fat in proportion and leaves protein alone', gr['mp']['pro'] == 180 and abs(gr['mp']['kcal'] - 2000) < 25 and gr['mp']['carb'] < 280 and gr['mp']['fat'] < 70 and gr['mp']['floorHit'] is False, gr['mp'])
+        check('the carb and fat minimums stop a deeper cut', gr['floor']['floorHit'] is True and gr['floor']['carb'] >= 20 and gr['floor']['fat'] >= 20 and gr['floor']['pro'] == 180, gr['floor'])
+        check('a wanted loss above 1% of body weight a week is capped', gr['cap']['capped'] is True and gr['cap']['rate'] == -0.8 and gr['cap']['perDay'] == -857, gr['cap'])
+        check('no loss advice below BMI 17', gr['bmi']['bmiBlock'] is True and gr['bmi']['rate'] == 0, gr['bmi'])
+        check('a floor hit keeps calories up and says why', gr['hit']['floorHit'] is True and gr['hit']['aim'] > 1100 and gr['hit']['aim'] > gr['hit']['maint'] - 857 + 200 and any('minimums' in n for n in gr['hit']['notes']), gr['hit'])
+        check('suggested loss rate falls from 0.7% at 6 weeks to 0.5% at 12', gr['pct'] == [0.7, 0.6, 0.5, 0.5], gr['pct'])
+        check('a second fat loss phase too soon is flagged, with enough maintenance it is not', len(gr['w1']) == 1 and gr['w2'] == [] and len(gr['w3']) == 1, [gr['w1'], gr['w2'], gr['w3']])
+        ms = pl.evaluate("""() => {
+          const t = { pro: 180, carb: 260, fat: 70 }, rows = mealSplit(t, 5, '07:00', '17:00'), none = mealSplit(t, 4, '07:00', ''), six = mealSplit({ pro: 100, carb: 20, fat: 15 }, 6, '06:00', '12:00');
+          const sum = (r, k) => r.reduce((a, x) => a + x[k], 0);
+          return { n: rows.length, p: sum(rows, 'pro'), c: sum(rows, 'carb'), f: sum(rows, 'fat'), tags: rows.map(r => r.tag), kcal: rows.map(r => r.kcal), minC: Math.min(...rows.map(r => r.carb)), minF: Math.min(...rows.map(r => r.fat)), noneN: none.length, noneTags: none.map(r => r.tag), sixMin: Math.min(...six.map(r => Math.min(r.carb, r.fat))), times: rows.map(r => r.time) };
+        }""")
+        check('the meal split adds up to the daily targets', ms['n'] == 5 and ms['p'] == 180 and ms['c'] == 260 and ms['f'] == 70, ms)
+        check('carbs sit around training and the last meal is the largest', 'before training' in ms['tags'] and ms['kcal'][-1] == max(ms['kcal']) and ms['minC'] >= 5 and ms['minF'] >= 5, ms)
+        check('with no training the split is plain and still keeps the minimums', ms['noneN'] == 4 and 'before training' not in ms['noneTags'] and ms['sixMin'] >= 5, ms)
+        pl.evaluate("window.__mealcost.S.goals = { kcal: 2400, pro: 180, carb: 250, fat: 70, fiber: 30, x: {}, profile: { sex: 'm', age: 35, cm: 180, kg: 82, act: '1.55', goal: 'lose', rate: null, meals: 5, wake: '07:00', train: '17:00' } }")
+        pl.goto(BASE + '#day'); pl.evaluate("location.hash = '#goals'"); pl.wait_for_selector('#mealplan .mtab')
+        check('the goals page shows the meal plan for the day', pl.locator('#mealplan .mtab tbody tr').count() == 5 and 'before training' in pl.inner_text('#mealplan'))
+        pl.select_option('#mn', '6'); pl.wait_for_timeout(200)
+        check('changing the number of meals redraws the plan', pl.locator('#mealplan .mtab tbody tr').count() == 6)
         check('no console errors or CSP violations', not errors and not errs2, errors + errs2)
         b.close()
 finally:

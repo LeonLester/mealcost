@@ -42,6 +42,10 @@ Owner: Leonidas (GitHub LeonLester, personal email leonidask914@gmail.com for co
 - `public/otherimport.js` is tried first by `parseCronometer` and returns null for Cronometer files. The Waistline mapping is by column names and was only tested on a synthetic file. Check it against a real export.
 - Migration `0005_tokens.sql`: `api_tokens` (hash only). `src/tokens.js`: `/api/tokens` needs a session, `/api/v1/*` needs a token and is read-only, 60 per minute per token. Run `npm run migrate` before deploying.
 
+## RP style rules
+- `public/nutrition.js`: `macroPlan` (protein fixed, carbs and fat share a change, floors), guardrails inside `courseCorrection` (1% cap, BMI 17), `suggestPct`, `phaseWarnings`, `mealSplit`. Source of the numbers: RP help pages on safety, diet setup and fat loss phases, and its 10,000 diet analysis. Not from RP and ours: the gain rate default, the 14 hour meal spacing, the carb and fat weights in `mealSplit`.
+- The plan has `phase`, `weeks` and `prev` (the previous fat loss phase, used for the maintenance rule). Meal settings live in `goals.profile` (`meals`, `wake`, `train`).
+
 ## Hosting the model, limits, safety
 - Moving the model to another machine, step by step: [docs/model-server.md](docs/model-server.md).
 - The model runs as two launchd agents on the owner's Mac: `com.mealcost.llama` (llama-server, key read from `~/.config/mealcost/llama.key`) and `com.mealcost.llama-tunnel` (cloudflared tunnel `llama`, config `~/.cloudflared/llama-config.yml`, only `/v1/chat/completions` is routed). Logs: `~/Library/Logs/llama/`. Cloudflare Access (service token `mealcost-worker`, expires 2027-11-14) guards `llama.coachleonidas.com`; the worker sends it as `CF_ACCESS_ID` and `CF_ACCESS_SECRET`. To rotate the key: write a new one to the key file, `launchctl kickstart -k gui/$(id -u)/com.mealcost.llama`, then `wrangler secret put LLAMA_KEY`.

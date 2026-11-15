@@ -238,6 +238,7 @@ function goalsView() {
         <div id="cresult" aria-live="polite"></div>
       </section>
       ${adaptiveCard(p)}
+      ${mealPlanCard()}
       <section class="card pad">
         <h2 style="font-size:17px">Weight unit</h2>
         <div class="opts" role="radiogroup" aria-label="Weight unit" style="margin-top:10px">${['kg', 'lb'].map(u => `<button type="button" class="opt" role="radio" aria-checked="${wu === u}" data-act="wunit" data-v="${u}">${u === 'kg' ? 'Kilograms' : 'Pounds'}</button>`).join('')}</div>
@@ -250,7 +251,7 @@ function adaptiveRate(p) { return S.plan ? S.plan.rate : p && Number.isFinite(Nu
 let ADAPT_WIN = 0; // 7, 14 or 28 days; read from storage on first use because app.js defines store after this file
 const adaptWin = () => { if (!ADAPT_WIN) { const v = Number(store.get('awin', 7)); ADAPT_WIN = [7, 14, 28].includes(v) ? v : 7; } return ADAPT_WIN; };
 function adaptiveCard(p, live) {
-  const end = IDX.dates[IDX.dates.length - 1], g = S.goals, rate = S.plan ? S.plan.rate : live != null ? live : adaptiveRate(p), a = courseCorrection(IDX.byDate, S.weights, end, rate, g && g.kcal, adaptWin());
+  const end = IDX.dates[IDX.dates.length - 1], g = S.goals, rate = S.plan ? S.plan.rate : live != null ? live : adaptiveRate(p), a = courseCorrection(IDX.byDate, S.weights, end, rate, g && g.kcal, adaptWin(), { cm: (p || {}).cm, meals: (p || {}).meals, macros: g && g.kcal > 0 ? g : null });
   const rateField = S.plan
     ? `<p class="muted dz-small" style="margin-top:10px">Wanted change: <b>${wShowRate(rate)} ${esc(S.wunit)} a week</b>, from your weight plan. Change it on the <a href="#weight">Weight tab</a>.</p>`
     : `<div class="gl-f" style="margin-top:10px"><label for="arate">Wanted change in weight, ${esc(S.wunit)} a week (minus to lose)</label><div class="gl-in"><input class="field" id="arate" inputmode="decimal" value="${esc(wShowRate(rate))}" autocomplete="off"><span>${esc(S.wunit)}/wk</span></div></div>`;
@@ -261,13 +262,33 @@ function adaptiveCard(p, live) {
     const need = a.perDay === 0 ? 'hold your weight' : `${a.perDay < 0 ? 'a deficit' : 'a surplus'} of ${n0(Math.abs(a.perDay))} kcal a day`;
     const when = a.days === 7 ? 'the last 7 days' : `the last ${a.days} days`;
     return `<div class="gl-res"><p class="muted dz-small">Over ${when} you ate ${n0(a.intake)} kcal a day and your weight ${mv}, so you burn about ${n0(a.maint)} kcal a day. Your aim needs ${need}. ${a.days === 7 ? 'A single week is noisy, so treat this as a nudge. Use a longer look back for a steadier estimate.' : 'A longer look back smooths out water weight but reacts more slowly to changes.'}</p>
-      ${a.onTrack ? `<p><b>On track.</b> Keep ${n0(a.base)} kcal a day.</p>` : `<p><b>${a.delta > 0 ? 'Add' : 'Cut'} about ${n0(Math.abs(a.delta))} kcal a day</b>, to ${n0(a.aim)} kcal${g && g.kcal ? ` (now ${n0(a.base)})` : ''}.</p><button class="btn" style="width:100%" data-act="goals-adaptive" data-kcal="${a.aim}">Fill ${n0(a.aim)} kcal into the form</button>`}</div>`;
+      ${a.notes.map(t => `<p class="dz-small" style="color:var(--offer-ink);margin-top:8px">${esc(t)}</p>`).join('')}
+      ${a.onTrack ? `<p><b>On track.</b> Keep ${n0(a.base)} kcal a day.</p>` : `<p><b>${a.delta > 0 ? 'Add' : 'Cut'} about ${n0(Math.abs(a.delta))} kcal a day</b>, to ${n0(a.aim)} kcal${g && g.kcal ? ` (now ${n0(a.base)})` : ''}.</p>${a.macros ? `<p class="muted dz-small">Protein stays at ${n0(a.macros.pro)} g. Carbs ${n0(a.macros.carb)} g and fat ${n0(a.macros.fat)} g take the change.</p>` : ''}<button class="btn" style="width:100%" data-act="goals-adaptive" data-kcal="${a.aim}"${a.macros ? ` data-macros='${esc(JSON.stringify(a.macros))}'` : ''}>Fill ${a.macros ? 'these targets' : n0(a.aim) + ' kcal'} into the form</button>`}</div>`;
   })();
   return `<section class="card pad" id="adapt">${head}${body}</section>`;
 }
 // Rates are kept in kg a week. This shows and reads them in the chosen weight unit.
 function wShowRate(kg) { return String(Math.round((S.wunit === 'lb' ? kg * KG_LB : kg) * 100) / 100); }
 function wParseRate(v) { const n = Number(String(v).replace(',', '.')); return Number.isFinite(n) ? (S.wunit === 'lb' ? n / KG_LB : n) : null; }
+function mealPlanCard() {
+  const g = S.goals, p = (g && g.profile) || {};
+  if (!g || !(g.kcal > 0)) return `<section class="card pad" id="mealplan"><h2 style="font-size:17px">Meal plan for the day</h2><p class="muted dz-small" style="margin-top:6px">Save your daily goals first, then this splits them over your meals.</p></section>`;
+  const n = [4, 5, 6].includes(Number(p.meals)) ? Number(p.meals) : 4, wake = p.wake || '07:00', train = p.train || '';
+  const rows = mealSplit({ pro: g.pro, carb: g.carb, fat: g.fat }, n, wake, train);
+  return `<section class="card pad" id="mealplan"><h2 style="font-size:17px">Meal plan for the day</h2>
+    <p class="muted dz-small" style="margin-top:6px">Your daily targets split over the day. Carbs sit around your training, fat is kept low in those two meals, and the last meal is the largest. Every meal keeps at least 5 g of fat and 5 g of carbs.</p>
+    <div class="gl-grid two" style="margin-top:10px"><div class="gl-f"><label for="mn">Meals</label><select class="field" id="mn">${[4, 5, 6].map(v => `<option value="${v}"${v === n ? ' selected' : ''}>${v}</option>`).join('')}</select></div>
+    <div class="gl-f"><label for="mw">Wake time</label><input class="field" id="mw" type="time" value="${esc(wake)}"></div></div>
+    <div class="gl-f" style="margin-top:10px"><label for="mt">Training time (empty on a rest day)</label><input class="field" id="mt" type="time" value="${esc(train)}"></div>
+    <div style="margin-top:12px;overflow-x:auto"><table class="mtab"><thead><tr><th scope="col">Meal</th><th scope="col">kcal</th><th scope="col">P</th><th scope="col">C</th><th scope="col">F</th></tr></thead><tbody>${rows.map((r, i) => `<tr><th scope="row">${i + 1}. ${esc(r.time)}${r.tag ? `<small class="muted"> ${esc(r.tag)}</small>` : ''}</th><td>${n0(r.kcal)}</td><td>${r.pro}</td><td>${r.carb}</td><td>${r.fat}</td></tr>`).join('')}</tbody></table></div>
+    <p class="muted dz-small" style="margin-top:8px">Grams of protein, carbs and fat per meal. Press Save goals to keep the meal settings.</p></section>`;
+}
+document.addEventListener('change', e => {
+  if (!e.target || !['mn', 'mw', 'mt'].includes(e.target.id)) return;
+  const g = S.goals, card = $('#mealplan'); if (!g || !card) return;
+  const pr = readProfile(); S.goals = { ...g, profile: { ...(g.profile || {}), meals: pr.meals, wake: pr.wake || '07:00', train: pr.train || '' } };
+  card.outerHTML = mealPlanCard(); S.goals = g; const f = $('#' + e.target.id); if (f) f.focus();
+});
 /* ---------- linked targets: energy and macros follow each other ---------- */
 const GL_CAL = { pro: 4, carb: 4, fat: 9 };
 const GL_MODES = {
@@ -368,7 +389,7 @@ function glReset() { for (const k of ['pro', 'carb', 'fat', 'fiber']) { const m 
 function readProfile() {
   const v = id => ($('#' + id) || {}).value;
   const ar = $('#arate'), pr = (S.goals && S.goals.profile) || {};
-  return { sex: v('cs'), age: num(v('ca')), cm: num(v('ch')), kg: wParse(v('cw')), act: v('cact'), goal: v('cgoal'), rate: ar ? wParseRate(ar.value) : (pr.rate ?? null) };
+  return { sex: v('cs'), age: num(v('ca')), cm: num(v('ch')), kg: wParse(v('cw')), act: v('cact'), goal: v('cgoal'), rate: ar ? wParseRate(ar.value) : (pr.rate ?? null), meals: $('#mn') ? Number(v('mn')) : (pr.meals || 4), wake: $('#mw') ? v('mw') : (pr.wake || '07:00'), train: $('#mt') ? v('mt') : (pr.train || '') };
 }
 function saveGoals() {
   const c = glCompute(), v = id => num(($('#' + id) || {}).value), modes = {}, vals = {};
@@ -504,9 +525,17 @@ function diaryAct(a, d) {
       const p = JSON.parse(d.plan); const set = (id, v) => { $('#' + id).value = v; };
       glReset(); set('gk', p.kcal); set('gp', p.pro); set('gc', p.carb); set('gf', p.fat); set('gb', p.fiber); goalsCheck(); toast('Filled in. Press Save goals to keep them.'); return true;
     }
-    case 'goals-adaptive': { glReset(); $('#gk').value = d.kcal; goalsCheck(); toast('Filled in. Press Save goals to keep it.'); return true; }
+    case 'goals-adaptive': { glReset(); $('#gk').value = d.kcal; if (d.macros) { const m = JSON.parse(d.macros); $('#gp').value = m.pro; $('#gc').value = m.carb; $('#gf').value = m.fat; } goalsCheck(); toast('Filled in. Press Save goals to keep it.'); return true; }
     case 'awin': { ADAPT_WIN = Number(d.v); store.set('awin', ADAPT_WIN); const card = $('#adapt'); if (card) card.outerHTML = adaptiveCard(readProfile()); return true; }
     case 'plan-edit': openPlan(); return true;
+    case 'plan-suggest': {
+      const ph = $('#plp').value, wk = num($('#pln').value), kg = wParse($('#plw').value), h = $('#plhint');
+      if (ph === 'maintain') { $('#plr').value = wShowRate(0); h.textContent = 'Maintenance holds your weight.'; return true; }
+      if (!(kg > 0)) { h.textContent = 'Enter your start weight first.'; return true; }
+      if (ph === 'cut') { const pct = suggestPct(wk), r = -pct * kg / 100; $('#plr').value = wShowRate(r); h.textContent = `${pct}% of body weight a week, which suits a ${Math.min(12, Math.max(6, wk || 8))} week diet in RP's analysis of 10,000 diets. Over ${wk || 8} weeks that is about ${(pct * (wk || 8)).toFixed(1)}% of your weight.`; }
+      else { $('#plr').value = wShowRate(GOAL_RATE.gain); h.textContent = 'The app default for building muscle. RP does not publish a rate for gaining.'; }
+      return true;
+    }
     case 'plan-remove': S.plan = null; saveAll(); $('#dlg').close(); render(); toast('Weight plan removed'); return true;
     case 'wunit': S.wunit = d.v; saveAll(); render(); return true;
     case 'log-weight': openWeight(); return true;
@@ -582,7 +611,7 @@ function weightView() {
   if (!ws.length) return head + `<div class="card pad" style="margin-top:18px;max-width:560px"><h2 style="font-size:17px">No weigh-ins yet</h2><p class="muted" style="margin-top:8px">Log your weight to see the trend next to what you eat. It stays on this device unless you sign in to sync.</p></div>`;
   const first = ws[0], last = ws[ws.length - 1], ch = last.kg - first.kg;
   const today = todayIso(), startD = plan && plan.start < first.date ? plan.start : first.date;
-  const pend = plan ? (planEnd(plan) || isoAdd(today > last.date ? today : last.date, 28)) : last.date;
+  const pend = plan ? (planFinish(plan) || planEnd(plan) || isoAdd(today > last.date ? today : last.date, 28)) : last.date;
   const endD = pend > last.date ? pend : last.date;
   const W = 640, H = 230, pl = 40, pr = 10, pt = 12, pb = 26, t0 = dObj(startD).getTime(), t1 = Math.max(dObj(endD).getTime(), t0 + 864e5 * 6);
   const planPts = plan ? [plan.start, endD].filter((d, i, a) => a.indexOf(d) === i).map(d => ({ date: d, kg: planKg(plan, d) })) : [];
@@ -599,34 +628,50 @@ function weightView() {
   const list = ws.slice().reverse().slice(0, 30).map(w => `<div class="wrow"><span>${esc(dMed(w.date))}</span><b>${wShow(w.kg)} ${wu}</b><button class="btn link" data-act="del-weight" data-date="${w.date}" aria-label="Delete the weigh-in from ${esc(dMed(w.date))}">Delete</button></div>`).join('');
   const pk = plan ? planKg(plan, last.date) : null, gap = pk != null ? last.kg - pk : null;
   const legend = plan ? `<div class="wlegend"><span><i class="lg-act"></i>Actual</span><span><i class="lg-plan"></i>Plan, ${wShowRate(plan.rate)} ${esc(wu)} a week${plan.goalKg != null ? ` to ${wShow(plan.goalKg)} ${esc(wu)}` : ''}</span></div>` : '';
-  const planCard = plan ? `<section class="card dz-sum"><div class="dz-costhead"><span>Against plan</span><b>${gap == null ? 'Not started' : Math.abs(gap) < 0.15 ? 'On plan' : `${sh(gap)} ${gap > 0 ? 'above' : 'below'}`}</b></div>${pk != null ? `<div class="dz-costline"><span>Plan on ${esc(dMed(last.date))}</span><span>${wShow(pk)} ${esc(wu)}</span></div>` : ''}${planEnd(plan) ? `<div class="dz-costline"><span>Plan reaches ${wShow(plan.goalKg)} ${esc(wu)}</span><span>${esc(dMed(planEnd(plan)))}</span></div>` : ''}</section>` : '';
+  const planCard = plan ? `<section class="card dz-sum"><div class="dz-costhead"><span>Against plan</span><b>${gap == null ? 'Not started' : Math.abs(gap) < 0.15 ? 'On plan' : `${sh(gap)} ${gap > 0 ? 'above' : 'below'}`}</b></div>${pk != null ? `<div class="dz-costline"><span>Plan on ${esc(dMed(last.date))}</span><span>${wShow(pk)} ${esc(wu)}</span></div>` : ''}${plan.weeks ? `<div class="dz-costline"><span>${esc(PHASE_NAME[plan.phase])}${today >= plan.start && today <= planFinish(plan) ? `, week ${Math.min(plan.weeks, Math.floor((dObj(today) - dObj(plan.start)) / 864e5 / 7) + 1)} of ${plan.weeks}` : ''}</span><span>ends ${esc(dMed(planFinish(plan)))}</span></div>` : ''}${planEnd(plan) ? `<div class="dz-costline"><span>Plan reaches ${wShow(plan.goalKg)} ${esc(wu)}</span><span>${esc(dMed(planEnd(plan)))}</span></div>` : ''}</section>` : '';
   return head + `<div class="cols dz-cols"><div class="main2"><section class="card dz-sum"><div class="dz-energy"><div><span class="dz-num">${wShow(last.kg)}</span><span class="dz-unit"> ${wu}, ${esc(dMed(last.date))}</span></div></div>
     <svg class="pchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${plan ? 'Actual weight and planned weight over time' : 'Weight over time'}">${yt}${tx}${plan ? `<polyline points="${ppts}" class="line plan"/>` : ''}<polyline points="${pts}" class="line"/>${dots}<text x="${pl}" y="${H - 6}" class="tick">${esc(dMed(startD))}</text><text x="${W - pr}" y="${H - 6}" text-anchor="end" class="tick">${esc(dMed(endD))}</text></svg>${legend}</section></div>
     <aside class="side">${planCard}<section class="card dz-sum"><div class="dz-costhead"><span>Since ${esc(dMed(first.date))}</span><b>${sh(ch)}</b></div>${wch != null ? `<div class="dz-costline"><span>Last 30 days</span><span>${sh(wch)}</span></div>` : ''}</section><section class="card dz-sum"><h2 style="font-size:17px">History</h2><div style="margin-top:8px">${list}</div></section></aside></div>`;
 }
+const PHASE_NAME = { cut: 'Fat loss', maintain: 'Maintenance', gain: 'Muscle gain' };
 function openPlan() {
   const dlg = $('#dlg'); dlg.classList.remove('wide');
   const last = S.weights.length ? S.weights[S.weights.length - 1] : null, pr = (S.goals && S.goals.profile) || {}, pn = S.plan;
   const start = pn ? pn.start : (last ? last.date : todayIso()), kg = pn ? pn.kg : last ? last.kg : '', rate = pn ? pn.rate : adaptiveRate(pr);
   dlg.innerHTML = `<form id="planform" method="dialog" novalidate><h2 id="dlg-title" style="font-size:20px">Weight plan</h2>
     <p class="muted" style="font-size:14px">A straight line from where you start at the change per week you want. The Weight chart draws it next to your actual weigh-ins.</p>
-    <div class="gl-f" style="margin-top:12px"><label for="pls">Start date</label><input class="field" id="pls" type="date" value="${esc(start)}"></div>
+    <div class="gl-f" style="margin-top:12px"><label for="plp">Phase</label><select class="field" id="plp">${Object.entries(PHASE_NAME).map(([v, n]) => `<option value="${v}"${(pn ? pn.phase : rate < 0 ? 'cut' : rate > 0 ? 'gain' : 'maintain') === v ? ' selected' : ''}>${n}</option>`).join('')}</select></div>
+    <div class="gl-f" style="margin-top:10px"><label for="pln">Length in weeks (fat loss and muscle gain: 16 at most)</label><input class="field" id="pln" inputmode="numeric" autocomplete="off" value="${pn && pn.weeks ? pn.weeks : ''}" placeholder="for example 8"></div>
+    <div class="gl-f" style="margin-top:10px"><label for="pls">Start date</label><input class="field" id="pls" type="date" value="${esc(start)}"></div>
     <div class="gl-f" style="margin-top:10px"><label for="plw">Start weight (${esc(S.wunit)})</label><input class="field" id="plw" inputmode="decimal" autocomplete="off" value="${kg === '' ? '' : esc(wShow(kg))}"></div>
     <div class="gl-f" style="margin-top:10px"><label for="plr">Change per week (${esc(S.wunit)}, minus to lose)</label><input class="field" id="plr" inputmode="decimal" autocomplete="off" value="${esc(wShowRate(rate))}"></div>
+    <div><button type="button" class="btn sm" data-act="plan-suggest">Suggest a rate for this length</button><p class="muted dz-small" id="plhint" style="margin-top:6px" aria-live="polite"></p></div>
     <div class="gl-f" style="margin-top:10px"><label for="plg">Goal weight (${esc(S.wunit)}, optional)</label><input class="field" id="plg" inputmode="decimal" autocomplete="off" value="${pn && pn.goalKg != null ? esc(wShow(pn.goalKg)) : ''}"></div>
     <div id="plerr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
     <div class="dlg-actions" style="gap:8px"><button type="submit" class="btn primary">Save plan</button><button type="button" class="btn" data-act="close-dlg">Cancel</button>${pn ? '<button type="button" class="btn link" data-act="plan-remove">Remove plan</button>' : ''}</div></form>`;
-  dlg.setAttribute('aria-labelledby', 'dlg-title'); if (!dlg.open) dlg.showModal();
+  dlg.dataset.ack = ''; dlg.setAttribute('aria-labelledby', 'dlg-title'); if (!dlg.open) dlg.showModal();
 }
 document.addEventListener('submit', e => {
   if (e.target.id !== 'planform') return;
   e.preventDefault();
-  const err = m => { $('#plerr').textContent = m; };
-  const kg = wParse($('#plw').value), rate = wParseRate($('#plr').value), gRaw = $('#plg').value.trim(), goal = gRaw ? wParse(gRaw) : null, start = $('#pls').value;
+  const dlg = $('#dlg'), err = m => { $('#plerr').textContent = m; };
+  const phase = $('#plp').value, weeksRaw = $('#pln').value.trim(), weeks = weeksRaw ? Math.round(num(weeksRaw)) : null;
+  const kg = wParse($('#plw').value), gRaw = $('#plg').value.trim(), goal = gRaw ? wParse(gRaw) : null, start = $('#pls').value;
+  let rate = phase === 'maintain' ? 0 : wParseRate($('#plr').value);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return err('Choose a start date.');
   if (!(kg >= 20 && kg <= 400)) return err('Enter your start weight.');
+  if (weeksRaw && !(weeks >= 1 && weeks <= 104)) return err('Length must be a number of weeks.');
+  if (phase !== 'maintain' && !weeks) return err('Enter how many weeks the phase lasts.');
+  if (phase !== 'maintain' && weeks > MAX_PHASE_WEEKS) return err(`Fat loss and muscle gain phases are limited to ${MAX_PHASE_WEEKS} weeks. Plan a maintenance phase after that.`);
   if (rate === null || Math.abs(rate) > 2) return err('Change per week must be between -2 and 2 kg (about 4.4 lb).');
+  if (phase === 'cut' && rate >= 0) return err('A fat loss phase needs a weekly change below zero.');
+  if (phase === 'gain' && rate <= 0) return err('A muscle gain phase needs a weekly change above zero.');
+  if (phase === 'cut' && -rate > MAX_LOSS_PCT * kg / 100) return err(`That is more than ${MAX_LOSS_PCT}% of your body weight a week, the safe cap (${wShowRate(MAX_LOSS_PCT * kg / 100)} ${S.wunit} for you).`);
   if (goal !== null && !(goal >= 20 && goal <= 400)) return err('Enter a goal weight or leave it empty.');
   if (goal !== null && rate !== 0 && (rate < 0) !== (goal < kg)) return err('The goal is in the opposite direction to the weekly change.');
-  S.plan = cleanPlan({ start, kg, rate, goalKg: goal }); saveAll(); $('#dlg').close(); render(); toast('Weight plan saved');
+  const old = S.plan, prev = old && old.start !== start && old.weeks ? { phase: old.phase, weeks: old.weeks, end: planFinish(old) } : old && old.prev || null;
+  const next = cleanPlan({ start, kg, rate, goalKg: goal, phase, weeks, prev });
+  const warn = phaseWarnings(next, prev).join(' ');
+  if (warn && dlg.dataset.ack !== warn) { dlg.dataset.ack = warn; return err(`${warn} Press Save plan again to keep it anyway.`); }
+  S.plan = next; saveAll(); dlg.close(); render(); toast('Weight plan saved');
 });
