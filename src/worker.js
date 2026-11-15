@@ -6,6 +6,8 @@ const MAX_BODY = 1_800_000; // D1 rows are limited to 2 MB
 const enc = new TextEncoder();
 const APP_SCHEME = 'com.coachleonidas.mealcost';
 const APP_ORIGINS = ['https://localhost', 'capacitor://localhost'];
+// Ledger (the training log) may read the weight log with a link token. It is a different origin from this app.
+const LEDGER_ORIGINS = ['https://ledger.coachleonidas.com', 'https://localhost', 'capacitor://localhost'];
 
 const b64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const rand = (n = 32) => b64url(crypto.getRandomValues(new Uint8Array(n)));
@@ -294,6 +296,10 @@ async function api(req, env, url) {
   }
   if (!user) return json({ error: 'sign_in' }, 401);
 
+  if (path === '/api/ledger-link' && req.method === 'GET') {
+    const row = await env.DB.prepare('SELECT created_at, used_at FROM links WHERE user_id = ?').bind(user.id).first();
+    return json({ linked: !!row, created: row ? row.created_at : null, used: row ? row.used_at : null });
+  }
   if (path === '/api/sync' && req.method === 'GET') {
     const row = await env.DB.prepare('SELECT rev, data FROM sync WHERE user_id = ?').bind(user.id).first();
     if (!row) return new Response(null, { status: 204, headers: { 'x-rev': '0', 'cache-control': 'no-store' } });
@@ -306,6 +312,17 @@ async function api(req, env, url) {
   }
   if (!sameSiteWrite(req, url)) return json({ error: 'forbidden' }, 403);
   if (await limited(env, `w:${user.id}`, 120, 60)) return tooMany(60);
+
+  if (path === '/api/ledger-link' && req.method === 'POST') {
+    const token = rand(32);
+    await env.DB.prepare('INSERT INTO links (user_id, hash, created_at, used_at) VALUES (?, ?, ?, NULL) ON CONFLICT(user_id) DO UPDATE SET hash = excluded.hash, created_at = excluded.created_at, used_at = NULL')
+      .bind(user.id, await sha256(token), Date.now()).run();
+    return json({ token });
+  }
+  if (path === '/api/ledger-link' && req.method === 'DELETE') {
+    await env.DB.prepare('DELETE FROM links WHERE user_id = ?').bind(user.id).run();
+    return json({ ok: true });
+  }
 
   const grant = /^\/api\/admin\/users\/([0-9a-f-]{36})$/.exec(path);
   if (grant && req.method === 'PUT') {
@@ -354,11 +371,37 @@ async function api(req, env, url) {
   return json({ error: 'not_found' }, 404);
 }
 
+// Read-only weight log for Ledger. The token comes from a link the user created, and it opens nothing else.
+async function ledgerWeights(req, env) {
+  const origin = req.headers.get('origin');
+  const cors = origin && LEDGER_ORIGINS.includes(origin) ? { 'access-control-allow-origin': origin, 'access-control-allow-headers': 'authorization', 'access-control-allow-methods': 'GET, OPTIONS', 'access-control-max-age': '86400', 'vary': 'Origin' } : { 'vary': 'Origin' };
+  const reply = (obj, status = 200) => json(obj, status, cors);
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  if (req.method !== 'GET') return reply({ error: 'not_found' }, 404);
+  if (await ipLimited(req, env, 'weights', 60, 60)) return reply({ error: 'slow_down' }, 429);
+  const tok = bearer(req);
+  if (!tok) return reply({ error: 'sign_in' }, 401);
+  const link = await env.DB.prepare('SELECT user_id FROM links WHERE hash = ?').bind(await sha256(tok)).first();
+  if (!link) return reply({ error: 'invalid_link' }, 401);
+  await env.DB.prepare('UPDATE links SET used_at = ? WHERE user_id = ?').bind(Date.now(), link.user_id).run();
+  const row = await env.DB.prepare('SELECT data FROM sync WHERE user_id = ?').bind(link.user_id).first();
+  if (!row) return reply({ weights: [], unit: 'kg' });
+  let snap;
+  try { snap = JSON.parse(await new Response(new Blob([new Uint8Array(row.data)]).stream().pipeThrough(new DecompressionStream('gzip'))).text()); } catch { return reply({ error: 'unreadable' }, 502); }
+  const d = (snap && snap.data) || {};
+  const parse = (v) => { if (typeof v === 'string') { try { return JSON.parse(v); } catch { return null; } } return v; };
+  const list = parse(d.weights);
+  const weights = (Array.isArray(list) ? list : []).filter((w) => w && /^\d{4}-\d{2}-\d{2}$/.test(w.date) && Number(w.kg) > 20 && Number(w.kg) < 400).map((w) => ({ date: w.date, kg: Math.round(Number(w.kg) * 100) / 100 })).slice(-5000);
+  const unit = parse(d.wunit) === 'lb' ? 'lb' : 'kg';
+  return reply({ weights, unit });
+}
+
 export default {
   async fetch(req, env) {
     let url = new URL(req.url);
     if (env.PUBLIC_ORIGIN) { const o = new URL(env.PUBLIC_ORIGIN); url.protocol = o.protocol; url.host = o.host; }
     try {
+      if (url.pathname === '/api/weights') return await ledgerWeights(req, env);
       if (req.method === 'OPTIONS' && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/'))) {
         const h = corsFor(req); return new Response(null, { status: h ? 204 : 403, headers: h || {} });
       }
