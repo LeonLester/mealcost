@@ -29,20 +29,27 @@ function importBiometrics(text) {
   const h = rows[0].map(x => x.trim().toLowerCase()), at = (...names) => h.findIndex(x => names.includes(x));
   const iD = at('day', 'date'), iM = at('metric'), iU = at('unit'), iA = at('amount', 'value');
   if (iD < 0 || iM < 0 || iA < 0) { toast('That does not look like a biometrics export.'); return; }
-  const found = new Map(); let other = 0;
+  const found = new Map(), extra = {}; let other = 0;
   for (const r of rows.slice(1)) {
     if (!r[iM]) continue;
-    if (r[iM].trim().toLowerCase() !== 'weight') { other++; continue; }
+    if (r[iM].trim().toLowerCase() !== 'weight') {
+      const nm = r[iM].trim().slice(0, 40), date = normDate(r[iD]), v = parseFloat(String(r[iA] || '').replace(',', '.'));
+      if (nm && date && Number.isFinite(v)) { const m = extra[nm] || (extra[nm] = { unit: iU >= 0 ? String(r[iU] || '').trim() : '', pts: [] }); m.pts.push({ date, v }); other++; }
+      continue;
+    }
     const date = normDate(r[iD]), amt = parseFloat(String(r[iA] || '').replace(',', '.')), u = String(iU >= 0 ? r[iU] : 'kg').trim().toLowerCase();
     const kg = u.startsWith('lb') ? amt * 0.453592 : u === 'st' ? amt * 6.35029 : u === 'g' ? amt / 1000 : amt;
     if (date && kg >= 20 && kg <= 400) found.set(date, Math.round(kg * 100) / 100);
   }
-  if (!found.size) { toast('No weigh-ins found in that file.'); return; }
+  const nb = cleanBio(extra), nbN = Object.values(nb).reduce((a, m) => a + m.pts.length, 0);
+  if (!found.size && !nbN) { toast('No measurements found in that file.'); return; }
+  for (const [k, m] of Object.entries(nb)) { const cur = S.bio[k] ? new Map(S.bio[k].pts.map(q => [q.date, q.v])) : new Map(); for (const q of m.pts) cur.set(q.date, q.v); S.bio[k] = { unit: m.unit || (S.bio[k] && S.bio[k].unit) || '', pts: [...cur].map(([date, v]) => ({ date, v })).sort((a, c) => a.date < c.date ? -1 : 1) }; }
+  if (!found.size) { saveAll(); go('charts'); render(); toast(`Imported ${nbN} measurements from ${Object.keys(nb).length} metrics`); return; }
   const have = new Map(S.weights.map(w => [w.date, w.kg])); let added = 0;
   for (const [d, kg] of found) { if (!have.has(d)) added++; have.set(d, kg); }
   S.weights = [...have].map(([date, kg]) => ({ date, kg })).sort((a, b) => a.date < b.date ? -1 : 1);
   saveAll(); go('weight'); render();
-  toast(`Imported ${found.size} weigh-ins${added < found.size ? `, ${added} new` : ''}${other ? `. ${other} other measurements were skipped.` : ''}`);
+  toast(`Imported ${found.size} weigh-ins${added < found.size ? `, ${added} new` : ''}${nbN ? `. ${nbN} other measurements were saved to Charts.` : ''}`);
 }
 
 async function importFile(file) {

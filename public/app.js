@@ -29,7 +29,7 @@ const S = {
   sort: store.get('sort', 'freq'), flip: store.get('flip', false),
   pantry: NP(store.get('pantry', {})), pantryAuto: store.get('pantryAuto', true), sug: store.get('sug', null),
   cats: NP(store.get('cats', {})), ranges: store.get('ranges', []), recipes: NP(store.get('recipes', {})), meals: NP(store.get('meals', {})), foods: NP(store.get('foods', {})), started: store.get('started', false), tview: store.get('tview', 'cost'), vmacro: store.get('vmacro', 'pro'), vall: false, open: new Set(), grain: store.get('grain', 'week'), trange: store.get('trange', 90),
-  goals: cleanGoals(store.get('goals', null)), plan: cleanPlan(store.get('plan', null)), weights: store.get('weights', []), wunit: store.get('wunit', 'kg'),
+  goals: cleanGoals(store.get('goals', null)), plan: cleanPlan(store.get('plan', null)), bio: cleanBio(store.get('bio', {})), weights: store.get('weights', []), wunit: store.get('wunit', 'kg'),
   pa: null, cfrom: '', cto: '', tab: 'day', day: null, cat: '', range: 7, filter: '', chip: 'all', showAll: false, error: ''
 };
 if (!CURRENCIES.includes(S.currency)) S.currency = 'EUR';
@@ -426,7 +426,7 @@ function siteFooter() {
 const LOGO = '<img class="logo" src="/logo-mark.png" width="30" height="30" alt="">';
 const TABLBL = { coach: 'Clients', day: 'Diary', prices: 'Foods', progress: 'Progress', week: 'Spending', weight: 'Weight', goals: 'Daily goals' };
 const NAV = [['day', 'Diary'], ['progress', 'Progress'], ['prices', 'Foods'], ['meals', 'Meals']];
-const navOf = t => ['progress', 'weight', 'week', 'trends'].includes(t) ? 'progress' : t === 'goals' ? 'day' : t;
+const navOf = t => ['progress', 'weight', 'week', 'trends', 'charts'].includes(t) ? 'progress' : t === 'goals' ? 'day' : t;
 const tabLbl = t => TABLBL[t] || cap(t);
 const TABIC = {
   progress: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-9"/><path d="M15 6h6v6"/></svg>',
@@ -517,7 +517,7 @@ function updateBanner() {
 }
 const sbCollapsed = () => { try { return localStorage.getItem('mcc.sbcol') === '1'; } catch (e) { return false; } };
 function appView() {
-  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? progNav('week') + weekView() : S.tab === 'trends' ? progNav('trends') + trendsView() : S.tab === 'progress' ? progNav('progress') + progressView() : S.tab === 'weight' ? progNav('weight') + weightView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : S.tab === 'goals' ? goalsView() : S.tab === 'admin' ? adminView() : S.tab === 'more' ? moreView() : S.tab === 'pantry' ? pantryView() : S.tab === 'coach' ? coachView() : diaryView();
+  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? progNav('week') + weekView() : S.tab === 'trends' ? progNav('trends') + trendsView() : S.tab === 'charts' ? progNav('charts') + chartsView() : S.tab === 'progress' ? progNav('progress') + progressView() : S.tab === 'weight' ? progNav('weight') + weightView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : S.tab === 'goals' ? goalsView() : S.tab === 'admin' ? adminView() : S.tab === 'more' ? moreView() : S.tab === 'pantry' ? pantryView() : S.tab === 'coach' ? coachView() : diaryView();
   return `
   <div class="shell${sbCollapsed() ? ' sb-collapsed' : ''}">
   <header class="topbar"><div class="wrap">
@@ -1467,8 +1467,8 @@ function render() {
 }
 function route() {
   const h = location.hash.replace('#', ''), hc = /^coach(?:\/([0-9a-f-]{36}))?$/.exec(h);
-  let t = hc ? 'coach' : ['day', 'prices', 'week', 'trends', 'meals', 'account', 'goals', 'progress', 'weight', 'admin', 'more', 'pantry'].includes(h) ? h : 'day';
-  if (window.__mcView && !['day', 'progress', 'week', 'trends', 'weight'].includes(t)) t = 'day';
+  let t = hc ? 'coach' : ['day', 'prices', 'week', 'trends', 'charts', 'meals', 'account', 'goals', 'progress', 'weight', 'admin', 'more', 'pantry'].includes(h) ? h : 'day';
+  if (window.__mcView && !['day', 'progress', 'week', 'trends', 'weight', 'charts'].includes(t)) t = 'day';
   if (!window.__mcView && t === 'coach' && S.coachId !== (hc[1] || '')) { CO.tab = 'overview'; CO.err = ''; }
   S.coachId = hc ? (hc[1] || '') : '';
   const changed = t !== S.tab;
@@ -1501,7 +1501,7 @@ function toast(msg) {
 /* ============ persistence ============ */
 let _save;
 function saveSoon() { clearTimeout(_save); _save = setTimeout(saveAll, 250); }
-function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('meals', S.meals); store.set('pantry', S.pantry); store.set('pantryAuto', S.pantryAuto); store.set('foods', S.foods); store.set('started', S.started); store.set('tview', S.tview); store.set('vmacro', S.vmacro); store.set('grain', S.grain); store.set('trange', S.trange); store.set('goals', S.goals); store.set('plan', S.plan); store.set('weights', S.weights); store.set('wunit', S.wunit); }
+function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('meals', S.meals); store.set('pantry', S.pantry); store.set('pantryAuto', S.pantryAuto); store.set('foods', S.foods); store.set('started', S.started); store.set('tview', S.tview); store.set('vmacro', S.vmacro); store.set('grain', S.grain); store.set('trange', S.trange); store.set('goals', S.goals); store.set('plan', S.plan); store.set('bio', S.bio); store.set('weights', S.weights); store.set('wunit', S.wunit); }
 function saveEntries() { store.set('entries', S.entries.map(({ src, ...r }) => ({ ...r, name: src !== undefined ? src : r.name }))); }
 
 /* ============ import ============ */
@@ -2053,7 +2053,7 @@ function exportCsv() {
   toast('CSV downloaded');
 }
 function backup() {
-  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges, ranges: S.ranges, recipes: S.recipes, meals: S.meals, foods: S.foods, cats: S.cats, goals: S.goals, plan: S.plan, weights: S.weights, wunit: S.wunit };
+  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges, ranges: S.ranges, recipes: S.recipes, meals: S.meals, foods: S.foods, cats: S.cats, goals: S.goals, plan: S.plan, bio: S.bio, weights: S.weights, wunit: S.wunit };
   download('meal-cost-prices.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   toast('Backup downloaded');
 }
@@ -2098,6 +2098,7 @@ async function restore(file) {
     { const cg = cleanGoals(d.goals); if (cg) S.goals = cg; }
     if (Array.isArray(d.weights)) { const m = new Map(S.weights.map(w => [w.date, w])); for (const w of d.weights) if (w && /^\d{4}-\d{2}-\d{2}$/.test(w.date) && Number(w.kg) > 0) m.set(w.date, { date: w.date, kg: Number(w.kg) }); S.weights = [...m.values()].sort((a, b) => a.date < b.date ? -1 : 1); }
     if (d.plan) { const pl = cleanPlan(d.plan); if (pl) S.plan = pl; }
+    if (d.bio) { const nb = cleanBio(d.bio); for (const [k, m] of Object.entries(nb)) { const cur = S.bio[k] ? new Map(S.bio[k].pts.map(q => [q.date, q.v])) : new Map(); for (const q of m.pts) cur.set(q.date, q.v); S.bio[k] = { unit: m.unit || (S.bio[k] && S.bio[k].unit) || '', pts: [...cur].map(([date, v]) => ({ date, v })).sort((a, c) => a.date < c.date ? -1 : 1) }; } }
     if (d.wunit === 'lb' || d.wunit === 'kg') S.wunit = d.wunit;
     if (CURRENCIES.includes(d.currency)) S.currency = d.currency;
     if (d.budget > 0) S.budget = Number(d.budget);
@@ -2281,7 +2282,7 @@ document.addEventListener('click', e => {
     case 'restore': $('#pfile').click(); break;
     case 'reset':
       if (confirm('Delete all entries, prices, foods and meals from this device? This cannot be undone.')) {
-        store.clear(); S.entries = []; S.prices = NP(); S.overrides = NP(); S.merges = NP(); S.nomerge = []; S.ranges = []; S.recipes = NP(); S.meals = NP(); S.foods = NP(); S.started = false; MB.draft = null; MB.cmp = []; S.cats = {}; S.goals = null; S.plan = null; S.weights = []; S.wunit = 'kg'; S.prange = 7; indexRanges(); S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
+        store.clear(); S.entries = []; S.prices = NP(); S.overrides = NP(); S.merges = NP(); S.nomerge = []; S.ranges = []; S.recipes = NP(); S.meals = NP(); S.foods = NP(); S.started = false; MB.draft = null; MB.cmp = []; S.cats = {}; S.goals = null; S.plan = null; S.bio = {}; S.weights = []; S.wunit = 'kg'; S.prange = 7; indexRanges(); S.budget = null; S.day = null; S.filter = ''; S.chip = 'all'; reindex();
         history.replaceState(null, '', location.pathname); S.tab = 'day'; render(); toast('All data deleted');
       }
       break;

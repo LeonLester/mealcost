@@ -3,7 +3,7 @@
 
 const PLUS_IC = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
 const MORE_TABS = ['more', 'goals', 'meals', 'account', 'admin', 'pantry', 'coach'];
-const navOf2 = t => ['progress', 'weight', 'week', 'trends'].includes(t) ? 'progress' : MORE_TABS.includes(t) ? 'more' : t;
+const navOf2 = t => ['progress', 'weight', 'week', 'trends', 'charts'].includes(t) ? 'progress' : MORE_TABS.includes(t) ? 'more' : t;
 
 function navHtml() {
   if (window.__mcView && typeof coNavHtml === 'function') return coNavHtml();

@@ -1189,3 +1189,10 @@ body.viewing .plus,body.viewing .tab.plus,body.viewing .dz-top,body.viewing .swi
 .wlegend i{display:inline-block;width:22px;height:0;border-top:3px solid currentColor;margin-right:6px;vertical-align:middle}
 .wlegend .lg-act{color:var(--m-pro)}
 .wlegend .lg-plan{border-top-style:dashed}
+
+.ch-tabs,.ch-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:12px}
+.ch-pick{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--muted)}
+.ch-row{display:flex;gap:10px;align-items:flex-start;padding:7px 0}
+.ch-row input{margin-top:4px}
+.ch-card .chart-svg{margin-top:10px;display:block;width:100%;height:auto}
+@media print{.subnav,.ch-tabs,.ch-controls,.titlerow,header,nav,footer{display:none!important}}

@@ -208,6 +208,19 @@ function planEnd(plan) {
   return isoAdd(plan.start, Math.ceil(weeks * 7));
 }
 
+// Other body measurements (body fat, waist, blood pressure, glucose and so on): { name: { unit, pts: [{ date, v }] } }. Weight has its own list.
+function cleanBio(b) {
+  const out = {}; if (!b || typeof b !== 'object' || Array.isArray(b)) return out;
+  for (const name of Object.keys(b).slice(0, 40)) {
+    const m = b[name], nm = String(name).replace(/[\u0000-\u001f<>`{}\\]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (!nm || !m || typeof m !== 'object' || !Array.isArray(m.pts)) continue;
+    const by = new Map();
+    for (const q of m.pts.slice(0, 4000)) if (q && /^\d{4}-\d{2}-\d{2}$/.test(String(q.date)) && Number.isFinite(Number(q.v)) && Math.abs(Number(q.v)) < 1e7) by.set(q.date, Number(q.v));
+    if (by.size) out[nm] = { unit: String(m.unit || '').replace(/[^\w%/.\u00b0 -]/g, '').slice(0, 12), pts: [...by].map(([date, v]) => ({ date, v })).sort((a, c) => a.date < c.date ? -1 : 1) };
+  }
+  return out;
+}
+
 // Weight is stored in kg. Pounds are only for display and entry.
 const KG_LB = 2.2046226;
 function wShow(kg) { return S.wunit === 'lb' ? Math.round(kg * KG_LB * 10) / 10 : Math.round(kg * 10) / 10; }

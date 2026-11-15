@@ -43,10 +43,10 @@ function coBuild(raw) {
     merges: keep(g('merges'), v => typeof v === 'string'), nomerge: arr(g('nomerge')).filter(x => typeof x === 'string'), cats: keep(g('cats'), v => typeof v === 'string'),
     ranges: arr(g('ranges')).filter(r => isO(r) && typeof r.name === 'string' && ISO.test(r.from) && (!r.to || ISO.test(r.to)) && Number.isFinite(Number(r.price))),
     recipes: keep(g('recipes'), r => isO(r) && Array.isArray(r.items)), meals: NP(), pantry: NP(), foods: keep(g('foods'), isO),
-    goals: cleanGoals(g('goals')), plan: cleanPlan(g('plan')), weights: arr(g('weights')).filter(w => isO(w) && ISO.test(w.date) && nn(w.kg) > 0).map(w => ({ date: w.date, kg: nn(w.kg) })), wunit: g('wunit') === 'lb' ? 'lb' : 'kg'
+    goals: cleanGoals(g('goals')), plan: cleanPlan(g('plan')), bio: cleanBio(g('bio')), weights: arr(g('weights')).filter(w => isO(w) && ISO.test(w.date) && nn(w.kg) > 0).map(w => ({ date: w.date, kg: nn(w.kg) })), wunit: g('wunit') === 'lb' ? 'lb' : 'kg'
   };
 }
-const CO_SKEYS = ['entries', 'prices', 'overrides', 'currency', 'budget', 'merges', 'nomerge', 'cats', 'ranges', 'recipes', 'meals', 'foods', 'goals', 'plan', 'weights', 'wunit', 'pantry'];
+const CO_SKEYS = ['entries', 'prices', 'overrides', 'currency', 'budget', 'merges', 'nomerge', 'cats', 'ranges', 'recipes', 'meals', 'foods', 'goals', 'plan', 'bio', 'weights', 'wunit', 'pantry'];
 // Run fn with the app state swapped for a client's data, then put the coach's own data back. Nothing is saved while swapped.
 function coWith(snap, fn) {
   const own = {}; for (const k of CO_SKEYS) own[k] = S[k];
@@ -293,7 +293,7 @@ function coExit() {
   location.hash = 'coach/' + id; render();
 }
 // While viewing a client only these controls work. Everything else would change data.
-const CO_READ = new Set(['prev-day', 'next-day', 'pick-day', 'today', 'pnav', 'prange', 'week-step', 'tview', 'vmacro', 'vall', 'chip', 'toggle-all', 'nsort', 'sort-col', 'prow', 'toggle-unc', 'toggle-recipe', 'close-dlg', 'drawer', 'drawer-close', 'sb-toggle', 'theme', 'set-theme', 'copy-day', 'copy-week', 'export-csv', 'tour', 'tour-off']);
+const CO_READ = new Set(['prev-day', 'next-day', 'pick-day', 'today', 'pnav', 'prange', 'week-step', 'tview', 'vmacro', 'vall', 'chip', 'toggle-all', 'nsort', 'sort-col', 'prow', 'toggle-unc', 'toggle-recipe', 'close-dlg', 'drawer', 'drawer-close', 'sb-toggle', 'theme', 'set-theme', 'copy-day', 'copy-week', 'export-csv', 'tour', 'tour-off', 'ch-pick', 'ch-range', 'ch-days', 'ch-toggle', 'ch-svg', 'ch-csv', 'ch-print']);
 document.addEventListener('click', e => {
   if (!window.__mcView) return;
   const t = e.target.closest('[data-act]'); if (!t) return;
@@ -419,7 +419,7 @@ async function coImportFile(id, file) {
       const d = JSON.parse(text);
       if (d.app !== 'mealcost') throw new Error('That is not a Meal cost file.');
       await coSaveProfile(id, raw => {
-        for (const k of ['prices', 'overrides', 'currency', 'budget', 'merges', 'nomerge', 'ranges', 'cats', 'recipes', 'foods', 'goals', 'plan', 'wunit']) if (d[k] != null) raw[k] = JSON.stringify(d[k]);
+        for (const k of ['prices', 'overrides', 'currency', 'budget', 'merges', 'nomerge', 'ranges', 'cats', 'recipes', 'foods', 'goals', 'plan', 'bio', 'wunit']) if (d[k] != null) raw[k] = JSON.stringify(d[k]);
         if (Array.isArray(d.entries)) { const have = coBuild(raw).entries, dates = new Set(d.entries.map(e => e && e.date)); raw.entries = JSON.stringify(have.filter(e => !dates.has(e.date)).concat(d.entries).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)); }
         if (Array.isArray(d.weights)) { const m = new Map(coBuild(raw).weights.map(w => [w.date, w])); for (const w of d.weights) if (w && /^\d{4}-\d{2}-\d{2}$/.test(w.date) && Number(w.kg) > 0) m.set(w.date, { date: w.date, kg: Number(w.kg) }); raw.weights = JSON.stringify([...m.values()].sort((a, b) => a.date < b.date ? -1 : 1)); }
       });

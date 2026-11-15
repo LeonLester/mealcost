@@ -55,7 +55,7 @@ function exportData() {
     app: 'mealcost', version: 2, exported: new Date().toISOString(), currency: S.currency, budget: S.budget,
     entries: S.entries.map(({ src, ...r }) => ({ ...r, name: src !== undefined ? src : r.name })),
     prices: S.prices, overrides: S.overrides, merges: S.merges, nomerge: S.nomerge, ranges: S.ranges, recipes: S.recipes, meals: S.meals, foods: S.foods, cats: S.cats, pantry: S.pantry,
-    goals: S.goals, plan: S.plan, weights: S.weights, wunit: S.wunit
+    goals: S.goals, plan: S.plan, bio: S.bio, weights: S.weights, wunit: S.wunit
   };
 }
 function exportFiles() {
@@ -72,6 +72,7 @@ function exportFiles() {
   add('recipes.csv', csvOf(['Recipe', 'Servings', 'Yield (g)', 'Ingredient', 'Amount', 'Unit'], Object.entries(S.recipes).flatMap(([n, r]) => r.items.map(i => [n, r.servings, r.yieldG === '' ? '' : r.yieldG, i.name, xnum(i.qty), i.unit]))));
   add('meals.csv', csvOf(['Meal', 'Slot', 'Servings', 'Ingredient', 'Amount', 'Unit'], Object.entries(S.meals).flatMap(([n, m]) => m.items.map(i => [n, m.slot || '', m.servings, i.name, xnum(i.qty), i.unit]))));
   add('weights.csv', csvOf(['Date', 'Weight (kg)'], S.weights.map(w => [w.date, xnum(w.kg)])));
+  add('measurements.csv', csvOf(['Measurement', 'Date', 'Value', 'Unit'], Object.entries(S.bio).flatMap(([n, m]) => m.pts.map(q => [n, q.date, xnum(q.v), m.unit]))));
   add('pantry.csv', csvOf(['Food', 'Amount', 'Unit'], Object.entries(S.pantry).map(([n, v]) => [n, xnum(v.qty), v.unit])));
   const g = S.goals;
   add('goals.csv', csvOf(['Name', 'Value'], g ? [['kcal', g.kcal], ['protein_g', g.pro], ['carbs_g', g.carb], ['fat_g', g.fat], ['fiber_g', g.fiber]].concat(Object.entries(g.x || {}).map(([k, v]) => [k, v])) : []));

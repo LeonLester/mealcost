@@ -499,6 +499,7 @@ function openServing(name) {
   });
 }
 function diaryAct(a, d) {
+  if (a.startsWith('ch-')) return chartsAct(a, d);
   switch (a) {
     case 'serving-size': openServing(d.name); return true;
     case 'week-step': S.day = isoAdd(S.day || todayIso(), 7 * Number(d.dir)); render(); return true;
@@ -562,7 +563,7 @@ document.addEventListener('submit', e => { if (e.target.id === 'goalform') { e.p
 document.addEventListener('change', e => { if (e.target.id === 'daypick' && /^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) { S.day = e.target.value; render(); } });
 
 /* ---------- progress: nutrition and weight ---------- */
-const PNAV = [['progress', 'Nutrition'], ['weight', 'Weight'], ['week', 'Spending'], ['trends', 'Trends']];
+const PNAV = [['progress', 'Nutrition'], ['weight', 'Weight'], ['week', 'Spending'], ['trends', 'Trends'], ['charts', 'Charts']];
 function progNav(cur) {
   return `<nav class="subnav" aria-label="Progress sections">${PNAV.map(([t, l]) => `<a href="#${t}"${t === cur ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
 }
