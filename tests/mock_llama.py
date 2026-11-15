@@ -6,7 +6,7 @@ RECEIPT = {"store": "Test Market", "date": "2026-11-10", "currency": "EUR", "ite
     {"name": "Quark", "qty": 500, "unit": "g", "total": 1.5},
     {"name": "Eggs 10 pack", "qty": 1, "unit": "item", "total": 3.2}]}
 
-LABEL = {"name": "Skyr Natural", "brand": "Milko", "barcode": "8590000000017", "net_g": 140, "serving_g": 140,
+LABEL = {"name": "Skyr Natural", "brand": "Milko", "barcode": "8590000000017", "ingredients": "Skimmed milk, skyr cultures, rennet", "net_g": 140, "serving_g": 140,
     "per100": {"kcal": 63, "kj": 267, "protein": 11, "carbs": 4, "sugars": 4, "fat": 0.2, "satfat": 0.1, "fiber": None, "salt": 0.1, "sodium_mg": None},
     "perServing": None}
 

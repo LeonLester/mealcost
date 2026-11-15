@@ -904,6 +904,17 @@ try:
         check('a goal in the wrong direction is refused', 'opposite' in pl.inner_text('#plerr') and pl.evaluate("window.__mealcost.S.plan.goalKg") == 70 or pl.evaluate("window.__mealcost.S.plan.goalKg !== 95"))
         pl.click('[data-act="plan-remove"]'); pl.wait_for_selector('.pchart')
         check('removing the plan removes the line', pl.locator('.pchart .line.plan').count() == 0 and pl.evaluate("window.__mealcost.S.plan === null"))
+        pl.route('https://world.openfoodfacts.org/api/v2/product/**', lambda r: r.fulfill(status=200, content_type='application/json', body='{"status":1,"product":{"product_name":"Skyr","brands":"Milko","nutriments":{"energy-kcal_100g":63,"proteins_100g":11,"carbohydrates_100g":4,"fat_100g":0.2},"ingredients_text":"Skimmed milk, skyr cultures, rennet"}}'))
+        pl.goto(BASE + '#foods'); pl.wait_for_selector('main h1')
+        pl.evaluate("openFood()"); pl.wait_for_selector('#fform')
+        pl.fill('#fbc', '8590000000017'); pl.click('#fbl'); [pl.wait_for_timeout(100) for _ in range(30) if not pl.input_value('#fing')]
+        check('a barcode lookup brings the full ingredient list', pl.input_value('#fing') == 'Skimmed milk, skyr cultures, rennet' and pl.input_value('#fk') == '63')
+        pl.click('#fform [type=submit]'); pl.wait_for_timeout(300)
+        check('the ingredient list is saved with the food', pl.evaluate("window.__mealcost.S.foods['Milko Skyr'].ing") == 'Skimmed milk, skyr cultures, rennet')
+        pl.evaluate("openFood('Milko Skyr')"); pl.wait_for_selector('#fform')
+        check('and shown again when the food is edited', pl.input_value('#fing') == 'Skimmed milk, skyr cultures, rennet')
+        pl.click('[data-act="close-dlg"]')
+        pl.unroute('https://world.openfoodfacts.org/api/v2/product/**')
         check('no console errors or CSP violations', not errors and not errs2, errors + errs2)
         b.close()
 finally:

@@ -127,7 +127,7 @@ with sync_playwright() as pw:
         return pg.evaluate("([m, p, b]) => fetch(p, {method: m, headers: {'content-type': 'application/json', 'x-requested-with': 'mealcost'}, body: b == null ? undefined : JSON.stringify(b)}).then(async r => [r.status, await r.json().catch(() => ({}))])", [method, path, body])
     check('free user cannot scan labels', api(a, 'POST', '/api/label', {'table': IMG})[0] == 403)
     st, lab = api(adm, 'POST', '/api/label', {'table': IMG, 'front': IMG})
-    check('admin label scan returns a food', st == 200 and lab['food']['per'] == '100g' and lab['food']['kcal'] == 63 and lab['name'] == 'Milko Skyr Natural' and lab['barcode'] == '8590000000017', lab)
+    check('admin label scan returns a food', st == 200 and lab['food']['per'] == '100g' and lab['food']['kcal'] == 63 and lab['name'] == 'Milko Skyr Natural' and lab['barcode'] == '8590000000017' and lab['ingredients'] == 'Skimmed milk, skyr cultures, rennet', lab)
     check('label scan rejects non images', api(adm, 'POST', '/api/label', {'table': 'x'})[0] == 400)
 
     # coach tools

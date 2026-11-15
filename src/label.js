@@ -9,7 +9,7 @@ const LABEL_PROMPT = `Read the nutrition information from the second image (or t
 Copy numbers exactly as printed. The table may be in any European language, for example Czech (energie, tuky, z toho nasycene mastne kyseliny, sacharidy, z toho cukry, vlaknina, bilkoviny, sul, na 100 g, na porci), German, Slovak, Polish, French or English.
 Put the values printed for 100 g or 100 ml in "per100", and the values printed for one portion in "perServing". Use null for a whole block that is not printed, and null for any single value that is not printed. Never calculate or guess a value.
 "kj" is energy in kJ and "kcal" is energy in kcal; they are often printed together as "1050 kJ / 250 kcal". "sodium_mg" is sodium in milligrams, "salt" is salt in grams. "carbs" is the total carbohydrate line, "sugars" is the "of which sugars" line. Use a dot as the decimal separator.
-"serving_g" is the portion weight in grams or millilitres when printed (for example "1 portion (30 g)"), otherwise null. "net_g" is the pack weight when printed. "barcode" is the digits printed under a barcode, otherwise null. "name" is the product name as printed, and "brand" is the brand, or null.`;
+"ingredients" is the full ingredients list as printed, in the printed order and language, or null if it is not in the photos. "serving_g" is the portion weight in grams or millilitres when printed (for example "1 portion (30 g)"), otherwise null. "net_g" is the pack weight when printed. "barcode" is the digits printed under a barcode, otherwise null. "name" is the product name as printed, and "brand" is the brand, or null.`;
 
 const NUT_FIELDS = ['kcal', 'kj', 'protein', 'carbs', 'sugars', 'fat', 'satfat', 'fiber', 'salt', 'sodium_mg'];
 const nutSchema = {
@@ -17,10 +17,10 @@ const nutSchema = {
   properties: Object.fromEntries(NUT_FIELDS.map((k) => [k, { type: ['number', 'null'], minimum: 0, maximum: 100000 }])),
 };
 export const LABEL_SCHEMA = {
-  type: 'object', additionalProperties: false, required: ['name', 'brand', 'barcode', 'net_g', 'serving_g', 'per100', 'perServing'],
+  type: 'object', additionalProperties: false, required: ['name', 'brand', 'barcode', 'ingredients', 'net_g', 'serving_g', 'per100', 'perServing'],
   properties: {
     name: { type: ['string', 'null'], maxLength: 80 }, brand: { type: ['string', 'null'], maxLength: 60 },
-    barcode: { type: ['string', 'null'], maxLength: 14 },
+    barcode: { type: ['string', 'null'], maxLength: 14 }, ingredients: { type: ['string', 'null'], maxLength: 1500 },
     net_g: { type: ['number', 'null'], minimum: 0, maximum: 100000 }, serving_g: { type: ['number', 'null'], minimum: 0, maximum: 5000 },
     per100: nutSchema, perServing: nutSchema,
   },
@@ -95,7 +95,7 @@ export async function readLabel(req, env, json) {
     res = await fetch(`${env.LLAMA_URL.replace(/\/+$/, '')}/v1/chat/completions`, {
       method: 'POST', headers, signal: AbortSignal.timeout(100000),
       body: JSON.stringify({
-        temperature: 0, max_tokens: 900, chat_template_kwargs: { enable_thinking: false },
+        temperature: 0, max_tokens: 1400, chat_template_kwargs: { enable_thinking: false },
         response_format: { type: 'json_schema', json_schema: { name: 'label', strict: true, schema: LABEL_SCHEMA } },
         messages: [{ role: 'user', content }],
       }),
@@ -114,7 +114,7 @@ export async function readLabel(req, env, json) {
   const full = [brand, name].filter(Boolean).join(' ').slice(0, 60);
   const bc = String(out.barcode || '').replace(/\D/g, '');
   return json({
-    name: full && !looksLikeLink(full) ? full : '', barcode: bc.length >= 8 && bc.length <= 14 ? bc : '',
+    name: full && !looksLikeLink(full) ? full : '', barcode: bc.length >= 8 && bc.length <= 14 ? bc : '', ingredients: looksLikeLink(clean(out.ingredients, 1500)) ? '' : clean(out.ingredients, 1500),
     food: conv.food, extra: conv.extra, basis: conv.basis, serving_g: conv.serving_g, net_g: Number(out.net_g) > 0 ? Number(out.net_g) : null, warnings: conv.warnings,
   });
 }

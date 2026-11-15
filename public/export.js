@@ -68,7 +68,7 @@ function exportFiles() {
   add('prices.csv', csvOf(['Food', 'Price', 'Per', 'Grams per item'], Object.entries(S.prices).map(([n, p]) => [n, p.price === '' ? '' : xnum(p.price), p.basis === 'kg' ? 'kg or litre' : p.basis === 'unit' ? 'item' : '100 g or 100 ml', p.gpu === '' ? '' : xnum(p.gpu)])));
   add('price-periods.csv', csvOf(['Food', 'From', 'To', 'Price'], S.ranges.map(r => [r.name, r.from, r.to || '', xnum(r.price)])));
   add('one-day-offers.csv', csvOf(['Date', 'Food', 'Price'], Object.entries(S.overrides).flatMap(([dt, o]) => Object.entries(o).map(([n, v]) => [dt, n, xnum(v)]))));
-  add('foods.csv', csvOf(['Food', 'Per', 'kcal', 'Protein (g)', 'Carbs (g)', 'Fat (g)', 'Fiber (g)'], Object.entries(S.foods).map(([n, f]) => [n, f.per === 'item' ? '1 item' : '100 g or 100 ml', xnum(f.kcal), xnum(f.pro), xnum(f.carb), xnum(f.fat), xnum(f.fiber)])));
+  add('foods.csv', csvOf(['Food', 'Per', 'kcal', 'Protein (g)', 'Carbs (g)', 'Fat (g)', 'Fiber (g)', 'Ingredients'], Object.entries(S.foods).map(([n, f]) => [n, f.per === 'item' ? '1 item' : '100 g or 100 ml', xnum(f.kcal), xnum(f.pro), xnum(f.carb), xnum(f.fat), xnum(f.fiber), f.ing || ''])));
   add('recipes.csv', csvOf(['Recipe', 'Servings', 'Yield (g)', 'Ingredient', 'Amount', 'Unit'], Object.entries(S.recipes).flatMap(([n, r]) => r.items.map(i => [n, r.servings, r.yieldG === '' ? '' : r.yieldG, i.name, xnum(i.qty), i.unit]))));
   add('meals.csv', csvOf(['Meal', 'Slot', 'Servings', 'Ingredient', 'Amount', 'Unit'], Object.entries(S.meals).flatMap(([n, m]) => m.items.map(i => [n, m.slot || '', m.servings, i.name, xnum(i.qty), i.unit]))));
   add('weights.csv', csvOf(['Date', 'Weight (kg)'], S.weights.map(w => [w.date, xnum(w.kg)])));

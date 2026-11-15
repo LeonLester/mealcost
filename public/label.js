@@ -54,6 +54,7 @@ function lbFill(r) {
   set('#fk', r.food.kcal); set('#fp', r.food.pro); set('#fc', r.food.carb); set('#ff', r.food.fat); set('#ffi', r.extra && r.extra.fiber);
   if (r.food.per === 'item' && r.serving_g) set('#fg', r.serving_g);
   if (r.barcode) set('#fbc', r.barcode);
+  set('#fing', r.ingredients);
   const x = {}; if (r.extra) { if (r.extra.sugar > 0) x.sugar = r.extra.sugar; if (r.extra.satfat > 0) x.satfat = r.extra.satfat; if (r.extra.sodium > 0) x.sodium = r.extra.sodium; }
   dlg.dataset.x = Object.keys(x).length ? JSON.stringify(x) : '';
   const st = $('#fbs');

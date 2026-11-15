@@ -851,18 +851,19 @@ function openMerge(name) {
 
 /* ---- barcode lookup: Open Food Facts first, USDA FoodData Central as a fallback ---- */
 const r1 = x => Math.round(x * 10) / 10;
+const cleanIng = v => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>`{}\\]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 2000);
 async function lookupBarcode(raw) {
   const code = String(raw || '').replace(/\D/g, '');
   if (code.length < 8 || code.length > 14) throw new Error('Enter the digits printed under the barcode (8 to 14 numbers).');
   try {
-    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments`, { headers: { Accept: 'application/json' } });
+    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,nutriments,ingredients_text`, { headers: { Accept: 'application/json' } });
     if (r.ok) {
       const j = await r.json(), pr = j && j.status === 1 && j.product;
       if (pr) {
         const n = pr.nutriments || {}, kj = Number(n['energy_100g']);
         const kcal = Number.isFinite(Number(n['energy-kcal_100g'])) ? Number(n['energy-kcal_100g']) : Number.isFinite(kj) ? kj / 4.184 : 0;
         const nm = [String(pr.brands || '').split(',')[0].trim(), String(pr.product_name || '').trim()].filter(Boolean).join(' ');
-        if (nm) return { name: nm.slice(0, 60), kcal: r1(kcal), pro: r1(Number(n['proteins_100g']) || 0), carb: r1(Number(n['carbohydrates_100g']) || 0), fat: r1(Number(n['fat_100g']) || 0), source: 'Open Food Facts' };
+        if (nm) return { name: nm.slice(0, 60), kcal: r1(kcal), pro: r1(Number(n['proteins_100g']) || 0), carb: r1(Number(n['carbohydrates_100g']) || 0), fat: r1(Number(n['fat_100g']) || 0), ing: cleanIng(pr.ingredients_text), source: 'Open Food Facts' };
       }
     }
   } catch (e) { /* fall through to the second source */ }
@@ -873,7 +874,7 @@ async function lookupBarcode(raw) {
       if (f) {
         const g = id => { const x = (f.foodNutrients || []).find(y => String(y.nutrientNumber) === id); return x ? Number(x.value) || 0 : 0; };
         const nm = [String(f.brandName || f.brandOwner || '').trim(), String(f.description || '').trim()].filter(Boolean).join(' ');
-        return { name: nm.slice(0, 60), kcal: r1(g('208')), pro: r1(g('203')), carb: r1(g('205')), fat: r1(g('204')), source: 'USDA FoodData Central' };
+        return { name: nm.slice(0, 60), kcal: r1(g('208')), pro: r1(g('203')), carb: r1(g('205')), fat: r1(g('204')), ing: cleanIng(f.ingredients), source: 'USDA FoodData Central' };
       }
     }
   } catch (e) { /* not found */ }
@@ -920,11 +921,12 @@ function openFood(name) {
     <div class="fgrid"><div><label for="ffi">Fiber g</label><input class="field" id="ffi" inputmode="decimal" placeholder="optional" value="${v(cf && cf.fiber)}"></div><div></div></div>
     <div class="fgrid"><div><label for="fpr">Price (${esc(sym)})</label><input class="field" id="fpr" inputmode="decimal" placeholder="optional" value="${v(p && p.price)}"></div><div><label for="fpb">Price per</label><select class="field" id="fpb"><option value="kg"${p && p.basis === 'kg' ? ' selected' : ''}>kg or litre</option><option value="100"${!p || p.basis === '100' ? ' selected' : ''}>100 g or 100 ml</option><option value="unit"${p && p.basis === 'unit' ? ' selected' : ''}>item</option></select></div></div>
     <div id="fgw"${per === 'item' ? '' : ' hidden'}><label for="fg">Grams per item</label><input class="field" style="width:100%" id="fg" inputmode="decimal" placeholder="optional, lets a per-kg price work" value="${v(p && p.gpu)}"></div>
+    <div><label for="fing">Ingredients</label><textarea class="field" style="width:100%;min-height:64px" id="fing" maxlength="2000" placeholder="optional, filled in by a barcode lookup or label scan">${esc(cf && cf.ing || '')}</textarea></div>
     <div id="ferr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">${cf ? 'Save' : 'Add food'}</button><button type="button" class="btn" data-act="close-dlg">Cancel</button>${cf ? `<button type="button" class="btn link" data-act="del-food" data-name="${esc(name)}">Delete</button>` : ''}</div>
   </form>`;
   dlg.dataset.x = cf && cf.x ? JSON.stringify(cf.x) : '';
-  const fill = r => { $('#fn').value = r.name; $('#fper').value = '100g'; $('#fgw').hidden = true; $('#fk').value = r.kcal; $('#fp').value = r.pro; $('#fc').value = r.carb; $('#ff').value = r.fat; };
+  const fill = r => { $('#fn').value = r.name; $('#fper').value = '100g'; $('#fgw').hidden = true; $('#fk').value = r.kcal; $('#fp').value = r.pro; $('#fc').value = r.carb; $('#ff').value = r.fat; if (r.ing) $('#fing').value = r.ing; };
   const doLookup = async code => {
     const st = $('#fbs'); st.textContent = 'Looking it up...';
     try { const r = await lookupBarcode(code); if (r) { fill(r); st.textContent = `Found in ${r.source}. Check the values, then add your price. Per 100 g.`; $('#fpr').focus(); } else st.textContent = 'Not found in Open Food Facts or USDA FoodData Central. Enter it by hand.'; }
@@ -954,6 +956,7 @@ function openFood(name) {
     if (prs !== '' && (!/^\d+([.,]\d+)?$/.test(prs) || price < 0)) { err('Price must be a number, zero or more.'); $('#fpr').focus(); return; }
     const gpu = num($('#fg').value);
     S.foods[nm] = { per: $('#fper').value, kcal, pro, carb, fat };
+    { const ing = cleanIng($('#fing').value); if (ing) S.foods[nm].ing = ing; }
     { const fib = num($('#ffi').value); if (fib > 0) S.foods[nm].fiber = fib; let xs = null; try { xs = dlg.dataset.x ? JSON.parse(dlg.dataset.x) : null; } catch (e2) { xs = null; } if (xs) { const xo = {}; for (const m of NUT_X) if (Object.prototype.hasOwnProperty.call(xs, m.k) && Number(xs[m.k]) > 0) xo[m.k] = Number(xs[m.k]); if (Object.keys(xo).length) S.foods[nm].x = xo; } }
     S.prices[nm] = { price, basis: $('#fpb').value, gpu: $('#fper').value === 'item' && gpu > 0 ? gpu : '' };
     S.started = true; reindex(); ensurePrices(); saveAll(); dlg.close(); render(); toast(cf ? 'Food saved' : `${nm} added`);
@@ -2086,7 +2089,7 @@ async function restore(file) {
     for (const [n, f] of Object.entries(d.foods && typeof d.foods === 'object' ? d.foods : {})) {
       if (!f || typeof f !== 'object') continue;
       const nn = x => Number.isFinite(Number(x)) && Number(x) >= 0 ? Number(x) : 0;
-      S.foods[n] = { per: f.per === 'item' ? 'item' : '100g', kcal: nn(f.kcal), pro: nn(f.pro), carb: nn(f.carb), fat: nn(f.fat) };
+      S.foods[n] = { per: f.per === 'item' ? 'item' : '100g', kcal: nn(f.kcal), pro: nn(f.pro), carb: nn(f.carb), fat: nn(f.fat), ...(cleanIng(f.ing) ? { ing: cleanIng(f.ing) } : {}) };
       if (nn(f.fiber) > 0) S.foods[n].fiber = nn(f.fiber);
       if (f.x && typeof f.x === 'object') { const xo = {}; for (const m of NUT_X) if (Object.prototype.hasOwnProperty.call(f.x, m.k) && nn(f.x[m.k]) > 0) xo[m.k] = nn(f.x[m.k]); if (Object.keys(xo).length) S.foods[n].x = xo; }
     }
