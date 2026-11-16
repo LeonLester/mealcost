@@ -10,7 +10,7 @@
     if (t === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
     const d = isDark();
     const m = document.querySelector('meta[name=theme-color]');
-    if (m) m.setAttribute('content', d ? '#0D0D0D' : '#FFFFFF');
+    if (m) m.setAttribute('content', d ? '#0D0D0D' : '#EEEEEC');
     try {
       const C = window.Capacitor, SB = C && C.Plugins && C.Plugins.SystemBars;
       if (SB && SB.setStyle) SB.setStyle({ style: d ? 'DARK' : 'LIGHT' }).catch(() => {});

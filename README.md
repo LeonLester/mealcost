@@ -23,6 +23,8 @@ Live at https://mealcost.coachleonidas.com
 - Categories come from the Cronometer Category column. Assign them to uncategorized foods on the Foods tab.
 - Sort foods by protein, carbs, fat or fiber per 100 g or per 100 kcal.
 - Trends: cost per 100 g protein, carbs, fat, per 10 g fiber and per 1,000 kcal by day or week, plus spend by category.
+- Food page: tapping a diary entry or logging a food opens a Cronometer-style page with the amount controls and a live nutrition panel (energy, share from protein, carbs and fat, every nutrient with percent of your daily target, cost, ingredients). Vitamins, minerals and fat detail show when the food has them.
+- Look: a light grey page with white cards, as in Cronometer. Dark mode is unchanged.
 - Charts: a Cronometer-style library under Progress. Energy consumed (stacked protein, carbs, fat against the calorie goal), single nutrient with its target, nutrition score, electrolytes, food cost, single biometric, weight with body fat or waist, blood pressure and heart rate, lipid panel, Glucose Ketone Index and a custom two-variable chart. Timeframes from 7 days to all, custom dates, all/logged/completed days, 7-day trend, target line, zoom to fit, image (SVG) and data (CSV) download, print, and a Manage charts list. Measurements other than weight come from a Cronometer biometrics export or the Log a measurement button and sync like other data. Sleep stages, CGM traces and calcium absorption are not included.
 - Meal builder tab: combine foods and recipes, see cost (always from current prices) and nutrition, save, edit, duplicate, compare two meals, add to the diary.
 - Backup and restore as JSON (prices, offers, merges, periods, recipes, meals, categories), CSV export, copy as text, 1080x1350 share image.

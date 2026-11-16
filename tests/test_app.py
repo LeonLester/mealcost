@@ -290,7 +290,7 @@ try:
         pr2.goto(BASE + '#day'); pr2.wait_for_selector('.pricetag .n')
         import datetime as _dt
         _d = _dt.date.today() - _dt.timedelta(days=2)
-        pr2.click('.dz-day[data-date="' + _d.isoformat() + '"]'); pr2.wait_for_selector('[data-act="toggle-recipe"]')
+        pr2.evaluate("d => { window.__mealcost.S.day = d; render(); }", _d.isoformat()); pr2.wait_for_selector('[data-act="toggle-recipe"]')
         pr2.locator('[data-act="toggle-recipe"]').first.click()
         check('ingredients expand under the recipe line', pr2.locator('.subitem').count() == 2)
         pr2.goto(BASE + '#trends'); pr2.wait_for_selector('#tgrain')
@@ -493,7 +493,7 @@ try:
             check(f'phone: {tab} keeps the tab bar on screen', m[0] == m[1] and m[2] <= m[3] and m[4] and m[5] == 0, m)
         ph.evaluate("document.getElementById('scroller').scrollTop = 400"); ph.wait_for_timeout(200)
         check('phone: tab bar stays put while scrolling', ph.evaluate("Math.round(document.querySelector('.tabs').getBoundingClientRect().bottom) === innerHeight"))
-        check('theme starts on auto/light', ph.evaluate("MealTheme.get()") == 'auto' and ph.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(255, 255, 255)')
+        check('theme starts on auto/light', ph.evaluate("MealTheme.get()") == 'auto' and ph.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(238, 238, 236)')
         ph.click('a.tab:has-text("More")'); ph.click('#morebody [data-act=theme]'); ph.wait_for_selector('#dlg [data-act=set-theme]'); ph.click('#dlg [data-v=dark]')
         check('theme menu picks dark', ph.evaluate("document.documentElement.getAttribute('data-theme')") == 'dark' and ph.evaluate("getComputedStyle(document.body).backgroundColor") == 'rgb(13, 13, 13)')
         ph.evaluate("location.hash='meals'"); ph.wait_for_selector('[data-act=meal-open], #mform'); (ph.locator('[data-act=meal-open]').click() if ph.locator('[data-act=meal-open]').count() else None)
@@ -1004,6 +1004,15 @@ try:
         pl.evaluate("""() => { importBiometrics('Day,Metric,Unit,Amount\\n2026-01-03,Weight,kg,80\\n2026-01-03,Heart Rate,bpm,58\\n2026-01-04,Heart Rate,bpm,60\\n'); }""")
         hr = pl.evaluate("[S.bio['Heart Rate'] && S.bio['Heart Rate'].pts.length, S.weights.some(w => w.date === '2026-01-03')]")
         check('biometrics import keeps other metrics as well as weight', hr == [2, True], hr)
+        # ---- food page ----
+        pl.evaluate("""() => { S.entries = [{ date: todayIso(), group: 'Lunch', name: 'Oats', src: 'Oats', qty: 100, unit: 'g', type: 'mass', kcal: 380, pro: 13, carb: 60, fat: 7, fiber: 10, x: { sodium: 10, potassium: 400 } }]; reindex(); openEntry(0); }""")
+        pl.wait_for_selector('#eprev .fp')
+        check('the food page shows energy, macros and nutrient groups for the amount', pl.inner_text('#eprev .fp-kcal') == '380' and 'Protein' in pl.inner_text('#eprev') and pl.locator('#eprev .fp-group').count() == 3)
+        pl.fill('#eq', '50'); pl.wait_for_timeout(150)
+        check('changing the amount rescales the page', pl.inner_text('#eprev .fp-kcal') == '190')
+        pl.click('#eprev summary:has-text("Minerals")'); pl.fill('#eq', '60'); pl.wait_for_timeout(150)
+        check('minerals expand and show percent of target', 'Sodium' in pl.inner_text('#eprev') and 'Potassium' in pl.inner_text('#eprev'))
+        pl.click('#dlg [data-act="close-dlg"]')
         # ---- receipt currency ----
         pl.evaluate("""() => { S.currency = 'EUR'; S.prices['Oats'] = S.prices['Oats'] || { price: '', basis: 'kg', gpu: '' }; S.prices['Oats'].price = 3; rcDialog({ store: 'Albert', date: '2026-11-15', currency: 'CZK', items: [{ name: 'Oats', qty: 1, unit: 'kg', total: 50 }] }); }""")
         rt = pl.inner_text('#rcform')

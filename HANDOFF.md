@@ -64,3 +64,6 @@ Owner: Leonidas (GitHub LeonLester, personal email leonidask914@gmail.com for co
 
 ## Charts
 `public/charts.js` holds the chart library, SVG engine, Manage charts and Log a measurement dialogs. Actions are `ch-*`, routed from `diaryAct`. Other measurements live in `S.bio` (`{ name: { unit, pts } }`, `cleanBio` in nutrition.js), a synced key wired through app.js, export.js (data.json and measurements.csv), sync.js, coach.js and src/coach.js (weights scope). Metric names are matched by regex (`CH_BIO`) and are not verified against real Cronometer exports; mg/dL values for glucose and lipids are converted to mmol/L when the unit says so. Chart UI choices and hidden charts are local only (`chui`, `chhide`). Field ids in dialogs must stay unique across the app (`mform` and `mn` already belong to the meal builder).
+
+## Food page and grey theme
+`public/foodpage.js` renders the nutrition panel (`fpPanel`) inside the entry dialog (`openEntry`, ids unchanged). Light theme now sets `--paper` to grey (page) and `--card` to white (surfaces); dark values are untouched. Meal sections in the diary are cards. The panel skips re-rendering when the food, amount, unit and day are unchanged so open groups are not collapsed by a blur.

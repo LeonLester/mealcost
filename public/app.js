@@ -1958,16 +1958,16 @@ function recentChips() {
 }
 function openEntry(i, date, group) {
   const cur = i >= 0 ? S.entries[i] : null;
-  const dlg = $('#dlg'); dlg.classList.remove('wide');
+  const dlg = $('#dlg'); dlg.classList.add('wide');
   const d0 = cur ? cur.date : (date || S.day || mealToday());
   const g0 = cur ? cur.group : (group || 'Breakfast');
   const groups = [...new Set(['Breakfast', 'Lunch', 'Dinner', 'Snacks', g0])];
   const names = [...IDX.meta.keys()].sort((a, b) => a.localeCompare(b));
   const u0 = cur ? (cur.type === 'count' ? 'item' : cur.type === 'volume' ? 'ml' : 'g') : 'g';
   dlg.innerHTML = `<form id="eform" method="dialog">
-    <h2 id="dlg-title" style="font-size:20px">${cur ? 'Edit entry' : 'Log a food'}</h2>
-    <div><label for="ed">Day</label><input class="field" style="width:100%" type="date" id="ed" value="${esc(d0)}"></div>
-    <div><label for="eg">Meal</label><select class="field" style="width:100%" id="eg">${groups.map(g => `<option${g === g0 ? ' selected' : ''}>${esc(g)}</option>`).join('')}</select></div>
+    <h2 id="dlg-title" style="font-size:20px">${cur ? esc(cur.name) : 'Log a food'}</h2>
+    <div class="fp-ctl"><div><label for="ed">Day</label><input class="field" style="width:100%" type="date" id="ed" value="${esc(d0)}"></div>
+    <div><label for="eg">Meal</label><select class="field" style="width:100%" id="eg">${groups.map(g => `<option${g === g0 ? ' selected' : ''}>${esc(g)}</option>`).join('')}</select></div></div>
     <div><label for="en">Food</label><input class="field" style="width:100%" id="en" list="elist" autocomplete="off" placeholder="Start typing a food name" value="${esc(cur ? cur.name : '')}"><datalist id="elist">${names.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist></div>
     <div style="display:flex;gap:10px"><div style="flex:1"><label for="eq">Amount</label><input class="field" style="width:100%" id="eq" inputmode="decimal" value="${cur ? esc(String(cur.qty)) : ''}"></div>
     <div style="flex:1"><label for="eu">Unit</label><select class="field" style="width:100%" id="eu">${[['g', 'grams'], ['ml', 'millilitres'], ['item', 'items']].map(([v, t]) => `<option value="${v}"${v === u0 ? ' selected' : ''}>${t}</option>`).join('')}</select></div></div>
@@ -1979,11 +1979,11 @@ function openEntry(i, date, group) {
   </form>`;
   const preview = () => {
     const n = canon($('#en').value.trim()), qty = num($('#eq').value), unit = $('#eu').value, box = $('#eprev');
-    if (!IDX.meta.has(n) || !(qty > 0)) { box.textContent = ''; return; }
-    const o = perUnit(n, unit === 'item' ? 'item' : 'g'); if (!o) { box.textContent = ''; return; }
-    const e = { date: $('#ed').value || d0, name: n, src: n, qty, unit, type: unit === 'item' ? 'count' : unit === 'ml' ? 'volume' : 'mass', kcal: o.k * qty, pro: o.p * qty, carb: o.c * qty, fat: o.f * qty, fiber: o.b * qty };
-    const c = costOf(e), gk = goalFor('kcal');
-    box.innerHTML = `<b>${n0(e.kcal)} kcal</b> <span class="muted">P ${n0(e.pro)} g, C ${n0(e.carb)} g, F ${n0(e.fat)} g${c.cost != null ? ', ' + money(c.cost) : ''}${gk ? ', ' + n0(e.kcal / gk * 100) + '% of your day' : ''}</span>`;
+    if (!IDX.meta.has(n) || !(qty > 0)) { box.innerHTML = IDX.meta.has(n) ? '<p class="muted">Enter an amount to see its nutrition.</p>' : ''; return; }
+    const sig = [n, qty, unit, $('#ed').value].join('|'); if (box.dataset.sig === sig && box.querySelector('.fp')) return; box.dataset.sig = sig;
+    const openG = new Set([...box.querySelectorAll('details[open] > summary')].map(x => x.textContent)), had = !!box.querySelector('.fp');
+    box.innerHTML = fpPanel(n, qty, unit, $('#ed').value || d0);
+    if (had) box.querySelectorAll('details > summary').forEach(x => { x.parentElement.open = openG.has(x.textContent); });
   };
   ['#en', '#eq', '#eu', '#ed'].forEach(id => { $(id).addEventListener('input', preview); $(id).addEventListener('change', preview); });
   dlg.querySelectorAll('[data-recent]').forEach(b => b.addEventListener('click', () => { $('#en').value = b.dataset.recent; $('#en').dispatchEvent(new Event('change')); $('#eq').focus(); preview(); }));

@@ -152,7 +152,7 @@ function chBuild(id, st, days) {
 
 /* ---------- drawing ---------- */
 function chCol(c, res) { return res && c.startsWith('var(') ? (res[c.slice(4, -1)] || '#888') : c; }
-function chResolve() { const cs = getComputedStyle(document.documentElement), o = {}; for (const k of ['--m-kcal', '--m-pro', '--m-carb', '--m-fat', '--m-fib', '--m-lim', '--m-cost', '--ink', '--muted', '--line', '--paper']) o[k] = cs.getPropertyValue(k).trim() || '#888'; return o; }
+function chResolve() { const cs = getComputedStyle(document.documentElement), o = {}; for (const k of ['--m-kcal', '--m-pro', '--m-carb', '--m-fat', '--m-fib', '--m-lim', '--m-cost', '--ink', '--muted', '--line', '--card']) o[k] = cs.getPropertyValue(k).trim() || '#888'; return o; }
 function chFmt(v) { const a = Math.abs(v); return new Intl.NumberFormat(undefined, { maximumFractionDigits: a >= 100 ? 0 : a >= 10 ? 1 : 2 }).format(v); }
 function chRoll(pts) {
   return pts.map((q, i) => { const lo = isoAdd(q.date, -6), w = pts.slice(0, i + 1).filter(p => p.date >= lo); return { date: q.date, v: w.reduce((a, p) => a + p.v, 0) / w.length }; });
@@ -200,7 +200,7 @@ function chSvg(spec, days, st, res) {
     } else if (s.pts.length) {
       const pts = s.pts.map(q => `${X(q.date).toFixed(1)},${Y(a, q.v).toFixed(1)}`).join(' ');
       g += `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round"/>`;
-      if (s.pts.length <= 70) g += s.pts.map(q => `<circle cx="${X(q.date).toFixed(1)}" cy="${Y(a, q.v).toFixed(1)}" r="3.5" fill="${res ? res['--paper'] : 'var(--paper)'}" stroke="${c}" stroke-width="2"><title>${esc(dMed(q.date))}: ${chFmt(q.v)} ${esc(s.unit)} ${esc(s.label)}</title></circle>`).join('');
+      if (s.pts.length <= 70) g += s.pts.map(q => `<circle cx="${X(q.date).toFixed(1)}" cy="${Y(a, q.v).toFixed(1)}" r="3.5" fill="${res ? res['--card'] : 'var(--card)'}" stroke="${c}" stroke-width="2"><title>${esc(dMed(q.date))}: ${chFmt(q.v)} ${esc(s.unit)} ${esc(s.label)}</title></circle>`).join('');
     }
   }
   if (st.trend) {
@@ -209,7 +209,7 @@ function chSvg(spec, days, st, res) {
   }
   let lx = pl; const leg = spec.series.map(s => { const x = lx; lx += 24 + s.label.length * 7 + (s.axis ? 34 : 0); return `<rect x="${x}" y="9" width="12" height="12" rx="2" fill="${chCol(s.color, res)}"/><text x="${x + 17}" y="20" font-size="13" fill="${ink}">${esc(s.label)}${s.axis ? ' (right axis)' : ''}</text>`; }).join('') + (st.trend ? `<line x1="${lx}" x2="${lx + 18}" y1="15" y2="15" stroke="${ink}" stroke-width="2" stroke-dasharray="5 3"/><text x="${lx + 23}" y="20" font-size="13" fill="${ink}">7-day average</text>` : '');
   const sum = spec.series.map(s => s.pts.length ? `${s.label}: ${s.pts.length} points, latest ${chFmt(s.pts[s.pts.length - 1].v)} ${s.unit}` : `${s.label}: no data`).join('. ');
-  return `<svg xmlns="http://www.w3.org/2000/svg" class="chart-svg" viewBox="0 0 ${W} ${H}" width="${res ? W : '100%'}" ${res ? `height="${H}"` : ''} role="img" aria-label="${esc(spec.title + '. ' + sum)}" font-family="system-ui,sans-serif">${res ? `<rect width="${W}" height="${H}" fill="${res['--paper']}"/>` : ''}${leg}${g}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" class="chart-svg" viewBox="0 0 ${W} ${H}" width="${res ? W : '100%'}" ${res ? `height="${H}"` : ''} role="img" aria-label="${esc(spec.title + '. ' + sum)}" font-family="system-ui,sans-serif">${res ? `<rect width="${W}" height="${H}" fill="${res['--card']}"/>` : ''}${leg}${g}</svg>`;
 }
 
 /* ---------- view ---------- */
