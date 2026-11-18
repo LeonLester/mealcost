@@ -189,6 +189,49 @@ async function openPrices(q, cur) {
   }));
   return res.filter(Boolean);
 }
+
+// Food search through USDA FoodData Central. Maps its nutrient numbers onto the app's own nutrient keys, per 100 g.
+const USDA_MAP = { 203: 'pro', 205: 'carb', 204: 'fat', 291: 'fiber', 269: 'sugar', 539: 'addsugar', 307: 'sodium', 306: 'potassium', 301: 'calcium', 304: 'magnesium', 303: 'iron', 309: 'zinc', 315: 'manganese', 312: 'copper', 305: 'phosphorus', 317: 'selenium', 320: 'vitA', 401: 'vitC', 430: 'vitK', 435: 'folate', 418: 'b12', 404: 'b1', 405: 'b2', 406: 'b3', 410: 'b5', 415: 'b6', 323: 'vitE', 606: 'satfat', 645: 'monofat', 646: 'polyfat', 605: 'transfat', 601: 'chol', 507: 'cystine', 512: 'histidine', 503: 'isoleucine', 504: 'leucine', 505: 'lysine', 506: 'methionine', 508: 'phenylalanine', 502: 'threonine', 501: 'tryptophan', 509: 'tyrosine', 510: 'valine', 851: 'ala', 629: 'epa', 621: 'dha', 675: 'la', 620: 'aa' };
+function usdaFood(f) {
+  const v = {}, put = (k, x) => { if (Number.isFinite(x) && x >= 0 && v[k] === undefined) v[k] = x; };
+  for (const n of f.foodNutrients || []) {
+    const num = Number(n.nutrientNumber), val = Number(n.value);
+    if (!Number.isFinite(val)) continue;
+    if (num === 208 || num === 957 || num === 958) { if (n.unitName === 'KCAL' || n.unitName === 'kcal') put('kcal', val); }
+    else if (num === 324) put('vitDiu', val);
+    else if (num === 328) put('vitDug', val);
+    else if (num === 417) put('folate417', val);
+    else if (num === 293 || /fiber, soluble/i.test(n.nutrientName || '')) put('fibsol', val);
+    else if (num === 297 || /fiber, insoluble/i.test(n.nutrientName || '')) put('fibins', val);
+    else if (USDA_MAP[num]) put(USDA_MAP[num], val);
+  }
+  const out = { kcal: 0, pro: v.pro || 0, carb: v.carb || 0, fat: v.fat || 0, fiber: v.fiber || 0, x: {} };
+  out.kcal = v.kcal !== undefined ? v.kcal : Math.round(out.pro * 4 + out.carb * 4 + out.fat * 9);
+  const skip = new Set(['kcal', 'pro', 'carb', 'fat', 'fiber', 'vitDiu', 'vitDug', 'folate417']);
+  for (const k in v) if (!skip.has(k) && v[k] > 0) out.x[k] = Math.round(v[k] * 1000) / 1000;
+  if (!out.x.folate && v.folate417 > 0) out.x.folate = v.folate417;
+  const d = v.vitDiu !== undefined ? v.vitDiu : v.vitDug !== undefined ? v.vitDug * 40 : 0;
+  if (d > 0) out.x.vitD = Math.round(d * 10) / 10;
+  if (out.carb > 0) out.x.netcarb = Math.max(0, Math.round((out.carb - out.fiber) * 100) / 100);
+  const om3 = (out.x.ala || 0) + (out.x.epa || 0) + (out.x.dha || 0), om6 = (out.x.la || 0) + (out.x.aa || 0);
+  if (om3 > 0) out.x.omega3 = Math.round(om3 * 1000) / 1000;
+  if (om6 > 0) out.x.omega6 = Math.round(om6 * 1000) / 1000;
+  const sz = Number(f.servingSize), unit = String(f.servingSizeUnit || '').toLowerCase();
+  return { id: f.fdcId, name: String(f.description || '').slice(0, 80), brand: String(f.brandName || f.brandOwner || '').slice(0, 40), kind: f.dataType === 'Branded' ? 'Branded' : 'Generic', serving: sz > 0 && (unit === 'g' || unit === 'ml' || unit === 'grm' || unit === 'mlt') ? { g: sz, label: String(f.householdServingFullText || '').slice(0, 40) } : null, ...out };
+}
+async function foodSearch(env, url) {
+  const q = (url.searchParams.get('q') || '').trim().slice(0, 80);
+  if (q.length < 2) return json({ foods: [] });
+  const key = env.USDA_KEY || 'DEMO_KEY';
+  const api = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(q)}&dataType=Foundation,SR%20Legacy,Branded&pageSize=25&api_key=${encodeURIComponent(key)}`;
+  try {
+    const r = await fetch(api, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return json({ foods: [], error: r.status === 429 ? 'busy' : 'upstream' });
+    const j = await r.json();
+    const foods = (j.foods || []).map(usdaFood).filter(f => f.name && (f.kcal > 0 || f.pro > 0 || f.carb > 0 || f.fat > 0));
+    return json({ foods }, 200, { 'cache-control': 'public, max-age=3600' });
+  } catch (e) { return json({ foods: [], error: 'upstream' }); }
+}
 async function refPrices(env, url) {
   const q = (url.searchParams.get('q') || '').trim().toLowerCase().slice(0, 60);
   const cur = /^[A-Z]{3}$/.test(url.searchParams.get('cur') || '') ? url.searchParams.get('cur') : 'EUR';
@@ -426,6 +469,8 @@ export default {
         if (tok) await env.DB.prepare('DELETE FROM sessions WHERE hash = ?').bind(await sha256(tok)).run();
         return withCors(json({ ok: true }, 200, { 'set-cookie': setCookie(url, 'mc_s', '', 0) }), req);
       }
+      if (url.pathname === '/api/food-search' && await ipLimited(req, env, 'food', 60, 60)) return withCors(tooMany(60), req);
+      if (url.pathname === '/api/food-search' && req.method === 'GET') return withCors(await foodSearch(env, url), req);
       if (url.pathname === '/api/ref-prices' && await ipLimited(req, env, 'ref', 30, 60)) return withCors(tooMany(60), req);
       if (url.pathname === '/api/ref-prices' && req.method === 'GET') return withCors(await refPrices(env, url), req);
       if (url.pathname.startsWith('/api/')) return withCors(await api(req, env, url), req);

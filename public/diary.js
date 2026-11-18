@@ -139,13 +139,13 @@ function moveMeal(key, dir, all) {
   [keys[i], keys[j]] = [keys[j], keys[i]]; S.morder = keys; store.set('morder', keys);
 }
 /* Every nutrient of one meal, with its share of the daily goal. */
-function mealNutrients(t) {
+function mealNutrients(t, label) {
   const row = (n, v, u, gl, lim) => `<tr><th scope="row">${n}${lim ? ' <small class="muted">limit</small>' : ''}</th><td>${nfx(v)} ${u}</td><td class="muted">${gl > 0 ? Math.round(v / gl * 100) + '%' : ''}</td></tr>`;
   const core = NUT_CORE.map(n => row(n.n, t[n.k], n.u, goalFor(n.k), false)).join('');
   const have = NUT_X.some(n => t.x[n.k] > 0);
   const groups = [...new Set(NUT_X.map(n => n.grp))];
-  const more = have ? groups.map(gr => `<tr class="gh"><th colspan="3">${gr}</th></tr>${NUT_X.filter(n => n.grp === gr).map(n => row(n.n, t.x[n.k] || 0, n.u, goalFor(n.k), n.kind === 'limit')).join('')}`).join('') : `<tr><td colspan="3" class="muted">Vitamins and minerals only come with a Cronometer export.</td></tr>`;
-  return `<div class="dz-mnut"><table><thead><tr><th>Nutrient</th><th>In this meal</th><th>Of daily goal</th></tr></thead><tbody>${core}${more}</tbody></table></div>`;
+  const more = have ? groups.map(gr => `<tr class="gh"><th colspan="3">${gr}</th></tr>${NUT_X.filter(n => n.grp === gr).map(n => row(n.n, t.x[n.k] || 0, n.u, goalFor(n.k), n.kind === 'limit')).join('')}`).join('') : `<tr><td colspan="3" class="muted">Vitamins, minerals and amino acids only come with a Cronometer export.</td></tr>`;
+  return `<div class="dz-mnut"><table><thead><tr><th>Nutrient</th><th>${label || 'In this meal'}</th><th>Of daily goal</th></tr></thead><tbody>${core}${more}</tbody></table></div>`;
 }
 function mealSection(g, list, day, pos) {
   const t = nutTotals(list), k = mkey(g), folded = mealPref.fold.includes(k), arr = !!S.arrange;
@@ -163,8 +163,8 @@ function nutrientsCard(tot) {
   const groups = [...new Set(NUT_X.map(n => n.grp))];
   const body = have ? groups.map(gr => `<h3 class="dz-gh">${gr}</h3>${NUT_X.filter(n => n.grp === gr).map(n => {
     const v = tot.x[n.k] || 0, gl = goalFor(n.k), lim = n.kind === 'limit';
-    return `<div class="dz-mrow"><div class="dz-mhead"><span>${n.n}${lim ? ' <small class="muted">limit</small>' : ''}</span><b>${nfx(v)}<small> / ${nfx(gl)} ${n.u}</small></b></div>${dzBar(v, gl, lim ? 'm-lim' : 'm-fib', n.n)}</div>`;
-  }).join('')}`).join('') : `<p class="muted" style="margin-top:12px">Vitamins, minerals, sugars and sodium show up here for days that came from a Cronometer export. Foods you add by hand carry the five main nutrients only.</p>`;
+    return `<div class="dz-mrow"><div class="dz-mhead"><span>${n.n}${lim ? ' <small class="muted">limit</small>' : ''}</span><b>${nfx(v)}<small>${gl ? ' / ' + nfx(gl) : ''} ${n.u}</small></b></div>${dzBar(v, gl, lim ? 'm-lim' : 'm-fib', n.n)}</div>`;
+  }).join('')}`).join('') : `<p class="muted" style="margin-top:12px">Every vitamin, mineral, amino acid and fat shows up here for days that came from a Cronometer export. Foods you add by hand carry the five main nutrients only.</p>`;
   return `<details class="card dz-nut"><summary>All nutrients</summary>${body}</details>`;
 }
 const nfx = v => new Intl.NumberFormat(undefined, { maximumFractionDigits: v >= 100 ? 0 : v >= 10 ? 1 : 2 }).format(v || 0);
@@ -230,7 +230,7 @@ function goalsView() {
       <div class="gl-check" id="gcheck" aria-live="polite"></div>
       <details class="gl-more"><summary>Limits and other targets</summary>
         <p class="muted" style="font-size:14px;margin-top:8px">Leave a box empty to use the common reference shown. These show in Diary under All nutrients.</p>
-        <div class="gl-grid">${NUT_X.map(n => fld('gx-' + n.k, n.n + (n.kind === 'limit' ? ' (limit)' : ''), g.x && g.x[n.k] ? g.x[n.k] : '', n.u, 'Reference ' + n.def + ' ' + n.u)).join('')}</div>
+        <div class="gl-grid">${NUT_X.map(n => fld('gx-' + n.k, n.n + (n.kind === 'limit' ? ' (limit)' : ''), g.x && g.x[n.k] ? g.x[n.k] : '', n.u, n.def > 0 ? 'Reference ' + n.def + ' ' + n.u : 'No reference')).join('')}</div>
       </details>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px"><button type="submit" class="btn primary" style="flex:1 1 160px">Save goals</button>${S.goals ? '<button type="button" class="btn" data-act="goals-clear">Remove goals</button>' : ''}</div>
     </form>
@@ -540,7 +540,7 @@ function progressView() {
     return `<div class="dz-mrow ${MC[k]}"><div class="dz-mhead"><span>${n}</span><b>${n0(v)}${gl ? `<small> / ${n0(gl)} g</small>` : '<small> g</small>'}</b></div>${dzBar(v, gl, MC[k], n)}${gl ? `<small class="muted">Goal met on ${hit} of ${nL} days</small>` : ''}</div>`;
   }).join('');
   const have = NUT_X.some(n => tot.x[n.k] > 0);
-  const micro = have ? `<details class="card dz-nut" style="margin-top:20px"><summary>Vitamins, minerals and limits (daily average)</summary>${[...new Set(NUT_X.map(n => n.grp))].map(gr => `<h3 class="dz-gh">${gr}</h3>${NUT_X.filter(n => n.grp === gr).map(n => { const v = (tot.x[n.k] || 0) / nL, gl = goalFor(n.k), lim = n.kind === 'limit'; return `<div class="dz-mrow"><div class="dz-mhead"><span>${n.n}${lim ? ' <small class="muted">limit</small>' : ''}</span><b>${nfx(v)}<small> / ${nfx(gl)} ${n.u}</small></b></div>${dzBar(v, gl, lim ? 'm-lim' : 'm-fib', n.n)}</div>`; }).join('')}`).join('')}</details>` : '';
+  const micro = have ? `<details class="card dz-nut" style="margin-top:20px"><summary>Vitamins, minerals and limits (daily average)</summary>${[...new Set(NUT_X.map(n => n.grp))].map(gr => `<h3 class="dz-gh">${gr}</h3>${NUT_X.filter(n => n.grp === gr).map(n => { const v = (tot.x[n.k] || 0) / nL, gl = goalFor(n.k), lim = n.kind === 'limit'; return `<div class="dz-mrow"><div class="dz-mhead"><span>${n.n}${lim ? ' <small class="muted">limit</small>' : ''}</span><b>${nfx(v)}<small>${gl ? ' / ' + nfx(gl) : ''} ${n.u}</small></b></div>${dzBar(v, gl, lim ? 'm-lim' : 'm-fib', n.n)}</div>`; }).join('')}`).join('')}</details>` : '';
   const sm = summarize(logged.flatMap(d => IDX.byDate.get(d)));
   return head + seg + `
   <div class="cols dz-cols">

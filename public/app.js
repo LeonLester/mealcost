@@ -28,7 +28,7 @@ const S = {
   nomerge: store.get('nomerge', []),
   sort: store.get('sort', 'freq'), flip: store.get('flip', false),
   pantry: NP(store.get('pantry', {})), pantryAuto: store.get('pantryAuto', true), sug: store.get('sug', null),
-  cats: NP(store.get('cats', {})), ranges: store.get('ranges', []), recipes: NP(store.get('recipes', {})), meals: NP(store.get('meals', {})), foods: NP(store.get('foods', {})), started: store.get('started', false), tview: store.get('tview', 'cost'), vmacro: store.get('vmacro', 'pro'), vall: false, open: new Set(), grain: store.get('grain', 'week'), trange: store.get('trange', 90),
+  cats: NP(store.get('cats', {})), ranges: store.get('ranges', []), recipes: NP(store.get('recipes', {})), meals: NP(store.get('meals', {})), foods: NP(store.get('foods', {})), favs: store.get('favs', []), started: store.get('started', false), tview: store.get('tview', 'cost'), vmacro: store.get('vmacro', 'pro'), vall: false, open: new Set(), grain: store.get('grain', 'week'), trange: store.get('trange', 90),
   goals: cleanGoals(store.get('goals', null)), weights: store.get('weights', []), wunit: store.get('wunit', 'kg'),
   pa: null, cfrom: '', cto: '', tab: 'day', day: null, cat: '', range: 7, filter: '', chip: 'all', showAll: false, error: ''
 };
@@ -405,7 +405,7 @@ function siteFooter() {
 
 /* ============ view: shell ============ */
 const LOGO = '<img class="logo" src="/logo-mark.png" width="30" height="30" alt="">';
-const TABLBL = { day: 'Diary', prices: 'Foods', progress: 'Progress', week: 'Spending', weight: 'Weight', goals: 'Daily goals' };
+const TABLBL = { add: 'Add food', day: 'Diary', prices: 'Foods', progress: 'Progress', week: 'Spending', weight: 'Weight', goals: 'Daily goals' };
 const NAV = [['day', 'Diary'], ['progress', 'Progress'], ['prices', 'Foods'], ['meals', 'Meals']];
 const navOf = t => ['progress', 'weight', 'week', 'trends'].includes(t) ? 'progress' : t === 'goals' ? 'day' : t;
 const tabLbl = t => TABLBL[t] || cap(t);
@@ -498,7 +498,7 @@ function updateBanner() {
 }
 const sbCollapsed = () => { try { return localStorage.getItem('mcc.sbcol') === '1'; } catch (e) { return false; } };
 function appView() {
-  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? progNav('week') + weekView() : S.tab === 'trends' ? progNav('trends') + trendsView() : S.tab === 'progress' ? progNav('progress') + progressView() : S.tab === 'weight' ? progNav('weight') + weightView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : S.tab === 'goals' ? goalsView() : S.tab === 'admin' ? adminView() : S.tab === 'more' ? moreView() : S.tab === 'pantry' ? pantryView() : diaryView();
+  const body = S.tab === 'prices' ? pricesView() : S.tab === 'week' ? progNav('week') + weekView() : S.tab === 'trends' ? progNav('trends') + trendsView() : S.tab === 'progress' ? progNav('progress') + progressView() : S.tab === 'weight' ? progNav('weight') + weightView() : S.tab === 'meals' ? mealsView() : S.tab === 'account' ? accountView() : S.tab === 'goals' ? goalsView() : S.tab === 'admin' ? adminView() : S.tab === 'more' ? moreView() : S.tab === 'pantry' ? pantryView() : S.tab === 'add' ? addView() : diaryView();
   return `
   <div class="shell${sbCollapsed() ? ' sb-collapsed' : ''}">
   <header class="topbar"><div class="wrap">
@@ -829,6 +829,24 @@ function openMerge(name) {
 
 /* ---- barcode lookup: Open Food Facts first, USDA FoodData Central as a fallback ---- */
 const r1 = x => Math.round(x * 10) / 10;
+// A saved food: macros, fiber and the other nutrients, all for 100 g (or for one item).
+function cleanFood(f, nn) {
+  const o = { per: f.per === 'item' ? 'item' : '100g', kcal: nn(f.kcal), pro: nn(f.pro), carb: nn(f.carb), fat: nn(f.fat) };
+  if (nn(f.fiber) > 0) o.fiber = nn(f.fiber);
+  if (f.x && typeof f.x === 'object') { const x = {}; for (const m of NUT_X) { const v = Object.prototype.hasOwnProperty.call(f.x, m.k) ? nn(f.x[m.k]) : 0; if (v > 0) x[m.k] = v; } if (Object.keys(x).length) o.x = x; }
+  if (f.src && typeof f.src === 'string') o.src = f.src.slice(0, 40);
+  return o;
+}
+// Open Food Facts nutriments are grams per 100 g. Convert to the app's units.
+const OFF_X = [['sugar', 'sugars', 1], ['addsugar', 'added-sugars', 1], ['satfat', 'saturated-fat', 1], ['monofat', 'monounsaturated-fat', 1], ['polyfat', 'polyunsaturated-fat', 1], ['transfat', 'trans-fat', 1], ['chol', 'cholesterol', 1e3], ['omega3', 'omega-3-fat', 1], ['sodium', 'sodium', 1e3], ['potassium', 'potassium', 1e3], ['calcium', 'calcium', 1e3], ['magnesium', 'magnesium', 1e3], ['iron', 'iron', 1e3], ['zinc', 'zinc', 1e3], ['phosphorus', 'phosphorus', 1e3], ['copper', 'copper', 1e3], ['manganese', 'manganese', 1e3], ['selenium', 'selenium', 1e6], ['vitC', 'vitamin-c', 1e3], ['vitE', 'vitamin-e', 1e3], ['vitA', 'vitamin-a', 1e6], ['vitK', 'vitamin-k', 1e6], ['vitD', 'vitamin-d', 4e7], ['b1', 'vitamin-b1', 1e3], ['b2', 'vitamin-b2', 1e3], ['b3', 'vitamin-pp', 1e3], ['b5', 'pantothenic-acid', 1e3], ['b6', 'vitamin-b6', 1e3], ['folate', 'vitamin-b9', 1e6], ['b12', 'vitamin-b12', 1e6]];
+function offNutrients(n, kcal) {
+  const g = k => { const v = Number(n[k + '_100g']); return Number.isFinite(v) && v > 0 ? v : 0; };
+  const out = { kcal: r1(kcal), pro: r1(g('proteins')), carb: r1(g('carbohydrates')), fat: r1(g('fat')), fiber: r1(g('fiber')), x: {} };
+  for (const [k, off, m] of OFF_X) { const v = g(off) * m; if (v > 0) out.x[k] = Math.round(v * 1000) / 1000; }
+  if (!out.x.sodium && g('salt') > 0) out.x.sodium = Math.round(g('salt') * 400);
+  if (out.carb > 0) out.x.netcarb = Math.max(0, r1(out.carb - out.fiber));
+  return out;
+}
 async function lookupBarcode(raw) {
   const code = String(raw || '').replace(/\D/g, '');
   if (code.length < 8 || code.length > 14) throw new Error('Enter the digits printed under the barcode (8 to 14 numbers).');
@@ -840,7 +858,7 @@ async function lookupBarcode(raw) {
         const n = pr.nutriments || {}, kj = Number(n['energy_100g']);
         const kcal = Number.isFinite(Number(n['energy-kcal_100g'])) ? Number(n['energy-kcal_100g']) : Number.isFinite(kj) ? kj / 4.184 : 0;
         const nm = [String(pr.brands || '').split(',')[0].trim(), String(pr.product_name || '').trim()].filter(Boolean).join(' ');
-        if (nm) return { name: nm.slice(0, 60), kcal: r1(kcal), pro: r1(Number(n['proteins_100g']) || 0), carb: r1(Number(n['carbohydrates_100g']) || 0), fat: r1(Number(n['fat_100g']) || 0), source: 'Open Food Facts' };
+        if (nm) return Object.assign(offNutrients(n, kcal), { name: nm.slice(0, 60), source: 'Open Food Facts' });
       }
     }
   } catch (e) { /* fall through to the second source */ }
@@ -851,7 +869,7 @@ async function lookupBarcode(raw) {
       if (f) {
         const g = id => { const x = (f.foodNutrients || []).find(y => String(y.nutrientNumber) === id); return x ? Number(x.value) || 0 : 0; };
         const nm = [String(f.brandName || f.brandOwner || '').trim(), String(f.description || '').trim()].filter(Boolean).join(' ');
-        return { name: nm.slice(0, 60), kcal: r1(g('208')), pro: r1(g('203')), carb: r1(g('205')), fat: r1(g('204')), source: 'USDA FoodData Central' };
+        return { name: nm.slice(0, 60), kcal: r1(g('208')), pro: r1(g('203')), carb: r1(g('205')), fat: r1(g('204')), fiber: r1(g('291')), x: {}, source: 'USDA FoodData Central' };
       }
     }
   } catch (e) { /* not found */ }
@@ -884,23 +902,31 @@ async function scanBarcode() {
 }
 
 /* ---- your own foods ---- */
-function openFood(name) {
-  const dlg = $('#dlg'); dlg.classList.remove('wide');
+// The food form is shared by the dialog (editing) and the Add food page (Custom tab).
+function foodFormHtml(name, o = {}) {
   const cf = name ? S.foods[name] : null, p = name ? S.prices[name] : null, sym = currencySymbol();
   const v = x => x === undefined || x === null || x === '' ? '' : esc(x);
-  const per = cf ? cf.per : '100g';
-  dlg.innerHTML = `<form id="fform" method="dialog" novalidate>
-    <h2 id="dlg-title" style="font-size:20px">${cf ? 'Edit food' : 'Add a food'}</h2>
+  const per = cf ? cf.per : '100g', xs = (cf && cf.x) || {};
+  const groups = [...new Set(NUT_X.map(n => n.grp))];
+  return `<form id="fform" method="dialog" novalidate>
+    ${o.noTitle ? '' : `<h2 id="dlg-title" style="font-size:20px">${cf ? 'Edit food' : 'Add a food'}</h2>`}
     ${cf ? '' : `<div class="bc"><div class="bcrow"><input class="field" id="fbc" inputmode="numeric" autocomplete="off" aria-label="Barcode number" placeholder="Barcode number (optional)"><button type="button" class="btn" id="fbl">Look up</button>${canScan() ? '<button type="button" class="btn" id="fscan">Scan</button>' : ''}</div><video id="fvid" playsinline muted hidden></video><div id="fbs" class="sub" role="status"></div></div>`}
     <div><label for="fn">Name</label><input class="field" style="width:100%" id="fn" maxlength="60" autocomplete="off" placeholder="For example, Greek yogurt"${cf ? ' readonly' : ''} value="${v(name)}"></div>
     <div class="fgrid"><div><label for="fper">Nutrition is for</label><select class="field" id="fper"><option value="100g"${per === '100g' ? ' selected' : ''}>100 g or 100 ml</option><option value="item"${per === 'item' ? ' selected' : ''}>1 item</option></select></div><div><label for="fk">Calories</label><input class="field" id="fk" inputmode="decimal" placeholder="kcal" value="${v(cf && cf.kcal)}"></div></div>
     <div class="fgrid three"><div><label for="fp">Protein g</label><input class="field" id="fp" inputmode="decimal" placeholder="0" value="${v(cf && cf.pro)}"></div><div><label for="fc">Carbs g</label><input class="field" id="fc" inputmode="decimal" placeholder="0" value="${v(cf && cf.carb)}"></div><div><label for="ff">Fat g</label><input class="field" id="ff" inputmode="decimal" placeholder="0" value="${v(cf && cf.fat)}"></div></div>
+    <details class="fmore"${Object.keys(xs).length || (cf && cf.fiber) ? ' open' : ''}><summary>More nutrients</summary>
+      <div class="fgrid"><div><label for="fb">Fiber g</label><input class="field" id="fb" inputmode="decimal" placeholder="0" value="${v(cf && cf.fiber)}"></div></div>
+      ${groups.map(gr => `<h3 class="dz-gh">${gr}</h3><div class="fgrid three">${NUT_X.filter(n => n.grp === gr).map(n => `<div><label for="fx-${n.k}">${esc(n.n)} ${esc(n.u)}</label><input class="field" id="fx-${n.k}" inputmode="decimal" placeholder="0" value="${v(xs[n.k])}"></div>`).join('')}</div>`).join('')}
+    </details>
     <div class="fgrid"><div><label for="fpr">Price (${esc(sym)})</label><input class="field" id="fpr" inputmode="decimal" placeholder="optional" value="${v(p && p.price)}"></div><div><label for="fpb">Price per</label><select class="field" id="fpb"><option value="kg"${p && p.basis === 'kg' ? ' selected' : ''}>kg or litre</option><option value="100"${!p || p.basis === '100' ? ' selected' : ''}>100 g or 100 ml</option><option value="unit"${p && p.basis === 'unit' ? ' selected' : ''}>item</option></select></div></div>
     <div id="fgw"${per === 'item' ? '' : ' hidden'}><label for="fg">Grams per item</label><input class="field" style="width:100%" id="fg" inputmode="decimal" placeholder="optional, lets a per-kg price work" value="${v(p && p.gpu)}"></div>
     <div id="ferr" class="sub" style="color:var(--offer-ink)" role="alert"></div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">${cf ? 'Save' : 'Add food'}</button><button type="button" class="btn" data-act="close-dlg">Cancel</button>${cf ? `<button type="button" class="btn link" data-act="del-food" data-name="${esc(name)}">Delete</button>` : ''}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="submit" class="btn primary" style="flex:1">${cf ? 'Save' : o.submit || 'Add food'}</button><button type="button" class="btn" data-act="${o.cancelAct || 'close-dlg'}">Cancel</button>${cf ? `<button type="button" class="btn link" data-act="del-food" data-name="${esc(name)}">Delete</button>` : ''}</div>
   </form>`;
-  const fill = r => { $('#fn').value = r.name; $('#fper').value = '100g'; $('#fgw').hidden = true; $('#fk').value = r.kcal; $('#fp').value = r.pro; $('#fc').value = r.carb; $('#ff').value = r.fat; };
+}
+function bindFoodForm(name, done) {
+  const cf = name ? S.foods[name] : null;
+  const fill = r => { $('#fn').value = r.name; $('#fper').value = '100g'; $('#fgw').hidden = true; $('#fk').value = r.kcal; $('#fp').value = r.pro; $('#fc').value = r.carb; $('#ff').value = r.fat; $('#fb').value = r.fiber || ''; for (const n of NUT_X) { const el = $('#fx-' + n.k); if (el) el.value = r.x && r.x[n.k] ? r.x[n.k] : ''; } if (r.x && Object.keys(r.x).length || r.fiber) $('.fmore').open = true; };
   const doLookup = async code => {
     const st = $('#fbs'); st.textContent = 'Looking it up...';
     try { const r = await lookupBarcode(code); if (r) { fill(r); st.textContent = `Found in ${r.source}. Check the values, then add your price. Per 100 g.`; $('#fpr').focus(); } else st.textContent = 'Not found in Open Food Facts or USDA FoodData Central. Enter it by hand.'; }
@@ -915,7 +941,6 @@ function openFood(name) {
     try { const c = await scanBarcode(); if (c) { $('#fbc').value = c; doLookup(c); } }
     catch (e) { stopScan(); if (!/cancel/i.test(String(e && e.message))) st.textContent = String(e && e.message || 'Could not open the camera.').slice(0, 140); }
   });
-  dlg.addEventListener('close', stopScan, { once: true });
   $('#fper').addEventListener('change', () => { $('#fgw').hidden = $('#fper').value !== 'item'; if ($('#fper').value === 'item' && !$('#fpb').dataset.t) $('#fpb').value = 'unit'; });
   $('#fform').addEventListener('submit', ev => {
     ev.preventDefault();
@@ -923,16 +948,27 @@ function openFood(name) {
     if (!nm) { err('Enter a name.'); $('#fn').focus(); return; }
     if (!cf && IDX.meta.has(canon(nm)) && !S.foods[nm]) { err('A food with this name already exists. Set its price on the Foods tab.'); return; }
     if (!cf && S.foods[nm]) { err('You already added this food. Search for it on the Foods tab to edit it.'); return; }
-    const kcal = num($('#fk').value), pro = num($('#fp').value), carb = num($('#fc').value), fat = num($('#ff').value);
-    if ([$('#fk').value, $('#fp').value, $('#fc').value, $('#ff').value].some(x => x.trim() && (!Number.isFinite(parseFloat(x.replace(',', '.'))) || parseFloat(x.replace(',', '.')) < 0))) { err('Nutrition values must be numbers, zero or more.'); return; }
+    const kcal = num($('#fk').value), pro = num($('#fp').value), carb = num($('#fc').value), fat = num($('#ff').value), fiber = num($('#fb').value);
+    const ids = ['#fk', '#fp', '#fc', '#ff', '#fb', ...NUT_X.map(n => '#fx-' + n.k)];
+    if (ids.some(i => { const x = $(i).value.trim(); return x && (!Number.isFinite(parseFloat(x.replace(',', '.'))) || parseFloat(x.replace(',', '.')) < 0); })) { err('Nutrition values must be numbers, zero or more.'); return; }
     if (!(kcal > 0) && !(pro > 0) && !(carb > 0) && !(fat > 0)) { err('Enter at least the calories or one nutrient.'); $('#fk').focus(); return; }
     const prs = $('#fpr').value.trim(), price = prs === '' ? '' : num(prs);
     if (prs !== '' && (!/^\d+([.,]\d+)?$/.test(prs) || price < 0)) { err('Price must be a number, zero or more.'); $('#fpr').focus(); return; }
-    const gpu = num($('#fg').value);
+    const gpu = num($('#fg').value), x = {};
+    for (const n of NUT_X) { const q = num($('#fx-' + n.k).value); if (q > 0) x[n.k] = q; }
     S.foods[nm] = { per: $('#fper').value, kcal, pro, carb, fat };
+    if (fiber > 0) S.foods[nm].fiber = fiber;
+    if (Object.keys(x).length) S.foods[nm].x = x;
     S.prices[nm] = { price, basis: $('#fpb').value, gpu: $('#fper').value === 'item' && gpu > 0 ? gpu : '' };
-    S.started = true; reindex(); ensurePrices(); saveAll(); dlg.close(); render(); toast(cf ? 'Food saved' : `${nm} added`);
+    S.started = true; reindex(); ensurePrices(); saveAll(); done(nm, !!cf);
   });
+}
+function openFood(name) {
+  const dlg = $('#dlg'); dlg.classList.remove('wide');
+  const cf = name ? S.foods[name] : null;
+  dlg.innerHTML = foodFormHtml(name);
+  bindFoodForm(name, (nm, edited) => { dlg.close(); render(); toast(edited ? 'Food saved' : `${nm} added`); });
+  dlg.addEventListener('close', stopScan, { once: true });
   dlg.showModal(); (cf ? $('#fk') : $('#fn')).focus();
 }
 function counts() {
@@ -1431,15 +1467,16 @@ function weekView() {
 function render() {
   const sc0 = $('#scroller'), keep = sc0 ? sc0.scrollTop : 0;
   document.body.classList.remove('drawer-open');
-  const shell = hasData() || (S.tab === 'admin' && window.MealSync && MealSync.admin) || S.tab === 'more';
+  const shell = hasData() || (S.tab === 'admin' && window.MealSync && MealSync.admin) || S.tab === 'more' || S.tab === 'add';
   $('#app').innerHTML = shell ? appView() : importView();
   if ($('#goalform') && typeof goalsCheck === 'function') goalsCheck();
+  if (S.tab === 'add' && typeof afInit === 'function') afInit();
   { const sc = $('#scroller'); if (sc && keep) sc.scrollTop = keep; }
   document.title = (hasData() ? tabLbl(S.tab) + ' | ' : '') + 'Meal cost calculator | Coach Leonidas';
 }
 function route() {
   const h = location.hash.replace('#', '');
-  const t = ['day', 'prices', 'week', 'trends', 'meals', 'account', 'goals', 'progress', 'weight', 'admin', 'more', 'pantry'].includes(h) ? h : 'day';
+  const t = ['day', 'prices', 'week', 'trends', 'meals', 'account', 'goals', 'progress', 'weight', 'admin', 'more', 'pantry', 'add'].includes(h) ? h : 'day';
   const changed = t !== S.tab;
   S.tab = t;
   S.error = '';
@@ -1470,7 +1507,7 @@ function toast(msg) {
 /* ============ persistence ============ */
 let _save;
 function saveSoon() { clearTimeout(_save); _save = setTimeout(saveAll, 250); }
-function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('meals', S.meals); store.set('pantry', S.pantry); store.set('pantryAuto', S.pantryAuto); store.set('foods', S.foods); store.set('started', S.started); store.set('tview', S.tview); store.set('vmacro', S.vmacro); store.set('grain', S.grain); store.set('trange', S.trange); store.set('goals', S.goals); store.set('weights', S.weights); store.set('wunit', S.wunit); }
+function saveAll() { store.set('prices', S.prices); store.set('overrides', S.overrides); store.set('budget', S.budget); store.set('currency', S.currency); store.set('merges', S.merges); store.set('nomerge', S.nomerge); store.set('sort', S.sort); store.set('flip', S.flip); store.set('ranges', S.ranges); store.set('cats', S.cats); store.set('recipes', S.recipes); store.set('meals', S.meals); store.set('pantry', S.pantry); store.set('pantryAuto', S.pantryAuto); store.set('foods', S.foods); store.set('favs', S.favs); store.set('started', S.started); store.set('tview', S.tview); store.set('vmacro', S.vmacro); store.set('grain', S.grain); store.set('trange', S.trange); store.set('goals', S.goals); store.set('weights', S.weights); store.set('wunit', S.wunit); }
 function saveEntries() { store.set('entries', S.entries.map(({ src, ...r }) => ({ ...r, name: src !== undefined ? src : r.name }))); }
 
 /* ============ import ============ */
@@ -1707,7 +1744,7 @@ function perUnit(name, unit, noCross) {
   }
   if (q > 0) { out = { k: k / q, p: p / q, c: c / q, f: f / q, b: b / q }; if (xq > 0) { out.x = {}; for (const n in xt) out.x[n] = xt[n] / xq; } }
   const cf = S.foods[name];
-  if (!out && cf && (cf.per === 'item') === (u === 'item')) { const d = u === 'item' ? 1 : 100; out = { k: cf.kcal / d, p: cf.pro / d, c: cf.carb / d, f: cf.fat / d, b: 0 }; }
+  if (!out && cf && (cf.per === 'item') === (u === 'item')) { const d = u === 'item' ? 1 : 100; out = { k: cf.kcal / d, p: cf.pro / d, c: cf.carb / d, f: cf.fat / d, b: (cf.fiber || 0) / d }; if (cf.x) { out.x = {}; for (const n in cf.x) out.x[n] = cf.x[n] / d; } }
   if (!out && !noCross) {
     const gpu = Number((S.prices[name] || {}).gpu) || 0, r = S.recipes[name];
     if (gpu > 0) {
@@ -2016,7 +2053,7 @@ function exportCsv() {
   toast('CSV downloaded');
 }
 function backup() {
-  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges, ranges: S.ranges, recipes: S.recipes, meals: S.meals, foods: S.foods, cats: S.cats, goals: S.goals, weights: S.weights, wunit: S.wunit };
+  const data = { app: 'mealcost', version: 1, currency: S.currency, budget: S.budget, prices: S.prices, overrides: S.overrides, merges: S.merges, ranges: S.ranges, recipes: S.recipes, meals: S.meals, foods: S.foods, favs: S.favs, cats: S.cats, goals: S.goals, weights: S.weights, wunit: S.wunit };
   download('meal-cost-prices.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   toast('Backup downloaded');
 }
@@ -2052,8 +2089,9 @@ async function restore(file) {
     for (const [n, f] of Object.entries(d.foods && typeof d.foods === 'object' ? d.foods : {})) {
       if (!f || typeof f !== 'object') continue;
       const nn = x => Number.isFinite(Number(x)) && Number(x) >= 0 ? Number(x) : 0;
-      S.foods[n] = { per: f.per === 'item' ? 'item' : '100g', kcal: nn(f.kcal), pro: nn(f.pro), carb: nn(f.carb), fat: nn(f.fat) };
+      S.foods[n] = cleanFood(f, nn);
     }
+    if (Array.isArray(d.favs)) S.favs = [...new Set(S.favs.concat(d.favs.filter(x => typeof x === 'string')))];
     for (const [a, b] of Object.entries(d.cats && typeof d.cats === 'object' ? d.cats : {})) if (typeof b === 'string' && b.trim()) S.cats[a] = b.trim();
     for (const [a, b] of Object.entries(d.merges || {})) if (typeof b === 'string' && a !== b && b) S.merges[a] = b;
     { const cg = cleanGoals(d.goals); if (cg) S.goals = cg; }
@@ -2141,6 +2179,7 @@ document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]'); if (!t) return;
   const a = t.dataset.act, d = t.dataset;
   if (diaryAct(a, d)) return;
+  if (addAct(a, d)) return;
   switch (a) {
     case 'import': $('#file').click(); break;
     case 'add-food': openFood(); break;

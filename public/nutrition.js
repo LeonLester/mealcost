@@ -4,22 +4,58 @@
 // Nutrients beyond kcal, protein, carbs, fat and fiber. A Cronometer export carries them; foods you add by hand do not.
 // kind 'limit' means stay under it, 'target' means reach it. Defaults are common adult references and can be changed in Goals.
 const NUT_X = [
-  { k: 'sugar', n: 'Sugars', u: 'g', col: 'sugars (g)', kind: 'limit', def: 50, grp: 'Carbs and fats' },
-  { k: 'satfat', n: 'Saturated fat', u: 'g', col: 'saturated (g)', kind: 'limit', def: 20, grp: 'Carbs and fats' },
-  { k: 'omega3', n: 'Omega-3', u: 'g', col: 'omega-3 (g)', kind: 'target', def: 1.6, grp: 'Carbs and fats' },
-  { k: 'chol', n: 'Cholesterol', u: 'mg', col: 'cholesterol (mg)', kind: 'limit', def: 300, grp: 'Carbs and fats' },
-  { k: 'sodium', n: 'Sodium', u: 'mg', col: 'sodium (mg)', kind: 'limit', def: 2300, grp: 'Minerals' },
-  { k: 'potassium', n: 'Potassium', u: 'mg', col: 'potassium (mg)', kind: 'target', def: 3400, grp: 'Minerals' },
-  { k: 'calcium', n: 'Calcium', u: 'mg', col: 'calcium (mg)', kind: 'target', def: 1000, grp: 'Minerals' },
-  { k: 'magnesium', n: 'Magnesium', u: 'mg', col: 'magnesium (mg)', kind: 'target', def: 400, grp: 'Minerals' },
-  { k: 'iron', n: 'Iron', u: 'mg', col: 'iron (mg)', kind: 'target', def: 8, grp: 'Minerals' },
-  { k: 'zinc', n: 'Zinc', u: 'mg', col: 'zinc (mg)', kind: 'target', def: 11, grp: 'Minerals' },
+  { k: 'netcarb', n: 'Net carbs', u: 'g', col: 'net carbs (g)', kind: 'target', def: 0, grp: 'Carbohydrates' },
+  { k: 'sugar', n: 'Sugars', u: 'g', col: 'sugars (g)', kind: 'limit', def: 50, grp: 'Carbohydrates' },
+  { k: 'addsugar', n: 'Added sugars', u: 'g', col: 'added sugars (g)', kind: 'limit', def: 36, grp: 'Carbohydrates' },
+  { k: 'fibins', n: 'Insoluble fiber', u: 'g', col: 'insoluble fiber (g)', kind: 'target', def: 0, grp: 'Carbohydrates' },
+  { k: 'fibsol', n: 'Soluble fiber', u: 'g', col: 'soluble fiber (g)', kind: 'target', def: 0, grp: 'Carbohydrates' },
+  { k: 'satfat', n: 'Saturated fat', u: 'g', col: 'saturated (g)', kind: 'limit', def: 20, grp: 'Lipids' },
+  { k: 'monofat', n: 'Monounsaturated', u: 'g', col: 'monounsaturated (g)', kind: 'target', def: 0, grp: 'Lipids' },
+  { k: 'polyfat', n: 'Polyunsaturated', u: 'g', col: 'polyunsaturated (g)', kind: 'target', def: 0, grp: 'Lipids' },
+  { k: 'transfat', n: 'Trans fats', u: 'g', col: 'trans-fats (g)', kind: 'limit', def: 2, grp: 'Lipids' },
+  { k: 'chol', n: 'Cholesterol', u: 'mg', col: 'cholesterol (mg)', kind: 'limit', def: 300, grp: 'Lipids' },
+  { k: 'omega3', n: 'Omega-3', u: 'g', col: 'omega-3 (g)', kind: 'target', def: 1.6, grp: 'Lipids' },
+  { k: 'ala', n: 'ALA', u: 'g', col: 'ala (g)', kind: 'target', def: 1.6, grp: 'Lipids' },
+  { k: 'epa', n: 'EPA', u: 'g', col: 'epa (g)', kind: 'target', def: 0, grp: 'Lipids' },
+  { k: 'dha', n: 'DHA', u: 'g', col: 'dha (g)', kind: 'target', def: 0, grp: 'Lipids' },
+  { k: 'omega6', n: 'Omega-6', u: 'g', col: 'omega-6 (g)', kind: 'target', def: 0, grp: 'Lipids' },
+  { k: 'la', n: 'LA', u: 'g', col: 'la (g)', kind: 'target', def: 17, grp: 'Lipids' },
+  { k: 'aa', n: 'AA', u: 'g', col: 'aa (g)', kind: 'target', def: 0, grp: 'Lipids' },
+  { k: 'b1', n: 'B1 (Thiamine)', u: 'mg', col: 'b1 (thiamine) (mg)', kind: 'target', def: 1.2, grp: 'Vitamins' },
+  { k: 'b2', n: 'B2 (Riboflavin)', u: 'mg', col: 'b2 (riboflavin) (mg)', kind: 'target', def: 1.3, grp: 'Vitamins' },
+  { k: 'b3', n: 'B3 (Niacin)', u: 'mg', col: 'b3 (niacin) (mg)', kind: 'target', def: 16, grp: 'Vitamins' },
+  { k: 'b5', n: 'B5 (Pantothenic acid)', u: 'mg', col: 'b5 (pantothenic acid) (mg)', kind: 'target', def: 5, grp: 'Vitamins' },
+  { k: 'b6', n: 'B6 (Pyridoxine)', u: 'mg', col: 'b6 (pyridoxine) (mg)', kind: 'target', def: 1.3, grp: 'Vitamins' },
+  { k: 'folate', n: 'Folate', u: 'µg', col: 'folate (µg)', kind: 'target', def: 400, grp: 'Vitamins' },
+  { k: 'b12', n: 'Vitamin B12', u: 'µg', col: 'b12 (cobalamin) (µg)', kind: 'target', def: 2.4, grp: 'Vitamins' },
   { k: 'vitA', n: 'Vitamin A', u: 'µg', col: 'vitamin a (µg)', kind: 'target', def: 900, grp: 'Vitamins' },
   { k: 'vitC', n: 'Vitamin C', u: 'mg', col: 'vitamin c (mg)', kind: 'target', def: 90, grp: 'Vitamins' },
   { k: 'vitD', n: 'Vitamin D', u: 'IU', col: 'vitamin d (iu)', kind: 'target', def: 600, grp: 'Vitamins' },
+  { k: 'vitE', n: 'Vitamin E', u: 'mg', col: 'vitamin e (mg)', kind: 'target', def: 15, grp: 'Vitamins' },
   { k: 'vitK', n: 'Vitamin K', u: 'µg', col: 'vitamin k (µg)', kind: 'target', def: 120, grp: 'Vitamins' },
-  { k: 'folate', n: 'Folate', u: 'µg', col: 'folate (µg)', kind: 'target', def: 400, grp: 'Vitamins' },
-  { k: 'b12', n: 'Vitamin B12', u: 'µg', col: 'b12 (cobalamin) (µg)', kind: 'target', def: 2.4, grp: 'Vitamins' }
+  { k: 'calcium', n: 'Calcium', u: 'mg', col: 'calcium (mg)', kind: 'target', def: 1000, grp: 'Minerals' },
+  { k: 'copper', n: 'Copper', u: 'mg', col: 'copper (mg)', kind: 'target', def: 0.9, grp: 'Minerals' },
+  { k: 'iron', n: 'Iron', u: 'mg', col: 'iron (mg)', kind: 'target', def: 8, grp: 'Minerals' },
+  { k: 'magnesium', n: 'Magnesium', u: 'mg', col: 'magnesium (mg)', kind: 'target', def: 400, grp: 'Minerals' },
+  { k: 'manganese', n: 'Manganese', u: 'mg', col: 'manganese (mg)', kind: 'target', def: 2.3, grp: 'Minerals' },
+  { k: 'phosphorus', n: 'Phosphorus', u: 'mg', col: 'phosphorus (mg)', kind: 'target', def: 700, grp: 'Minerals' },
+  { k: 'potassium', n: 'Potassium', u: 'mg', col: 'potassium (mg)', kind: 'target', def: 3400, grp: 'Minerals' },
+  { k: 'selenium', n: 'Selenium', u: 'µg', col: 'selenium (µg)', kind: 'target', def: 55, grp: 'Minerals' },
+  { k: 'sodium', n: 'Sodium', u: 'mg', col: 'sodium (mg)', kind: 'limit', def: 2300, grp: 'Minerals' },
+  { k: 'zinc', n: 'Zinc', u: 'mg', col: 'zinc (mg)', kind: 'target', def: 11, grp: 'Minerals' },
+  { k: 'cystine', n: 'Cystine', u: 'g', col: 'cystine (g)', kind: 'target', def: 0, grp: 'Amino acids' },
+  { k: 'histidine', n: 'Histidine', u: 'g', col: 'histidine (g)', kind: 'target', def: 0, grp: 'Amino acids' },
+  { k: 'isoleucine', n: 'Isoleucine', u: 'g', col: 'isoleucine (g)', kind: 'target', def: 0, grp: 'Amino acids' },
+  { k: 'leucine', n: 'Leucine', u: 'g', col: 'leucine (g)', kind: 'target', def: 0, grp: 'Amino acids' },
+  { k: 'lysine', n: 'Lysine', u: 'g', col: 'lysine (g)', kind: 'target', def: 0, grp: 'Amino acids' },
+  { k: 'methionine', n: 'Methionine', u: 'g', col: 'methionine (g)', kind: 'target', def: 0, grp: 'Amino acids' },
+  { k: 'phenylalanine', n: 'Phenylalanine', u: 'g', col: 'phenylalanine (g)', kind: 'target', def: 0, grp: 'Amino acids' },
+  { k: 'threonine', n: 'Threonine', u: 'g', col: 'threonine (g)', kind: 'target', def: 0, grp: 'Amino acids' },
+  { k: 'tryptophan', n: 'Tryptophan', u: 'g', col: 'tryptophan (g)', kind: 'target', def: 0, grp: 'Amino acids' },
+  { k: 'tyrosine', n: 'Tyrosine', u: 'g', col: 'tyrosine (g)', kind: 'target', def: 0, grp: 'Amino acids' },
+  { k: 'valine', n: 'Valine', u: 'g', col: 'valine (g)', kind: 'target', def: 0, grp: 'Amino acids' },
+  { k: 'oxalate', n: 'Oxalate', u: 'mg', col: 'oxalate (mg)', kind: 'limit', def: 0, grp: 'Other' },
+  { k: 'phytate', n: 'Phytate', u: 'mg', col: 'phytate (mg)', kind: 'limit', def: 0, grp: 'Other' }
 ];
 
 // The five nutrients every food has. Energy from protein and carbs is 4 kcal per gram, fat is 9.
@@ -57,7 +93,7 @@ function goalFor(k) {
   if (!g) return null;
   if (k in g && NUT_CORE.some(n => n.k === k)) return Number(g[k]) > 0 ? Number(g[k]) : null;
   const def = NUT_X.find(n => n.k === k);
-  return g.x && Number(g.x[k]) > 0 ? Number(g.x[k]) : def ? def.def : null;
+  return g.x && Number(g.x[k]) > 0 ? Number(g.x[k]) : def && def.def > 0 ? def.def : null;
 }
 
 // Mifflin-St Jeor resting energy, a standard activity factor, and a goal adjustment.
