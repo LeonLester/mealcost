@@ -1,0 +1,183 @@
+{
+  "repo": {
+    "name": {
+      "en-US": "Coach Leonidas apps"
+    },
+    "description": {
+      "en-US": "Apps by Coach Leonidas. Free and open source."
+    },
+    "icon": {
+      "en-US": {
+        "name": "/icons/icon.png",
+        "sha256": "4772c783bae39457f00ceb76dd6bbd7cebf3650f2196764df4d101199b751ddb",
+        "size": 41125
+      }
+    },
+    "address": "https://leonlester.github.io/mealcost/fdroid/repo",
+    "timestamp": 1795026811000,
+    "categories": {
+      "Sports & Health": {
+        "name": {
+          "en-US": "Sports & Health"
+        }
+      }
+    }
+  },
+  "packages": {
+    "com.coachleonidas.mealcost": {
+      "metadata": {
+        "added": 1795026811000,
+        "categories": [
+          "Sports & Health"
+        ],
+        "issueTracker": "https://github.com/LeonLester/mealcost/issues",
+        "lastUpdated": 1795026811000,
+        "license": "MIT",
+        "sourceCode": "https://github.com/LeonLester/mealcost",
+        "webSite": "https://mealcost.coachleonidas.com",
+        "name": {
+          "en-US": "Meal cost"
+        },
+        "summary": {
+          "en-US": "Food diary that shows what your meals cost"
+        },
+        "description": {
+          "en-US": "Log what you eat, add your grocery prices once, and see what every meal,\nday and week costs, and which foods give the most protein per euro.\n\n* Track foods by hand or import a Cronometer export\n* Cost per meal, day and week, with offers and price changes\n* Best value ranking: grams of protein, carbs and fat per currency unit\n* Build meals and recipes and add them to your diary\n* Look up foods by barcode (Open Food Facts, USDA FoodData Central)\n* Light and dark theme, works offline\n* No account needed. Your data stays on your phone unless you sign in to sync.\n\nThe barcode scan button uses Google's code scanner and needs Google Play\nservices. Typing the barcode number works on every phone."
+        },
+        "icon": {
+          "en-US": {
+            "name": "/com.coachleonidas.mealcost/en-US/icon_jLAj66aJ7QD-Kz7LxsbBkYSdKoBszqFNJSV4iPx1MpM=.png",
+            "sha256": "8cb023eba689ed00fe2b3ecbc6c6c191849d2a806ccea14d25257888fc753293",
+            "size": 2855
+          }
+        },
+        "preferredSigner": "ca784118ccb67cdd5e5e78d32a95e5e6e82f10c4685d9a75743b7312a26a7388"
+      },
+      "versions": {
+        "fe4e0bb31b3ff5b3fbb11d482739ab3aee0377373eb2afefe61777a3bcf2da9c": {
+          "added": 1795026811000,
+          "file": {
+            "name": "/com.coachleonidas.mealcost_70.apk",
+            "sha256": "fe4e0bb31b3ff5b3fbb11d482739ab3aee0377373eb2afefe61777a3bcf2da9c",
+            "size": 27510337
+          },
+          "manifest": {
+            "nativecode": [
+              "arm64-v8a",
+              "armeabi-v7a",
+              "x86",
+              "x86_64"
+            ],
+            "versionName": "1.0.70",
+            "versionCode": 70,
+            "usesSdk": {
+              "minSdkVersion": 24,
+              "targetSdkVersion": 36
+            },
+            "signer": {
+              "sha256": [
+                "ca784118ccb67cdd5e5e78d32a95e5e6e82f10c4685d9a75743b7312a26a7388"
+              ]
+            },
+            "usesPermission": [
+              {
+                "name": "android.permission.INTERNET"
+              },
+              {
+                "name": "android.permission.REQUEST_INSTALL_PACKAGES"
+              },
+              {
+                "name": "com.coachleonidas.mealcost.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+              },
+              {
+                "name": "android.permission.ACCESS_NETWORK_STATE"
+              }
+            ]
+          }
+        },
+        "1c750bf6c2f90694df5d865fe395bab333995fa458b79756c0d2f7becf2d355c": {
+          "added": 1795026811000,
+          "file": {
+            "name": "/com.coachleonidas.mealcost_69.apk",
+            "sha256": "1c750bf6c2f90694df5d865fe395bab333995fa458b79756c0d2f7becf2d355c",
+            "size": 27501291
+          },
+          "manifest": {
+            "nativecode": [
+              "arm64-v8a",
+              "armeabi-v7a",
+              "x86",
+              "x86_64"
+            ],
+            "versionName": "1.0.69",
+            "versionCode": 69,
+            "usesSdk": {
+              "minSdkVersion": 24,
+              "targetSdkVersion": 36
+            },
+            "signer": {
+              "sha256": [
+                "ca784118ccb67cdd5e5e78d32a95e5e6e82f10c4685d9a75743b7312a26a7388"
+              ]
+            },
+            "usesPermission": [
+              {
+                "name": "android.permission.INTERNET"
+              },
+              {
+                "name": "android.permission.REQUEST_INSTALL_PACKAGES"
+              },
+              {
+                "name": "com.coachleonidas.mealcost.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+              },
+              {
+                "name": "android.permission.ACCESS_NETWORK_STATE"
+              }
+            ]
+          }
+        },
+        "fc612a86767b288069ec2b579d991114128d100bf9a9e52626589f4cb997fdfc": {
+          "added": 1795026811000,
+          "file": {
+            "name": "/com.coachleonidas.mealcost_68.apk",
+            "sha256": "fc612a86767b288069ec2b579d991114128d100bf9a9e52626589f4cb997fdfc",
+            "size": 27500787
+          },
+          "manifest": {
+            "nativecode": [
+              "arm64-v8a",
+              "armeabi-v7a",
+              "x86",
+              "x86_64"
+            ],
+            "versionName": "1.0.68",
+            "versionCode": 68,
+            "usesSdk": {
+              "minSdkVersion": 24,
+              "targetSdkVersion": 36
+            },
+            "signer": {
+              "sha256": [
+                "ca784118ccb67cdd5e5e78d32a95e5e6e82f10c4685d9a75743b7312a26a7388"
+              ]
+            },
+            "usesPermission": [
+              {
+                "name": "android.permission.INTERNET"
+              },
+              {
+                "name": "android.permission.REQUEST_INSTALL_PACKAGES"
+              },
+              {
+                "name": "com.coachleonidas.mealcost.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+              },
+              {
+                "name": "android.permission.ACCESS_NETWORK_STATE"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
