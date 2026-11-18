@@ -126,6 +126,7 @@ function openGoto(day, group) {
 const mealPref = {
   get fold() { return S.mfold || (S.mfold = store.get('mfold', [])); },
   get order() { return S.morder || (S.morder = store.get('morder', [])); },
+  get nut() { return S.mnut || (S.mnut = store.get('mnut', [])); },
   get hideEmpty() { if (S.hideEmpty === undefined) S.hideEmpty = store.get('hideEmpty', false); return S.hideEmpty; },
 };
 function orderSections(sections) {
@@ -137,13 +138,23 @@ function moveMeal(key, dir, all) {
   if (i < 0 || j < 0 || j >= keys.length) return;
   [keys[i], keys[j]] = [keys[j], keys[i]]; S.morder = keys; store.set('morder', keys);
 }
+/* Every nutrient of one meal, with its share of the daily goal. */
+function mealNutrients(t) {
+  const row = (n, v, u, gl, lim) => `<tr><th scope="row">${n}${lim ? ' <small class="muted">limit</small>' : ''}</th><td>${nfx(v)} ${u}</td><td class="muted">${gl > 0 ? Math.round(v / gl * 100) + '%' : ''}</td></tr>`;
+  const core = NUT_CORE.map(n => row(n.n, t[n.k], n.u, goalFor(n.k), false)).join('');
+  const have = NUT_X.some(n => t.x[n.k] > 0);
+  const groups = [...new Set(NUT_X.map(n => n.grp))];
+  const more = have ? groups.map(gr => `<tr class="gh"><th colspan="3">${gr}</th></tr>${NUT_X.filter(n => n.grp === gr).map(n => row(n.n, t.x[n.k] || 0, n.u, goalFor(n.k), n.kind === 'limit')).join('')}`).join('') : `<tr><td colspan="3" class="muted">Vitamins and minerals only come with a Cronometer export.</td></tr>`;
+  return `<div class="dz-mnut"><table><thead><tr><th>Nutrient</th><th>In this meal</th><th>Of daily goal</th></tr></thead><tbody>${core}${more}</tbody></table></div>`;
+}
 function mealSection(g, list, day, pos) {
   const t = nutTotals(list), k = mkey(g), folded = mealPref.fold.includes(k), arr = !!S.arrange;
   const cost0 = r2(list.reduce((a, e) => a + (costOf(e).cost || 0), 0));
   return `<section class="meal dz-meal m-${k.slice(0, 3)}${folded ? ' folded' : ''}"><div class="meal-head"><button type="button" class="dz-fold" data-act="meal-fold" data-key="${esc(k)}" aria-expanded="${!folded}" aria-label="${folded ? 'Show' : 'Hide'} ${esc(g)}"><svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg><h2>${esc(g)}</h2></button><span class="kcal">${list.length ? `${n0(t.kcal)} kcal${folded ? '' : ' \u00b7 ' + macTxt(t)}` : ''}</span>${list.length && cost0 > 0 ? `<span class="cost">${money(cost0)}</span>` : ''}${list.length ? `<span class="dz-ht"><span class="dz-mcs">${macCells(t)}</span><b class="dz-hk">${n0(t.kcal)}<small> kcal</small></b><b class="dz-hc">${cost0 > 0 ? money(cost0) : ''}</b></span>` : ''}${arr ? `<span class="dz-mv"><button type="button" class="ibtn" data-act="meal-move" data-key="${esc(k)}" data-dir="-1" aria-label="Move ${esc(g)} up"${pos.first ? ' disabled' : ''}>\u2191</button><button type="button" class="ibtn" data-act="meal-move" data-key="${esc(k)}" data-dir="1" aria-label="Move ${esc(g)} down"${pos.last ? ' disabled' : ''}>\u2193</button></span>` : ''}</div>
     ${folded ? '' : `<div class="dz-list">${list.map((e, li) => dzItem(e, day, g, li)).join('')}</div>
+    ${list.length && mealPref.nut.includes(k) ? mealNutrients(t) : ''}
     ${gotoChips(g, day)}
-    <div class="dz-actions"><button class="btn sm" data-act="log-food" data-date="${day}" data-group="${esc(g)}">${list.length ? 'Add food' : 'Add to ' + esc(g.toLowerCase())}</button><button class="btn link" data-act="copy-prev" data-group="${esc(g)}">Copy from earlier</button></div>`}</section>`;
+    <div class="dz-actions">${list.length ? `<button class="btn sm" data-act="meal-nut" data-key="${esc(k)}" aria-expanded="${mealPref.nut.includes(k)}">${mealPref.nut.includes(k) ? 'Hide nutrients' : 'All nutrients'}</button>` : ''}<button class="btn sm" data-act="log-food" data-date="${day}" data-group="${esc(g)}">${list.length ? 'Add food' : 'Add to ' + esc(g.toLowerCase())}</button><button class="btn link" data-act="copy-prev" data-group="${esc(g)}">Copy from earlier</button></div>`}</section>`;
 }
 
 /* ---------- nutrients that come with a Cronometer export ---------- */
@@ -461,6 +472,7 @@ function diaryAct(a, d) {
     case 'gl-set-kcal': glSetKcal(); return true;
     case 'gl-scale': glScale(); return true;
     case 'meal-fold': { const f = mealPref.fold, i = f.indexOf(d.key); if (i < 0) f.push(d.key); else f.splice(i, 1); store.set('mfold', f); render(); return true; }
+    case 'meal-nut': { const f = mealPref.nut, i = f.indexOf(d.key); if (i < 0) f.push(d.key); else f.splice(i, 1); store.set('mnut', f); render(); return true; }
     case 'meal-hide-empty': S.hideEmpty = !mealPref.hideEmpty; store.set('hideEmpty', S.hideEmpty); render(); return true;
     case 'meal-arrange': S.arrange = !S.arrange; render(); return true;
     case 'meal-move': {
